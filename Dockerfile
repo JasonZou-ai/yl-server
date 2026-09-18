@@ -1,5 +1,7 @@
 # 银龄守护后端 · 多阶段构建
-# 构建：mvn package 产出 yl-bootstrap/target/yl-bootstrap-*.jar
+# 构建：mvn package 产出 yl-bootstrap/target/yl-bootstrap.jar
+# 注意：yl-bootstrap/pom.xml 配置了 <finalName>yl-bootstrap</finalName>，
+#      产物无版本号后缀，故此处用 yl-bootstrap*.jar 通配（兼容去掉 finalName 的情况）
 FROM eclipse-temurin:17-jre-jammy AS runtime
 
 LABEL maintainer="yl-team" \
@@ -9,7 +11,7 @@ ENV TZ=Asia/Shanghai \
     JAVA_OPTS="-Xms512m -Xmx1024m -XX:+UseG1GC -Dfile.encoding=UTF-8"
 
 WORKDIR /app
-COPY yl-bootstrap/target/yl-bootstrap-*.jar /app/app.jar
+COPY yl-bootstrap/target/yl-bootstrap*.jar /app/app.jar
 
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone \
     && useradd -r -u 10001 yl && chown -R yl:yl /app
