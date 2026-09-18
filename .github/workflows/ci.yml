@@ -107,7 +107,7 @@ jobs:
             echo "::warning::未配置 SONAR_ORG，SonarCloud 需要 organization，跳过扫描"
             exit 0
           fi
-          mvn -B -ntp verify sonar:sonar \
+          mvn -B -ntp verify org.sonarsource.scanner.maven:sonar-maven-plugin:sonar \
             -Dsonar.projectKey=JasonZou-ai_yl-server \
             -Dsonar.organization="$SONAR_ORG" \
             -Dsonar.host.url="$SONAR_HOST_URL" \
