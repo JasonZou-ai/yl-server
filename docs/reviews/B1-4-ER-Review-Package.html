@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>B1-4 数据库 ER · 三方评审包（产品 / 研发 / 合规）</title>
+<style>
+  :root{
+    --bg:#f6f7f9; --card:#ffffff; --ink:#1b1f24; --ink2:#4a535e; --ink3:#7a858f;
+    --line:#e3e6ea; --brand:#1f6feb; --brand-soft:#eaf1fe;
+    --p0:#c62828; --p0-soft:#fdecea; --ok:#1a7f37; --ok-soft:#e8f5ec;
+    --warn:#b26a00; --warn-soft:#fff5e6; --code:#f2f4f7; --p2:#5a6b7d; --p2-soft:#eef1f5;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--ink);
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;
+    font-size:14px;line-height:1.7;}
+  .wrap{max-width:1120px;margin:0 auto;padding:32px 22px 64px;}
+  header.top{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:24px 26px;}
+  header.top .kicker{color:var(--brand);font-weight:600;font-size:12.5px;letter-spacing:.08em;text-transform:uppercase;}
+  header.top h1{margin:8px 0 6px;font-size:25px;letter-spacing:-.02em;}
+  header.top .meta{color:var(--ink3);font-size:12.5px;}
+  .tldr{margin-top:16px;background:var(--brand-soft);border:1px solid #cfe0fd;border-radius:10px;padding:14px 16px;}
+  .tldr b{color:var(--brand);}
+  h2{margin:34px 0 12px;font-size:18.5px;padding-bottom:8px;border-bottom:2px solid var(--line);}
+  h3{margin:22px 0 8px;font-size:15.5px;}
+  h4{margin:16px 0 6px;font-size:14px;color:var(--ink);}
+  p{margin:8px 0;color:var(--ink2);}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px 20px;margin:14px 0;}
+  table{width:100%;border-collapse:collapse;margin:12px 0;background:var(--card);font-size:13.2px;}
+  th,td{border:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top;}
+  th{background:#f0f2f5;font-weight:600;}
+  td code,li code,p code{background:var(--code);border:1px solid var(--line);border-radius:4px;
+    padding:1px 5px;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12.2px;color:#0b4a8f;}
+  .tag{display:inline-block;padding:1px 7px;border-radius:999px;font-size:11.5px;font-weight:600;line-height:1.6;white-space:nowrap;}
+  .t-p0{background:var(--p0-soft);color:var(--p0);}
+  .t-p1{background:var(--warn-soft);color:var(--warn);}
+  .t-p2{background:var(--p2-soft);color:var(--p2);}
+  .t-ok{background:var(--ok-soft);color:var(--ok);}
+  .t-mut{background:#eef0f3;color:var(--ink3);}
+  pre{background:#0f172a;color:#e6edf7;border-radius:8px;padding:14px 16px;overflow:auto;font-size:12.4px;
+    font-family:ui-monospace,SFMono-Regular,Consolas,monospace;line-height:1.6;}
+  ul,ol{margin:8px 0 8px 22px;color:var(--ink2);}
+  li{margin:4px 0;}
+  .chk{list-style:none;margin-left:0;padding-left:0;}
+  .chk li{margin:7px 0;padding-left:26px;position:relative;}
+  .chk li:before{content:"☐";position:absolute;left:0;top:0;font-size:15px;color:var(--ink3);}
+  .role{display:grid;grid-template-columns:1fr;gap:14px;}
+  .rolecard{border:1px solid var(--line);border-radius:10px;background:var(--card);overflow:hidden;}
+  .rolecard .hd{padding:10px 16px;font-weight:700;font-size:14px;border-bottom:1px solid var(--line);}
+  .hd-prod{background:#eaf1fe;color:#0b4a8f;}
+  .hd-dev{background:#e8f5ec;color:#136c2e;}
+  .hd-comp{background:#f3e8fd;color:#6b21a8;}
+  .rolecard .bd{padding:10px 18px 16px;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  @media(max-width:760px){.grid2{grid-template-columns:1fr;}}
+  .foot{margin-top:36px;color:var(--ink3);font-size:12.2px;border-top:1px solid var(--line);padding-top:14px;}
+  .sig{width:100%;border-collapse:collapse;margin-top:10px;}
+  .sig td{height:52px;vertical-align:bottom;}
+  .nowrap{white-space:nowrap;}
+  .legend{font-size:12.4px;color:var(--ink3);margin:6px 0 0;}
+  @media print{
+    body{background:#fff;}
+    .wrap{max-width:none;padding:0;}
+    .card,table,.rolecard{break-inside:avoid;}
+    h2{break-after:avoid;}
+    header.top{border:none;padding:0 0 8px;}
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="top">
+  <div class="kicker">银龄守护 · M2-S1 · 任务集B · 评审材料</div>
+  <h1>B1-4 数据库模型设计（ER）—— 三方评审包</h1>
+  <div class="meta">
+    对应任务 <code>r4UcEv</code>（P0｜后端）· 子任务 <code>rSQmPF</code>「7 大核心域 ER 设计并评审」｜
+    评审对象：<code>docker/mysql/init/02_schema.sql</code>（33 表）+ <code>01_init.sql</code>（1 表）= 共 34 表 ｜
+    评审依据：PRD YL-PRD-v1.0 §2 / §3 / §4 / §6 / §7 / §9 / §10 与 GB/T 42195-2022 ｜
+    版本 2026-09-18
+  </div>
+  <div class="tldr">
+    <b>TL;DR</b>　ER 结构与「逻辑删除 × 唯一键」等硬骨头已在真实 MySQL 8.0.37 上验证（23 项断言 + 5 项行为验证全绿），
+    <b>结构问题不再是本次评审的争点</b>。本次评审要解决的是<b>口径与范围问题</b>：共 <b>13 项待裁决</b>，
+    其中 <b>3 项 P0</b>——且其中 2 项直接命中 M1 准出红线「PRD 存在 P0 级需求歧义未澄清」。
+    <br><b>结论导向</b>：P0 三项必须现场裁决；P1 五项须指定责任人；P2 五项登记即可。
+  </div>
+</header>
+
+<h2>1 会议组织</h2>
+
+<div class="grid2">
+  <div class="card">
+    <h3 style="margin-top:0">议题</h3>
+    <ol>
+      <li>确认 ER 是否覆盖 PRD §3 的 24 个功能点（按 MVP 范围）</li>
+      <li>裁决 13 项待决口径（P0 三项现场定）</li>
+      <li>确认敏感字段范围、加密方案与保留期，形成合规预审意见</li>
+    </ol>
+    <h3>参会方与职责</h3>
+    <table>
+      <tr><th>角色</th><th>职责</th><th>必须产出</th></tr>
+      <tr><td><b>产品</b></td><td>功能覆盖、字段口径、状态机语义、范围界定</td><td>ER-01 / 02 / 04 / 06 / 07 裁决</td></tr>
+      <tr><td><b>研发</b></td><td>范式、主键、索引、并发、事务边界、工程约定</td><td>ER-05 / 09 / 12 / 13 确认</td></tr>
+      <tr><td><b>合规</b></td><td>分类分级、最小必要、加密、保留期、告知同意</td><td>ER-03 / 08 / 10 意见</td></tr>
+      <tr><td>测试（列席）</td><td>验收口径可测性</td><td>断言可测性反馈</td></tr>
+    </table>
+  </div>
+
+  <div class="card">
+    <h3 style="margin-top:0">议程（60 分钟）</h3>
+    <table>
+      <tr><th class="nowrap">时长</th><th>环节</th><th>主持</th></tr>
+      <tr><td>5′</td><td>范围与前置状态确认（§1–§2，不复议已完成项）</td><td>研发</td></tr>
+      <tr><td>25′</td><td><b>P0 三项现场裁决</b>（ER-01 / 02 / 03）</td><td>产品 + 合规</td></tr>
+      <tr><td>15′</td><td>P1 五项定责（ER-04 ~ 08）</td><td>按裁决方</td></tr>
+      <tr><td>10′</td><td>P2 五项登记 + 检查表走查（§3）</td><td>研发</td></tr>
+      <tr><td>5′</td><td>结论与签署（§6）</td><td>三方</td></tr>
+    </table>
+    <h3>前置材料（会前必读）</h3>
+    <ul>
+      <li><code>docker/mysql/init/02_schema.sql</code>（33 表 DDL，评审主体）</li>
+      <li><code>docker/mysql/init/01_init.sql</code>（建库 + <code>gb_rule_version</code>）</li>
+      <li><code>scripts/verify-schema.sh</code>（23 项断言，可现场复跑）</li>
+      <li>《B1-4 数据库 ER 设计 · 交付说明》HTML</li>
+      <li>PRD YL-PRD-v1.0（重点 §1.2 范围 / §3 功能清单 / §4.4 状态机 / §7 交互规则 / §9 埋点）</li>
+    </ul>
+    <p class="legend">本评审包可直接打印为纸质检查表；§3 各方检查表与 §4 待裁决清单为会议用纸。</p>
+  </div>
+</div>
+
+<div class="card">
+  <h3 style="margin-top:0">会议通知（可直接复制发送）</h3>
+  <pre>【评审通知】银龄守护 · B1-4 数据库 ER 三方评审
+时间：待定（建议 60 分钟）
+参会：产品 / 研发 / 合规（测试列席）
+议题：ER 覆盖性确认 + 13 项待决口径裁决（P0 三项须现场定）
+会前必读：02_schema.sql、verify-schema.sh、B1-4 交付说明、PRD §1.2/§3/§4.4/§7/§9
+请各方会前在检查表（评审包 §3）勾选并标注异议项，避免会上逐条朗读。
+产出：评审纪要（含三方签署）+ Action Items
+备注：ER-01/ER-02 涉 M1 准出红线「P0 级需求歧义」；ER-03 可作为 M1 验收 #5「合规预审 / DPO 审核」的直接输入。</pre>
+</div>
+
+<h2>2 评审前置状态（已闭环项 — 会上不复议）</h2>
+<div class="card">
+  <p>下列事项已在真实环境中验证通过，本次评审<b>只需确认、不需重议</b>。评审聚焦点因此从「结构对不对」转移到「口径与范围对不对」。</p>
+  <table>
+    <tr><th>项目</th><th>结论</th><th>证据</th></tr>
+    <tr><td>DDL 可在真实 MySQL 执行</td><td><span class="tag t-ok">已验证</span></td><td>MySQL 8.0.37 实机 + CI service container，<code>scripts/verify-schema.sh</code> 23 项断言全绿</td></tr>
+    <tr><td>表总数</td><td><span class="tag t-ok">34 = 33 + 1</span></td><td><code>02_schema.sql</code> 33 表 + <code>01_init.sql</code> 1 表（<code>gb_rule_version</code>）</td></tr>
+    <tr><td>「逻辑删除 × 唯一键」冲突</td><td><span class="tag t-ok">已解决并验证</span></td><td>3 处生成列 <code>active_uk = IF(deleted=0,1,NULL)</code>；5 项行为验证（重复写入被拒 / 软删后可重建 / 历史与生效并存）</td></tr>
+    <tr><td>敏感字段明文落库</td><td><span class="tag t-ok">0 处</span></td><td>密文列 10 个（<code>*_enc</code>）、摘要列（<code>*_hash</code>）、脱敏列（<code>*_mask</code>）；个人信息表明文敏感列 = 0</td></tr>
+    <tr><td>国标规则域版本化</td><td><span class="tag t-ok">已播种基线</span></td><td>1 版本 / 4 维度 / 5 档阈值 / 3 条基规则，其中 7 条带国标条款号；评估单锁定 <code>rule_version_id</code></td></tr>
+    <tr><td>索引规模</td><td><span class="tag t-ok">108 个</span></td><td>关键复合索引经实测落地</td></tr>
+    <tr><td>工程门禁</td><td><span class="tag t-ok">五作业全绿</span></td><td>CI run <code>35337802688</code>；提交 <code>1fab0b4</code></td></tr>
+  </table>
+  <p><b>建议</b>：上述结论由研发用 5 分钟口头确认即可，<b>不占会议时间逐条过</b>。若任何一方要复议，须在会前提出。</p>
+</div>
+
+<h2>3 三方分角色检查表（会前勾选，会上只谈异议项）</h2>
+
+<div class="role">
+  <div class="rolecard">
+    <div class="hd hd-prod">产品侧 · 8 项</div>
+    <div class="bd">
+      <ul class="chk">
+        <li><b>P-1</b>　PRD §3 的 24 个功能点是否「全部有表承载」——逐条核对 §5 映射表，确认 6 项 <span class="tag t-p2">无表</span> 与 3 项 <span class="tag t-p1">部分承载</span> 是否为预期</li>
+        <li><b>P-2</b>　PRD §2.1 五个角色（老人/评估员/家属/机构管理员/监管）↔ <code>sys_role</code> 是否一一对应，有无遗漏角色或隐含角色</li>
+        <li><b>P-3</b>　PRD §2.2 权限矩阵 9 个模块能否由 <code>sys_permission</code> 权限码完整表达；三类需二次验证的操作（导出/作废/解绑）是否都落 <code>need_second_verify</code></li>
+        <li><b>P-4</b>　PRD §4.4 六状态 ↔ <code>eval_order.status</code> 六值一致；各状态「可见范围」能否表达——尤其「已作废→仅审计」「归档→仅监管」这两种跨角色可见性</li>
+        <li><b>P-5</b>　PRD §4.3 六个异常分支是否都有数据承载：拒答 <span class="tag t-ok">✓</span>／复核驳回 <span class="tag t-ok">✓</span>／资质失效 <span class="tag t-ok">✓</span>／重复评估 30 天 <span class="tag t-ok">✓</span>／<b>指标缺失</b> <span class="tag t-p1">见 ER-06</span>／<b>离线冲突</b> <span class="tag t-p1">见 ER-05</span></li>
+        <li><b>P-6</b>　PRD §6 核心页面（P01 问卷 / P02 报告 / P03 工作台 / P04 绑定）所需字段能否全部从表中取到，有无「页面要展示但库里没有」的字段</li>
+        <li><b>P-7</b>　PRD §3 功能点 2 的 4 维度命名是否以国标为准回写 <span class="tag t-p0">ER-01</span></li>
+        <li><b>P-8</b>　PRD §1.2 本期范围是否显式声明「消息中心」「支付与合同」的取舍 <span class="tag t-p0">ER-02</span></li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="rolecard">
+    <div class="hd hd-dev">研发侧 · 10 项</div>
+    <div class="bd">
+      <ul class="chk">
+        <li><b>D-1</b>　主键生成策略：业务表主键均为 <code>BIGINT NOT NULL</code>（<b>无</b> <code>AUTO_INCREMENT</code>），须由应用层分布式 ID 赋值；而 <code>01_init.sql</code> 的 <code>gb_rule_version</code> <b>用了</b>自增 —— 两套并存是否有意 <span class="tag t-p2">ER-09</span></li>
+        <li><b>D-2</b>　引用完整性：全库 <b>0 个外键约束</b>，靠应用层保障。确认此为有意选择，并写入编码规范（否则多人协作下会出现悬空引用）<span class="tag t-p2">ER-13</span></li>
+        <li><b>D-3</b>　时区策略：全库时间列均为 <code>DATETIME</code>（51 处）、<b>0 处</b> <code>TIMESTAMP</code>，无时区语义，取值依赖数据库/会话时区；生产容器 TZ 须固定 <span class="tag t-p2">ER-12</span></li>
+        <li><b>D-4</b>　并发控制：<code>eval_order</code> / <code>eval_answer</code> 无版本号列，而 PRD §7 要求幂等防重、§4.3 要求离线冲突提示 <span class="tag t-p1">ER-05</span></li>
+        <li><b>D-5</b>　事务边界：一次「提交复核」涉及 <code>eval_order</code> 状态 + 26 行 <code>eval_answer</code> + <code>eval_review_log</code>，须单事务；报告生成与 <code>eval_report</code> 的写入时序须明确</li>
+        <li><b>D-6</b>　幂等一致性：Redis（<code>SET NX EX</code>）与 <code>idempotent_record</code> 兜底表的写库时机与失败补偿路径须明确</li>
+        <li><b>D-7</b>　索引复核：108 个索引中是否存在冗余（前缀重复）或缺失（如报告按 <code>verify_hash</code> 验真、审计按操作人 + 时间）</li>
+        <li><b>D-8</b>　软删除一致性：33 张表 <code>deleted</code> 是否统一，查询侧是否由全局逻辑删除统一过滤（避免个别查询漏过滤导致已删除数据泄露）</li>
+        <li><b>D-9</b>　大表治理：<code>track_event</code> 高频写入，180 天清理由 XXL-JOB 执行；确认何时需要改按月分区</li>
+        <li><b>D-10</b>　字符集与排序规则：建库指定 <code>utf8mb4_unicode_ci</code>，表级未显式声明（继承库默认）。确认是否统一为 MySQL 8 默认 <code>utf8mb4_0900_ai_ci</code>（性能更优）或以 <code>unicode_ci</code> 为准</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="rolecard">
+    <div class="hd hd-comp">合规侧 · 10 项</div>
+    <div class="bd">
+      <ul class="chk">
+        <li><b>C-1</b>　个人信息分类分级清单：身份证号／真实姓名／手机号／住址／健康史／用药记录，逐项定级（一般 vs 敏感个人信息），形成表格式清单入档</li>
+        <li><b>C-2</b>　人脸信息：仅存 COS 对象键、不落原始图像 <span class="tag t-ok">✓</span>；但人脸属敏感个人信息，须确认「单独同意」的取得方式与存储地域在境内</li>
+        <li><b>C-3</b>　加密方案：AES-256-GCM + 主密钥经 KMS 托管、<code>SENSITIVE_FIELD_KEY</code> 环境变量注入、密钥缺失即启动失败 <span class="tag t-ok">✓</span>；确认密钥轮换周期与责任方</li>
+        <li><b>C-4</b>　检索摘要（HMAC-SHA256）与加密密钥分离 <span class="tag t-ok">✓</span>；确认摘要列本身不构成可反推的个人信息</li>
+        <li><b>C-5</b>　保留期：埋点 ≤180 天 <span class="tag t-ok">✓ 已落 expire_at</span>；<b>审计日志、监管报表、评估记录的保留期均未定义</b> <span class="tag t-p0">ER-03</span></li>
+        <li><b>C-6</b>　二次验证：导出／删除／作废／解绑 四类敏感操作需二次验证并留痕 <span class="tag t-ok">✓</span>；确认验证方式（短信／人脸）与失败处理</li>
+        <li><b>C-7</b>　最小必要：埋点 <code>params</code> 仅存 ID 与枚举 <span class="tag t-ok">✓</span>；<code>org.contact_name</code> 明文是否需要加密 <span class="tag t-p2">ER-10</span></li>
+        <li><b>C-8</b>　数据出境：确认 COS 存储地域在境内、无境外传输路径</li>
+        <li><b>C-9</b>　告知同意留痕：现有 <code>elder_authorization</code>（档案授权）与 <code>elder_family_bind</code>（亲情绑定）两张授权表，但<b>无「隐私政策告知同意」的版本与时间留痕</b> <span class="tag t-p1">ER-08</span></li>
+        <li><b>C-10</b>　日志脱敏：加密仅作用于入库路径；确认应用日志（MDC/异常堆栈）不会打印明文敏感字段，须有代码层约束与检查</li>
+      </ul>
+      <p class="legend">说明：合规侧结论可直接作为 M1 验收项 #5「合规预审 — 隐私设计、权限最小化、脱敏方案通过 DPO 审核」的输入材料，该项目前状态为「待审」。</p>
+    </div>
+  </div>
+</div>
+
+<h2>4 待裁决清单（13 项）</h2>
+<p class="legend">严重度定义：<span class="tag t-p0">P0</span> 阻塞评审通过（须现场裁决）｜<span class="tag t-p1">P1</span> 须指定责任人并在 B2/C 启动前定｜<span class="tag t-p2">P2</span> 登记即可，不阻塞。</p>
+
+<h3>4.1 P0 — 阻塞项（3 项，现场裁决）</h3>
+<table>
+  <tr><th class="nowrap">ID</th><th>议题</th><th>证据（现状）</th><th>影响</th><th>建议方案</th><th class="nowrap">裁决方</th></tr>
+  <tr>
+    <td><b>ER-01</b><br><span class="tag t-p0">P0</span></td>
+    <td><b>4 维度命名口径冲突</b></td>
+    <td>PRD §3 功能点 2 写「4 维度：<b>自理／运动／认知／感知觉</b>」；而 DDL <code>gb_dimension</code> 播种与 <code>eval_item.dimension_code</code> 注释为「<b>自理能力／基础运动能力／精神状态／感知觉与社会参与</b>」（GB/T 42195-2022 §4.1 口径）</td>
+    <td>PRD §8「统一原则」要求文案四端完全一致且由后端供给。命名不统一将导致四端 UI 文案、报告维度名与库中维度字典三方打架，且属 M1 红线「P0 级需求歧义」</td>
+    <td><b>以国标为准</b>，回写 PRD §3 功能点 2、§5／§6 页面文案中所有维度名；<code>eval_item</code> 字典以 DDL 为唯一事实源</td>
+    <td>产品<br><span class="tag t-mut">合规背书</span></td>
+  </tr>
+  <tr>
+    <td><b>ER-02</b><br><span class="tag t-p0">P0</span></td>
+    <td><b>本期范围（MVP）边界歧义</b></td>
+    <td>PRD §1.2 列举本期含 8 个一级模块，显式排除仅「长护险直连、AI 预筛」；但 §3 中「<b>消息中心</b>」（功能点 21、22）与「<b>支付与合同</b>」（功能点 23、24）两个一级模块标为 P2 却<b>未被 §1.2 提及</b>，DDL 亦无对应表</td>
+    <td>直接命中 M1 准出红线「PRD 存在 P0 级需求歧义未澄清」。范围不清会导致 ER 被反复质疑「为什么没有消息表／支付表」</td>
+    <td>在 §1.2 中显式写清：含／不含「消息中心」「支付与合同」；若不纳入本期，将这 4 个功能点移入 V2 需求池并在 PRD 标注</td>
+    <td>产品</td>
+  </tr>
+  <tr>
+    <td><b>ER-03</b><br><span class="tag t-p0">P0</span></td>
+    <td><b>保留期未定义</b></td>
+    <td>埋点已落 <code>expire_at</code>（≤180 天，PRD §9 硬约束）<span class="tag t-ok">✓</span>；但 <code>audit_log</code>（导出／作废／解绑／复核留痕）<b>无保留期字段</b>，<code>supervise_report</code>、评估记录法定保留期亦未定。PRD §4.4 有「归档（超保留期→仅监管）」态但未写期限</td>
+    <td>合规红线。保留期缺失 → 「过期清理」与「归档」两个机制都无触发依据；且影响 M1 验收项 #5（DPO 预审）</td>
+    <td>由合规给出各类数据法定期限（审计日志建议 ≥3 年），落为 <code>audit_log</code> 等表的保留期配置与归档任务依据</td>
+    <td>合规<br><span class="tag t-mut">DPO</span></td>
+  </tr>
+</table>
+
+<h3>4.2 P1 — 须指定责任人（5 项）</h3>
+<table>
+  <tr><th class="nowrap">ID</th><th>议题</th><th>证据（现状）</th><th>影响</th><th>建议方案</th><th class="nowrap">裁决方</th></tr>
+  <tr>
+    <td><b>ER-04</b><br><span class="tag t-p1">P1</span></td>
+    <td><b>本期范围内缺表</b>：功能点 20 自定义报表、功能点 12 照护任务派发</td>
+    <td>「报表中心」与「照护方案」均在 PRD §1.2 本期范围内；但功能点 20 要求「配置可保存」而库中无报表配置表，功能点 12（照护任务、执行打卡、完成率）无对应表，仅 <code>care_plan</code></td>
+    <td>本期范围内功能无承载表，实现时会被迫临时加表，破坏 ER 评审的权威性</td>
+    <td>二选一：① 纳入本期 → 补 <code>report_config</code>、<code>care_task</code>／<code>care_task_log</code> 表；② 不纳入 → 显式移入 V2 需求池并回写 PRD §3 优先级</td>
+    <td>产品 + 研发</td>
+  </tr>
+  <tr>
+    <td><b>ER-05</b><br><span class="tag t-p1">P1</span></td>
+    <td><b>无乐观锁／版本号列</b>，离线同步冲突检测缺实现依据</td>
+    <td><code>eval_order</code>／<code>eval_answer</code> 仅有 <code>updated_at</code>，无 <code>row_version</code>。而 PRD §7 要求「幂等防重」、§4.3 要求「断网离线→恢复后自动同步，冲突提示」、§3 功能点 4 要求「冲突检测、版本对比」</td>
+    <td>不阻塞 B1 收口，但阻塞 B3 离线能力与 C 阶段草稿实现；届时改表成本高于现在</td>
+    <td>建议新增 <code>row_version INT</code> 乐观锁列（选项 A，推荐）；退路为以 <code>updated_at</code> 比对（弱）。<b>冲突时谁优先</b>属业务规则，须产品定义</td>
+    <td>研发<br><span class="tag t-mut">产品定规则</span></td>
+  </tr>
+  <tr>
+    <td><b>ER-06</b><br><span class="tag t-p1">P1</span></td>
+    <td><b>指标「必填／不适用」语义缺失</b></td>
+    <td><code>eval_item</code> 有 <code>need_evidence</code>，但<b>无</b> <code>is_required</code>／<code>not_applicable</code>；<code>eval_answer.is_refused</code> 只表达「拒绝回答」。而 PRD §4.3 要求「指标缺失（必填项未填）→ 阻断提交，定位到缺失项」，§3 功能点 2 要求「自适应分支」</td>
+    <td>自适应分支跳过的项与「拒答」语义混淆，将导致拒答率统计失真、复核触发条件错误</td>
+    <td>补三类语义并明确区别：<b>应填未填</b>（阻断）／<b>分支未触达</b>（不适用）／<b>拒答</b>（不计分 + 触发复核）。26 项是否全必填由产品定</td>
+    <td>产品（语义）+ 研发（字段）</td>
+  </tr>
+  <tr>
+    <td><b>ER-07</b><br><span class="tag t-p1">P1</span></td>
+    <td><b>授权「长期」含义未定</b></td>
+    <td>PRD §6 P04 授权设置：「有效期（1／6／12 月／<b>长期</b>）」默认 12 个月；DDL <code>elder_authorization</code> 用 <code>valid_from</code>／<code>valid_to DATETIME NULL</code></td>
+    <td><b>会造成真实事故</b>：若「长期」以 <code>valid_to IS NULL</code> 表达而定时任务未显式排除，到期自动失效会把长期授权误杀</td>
+    <td>明确「长期」= <code>valid_to IS NULL</code>，并在到期失效任务中显式加 <code>valid_to IS NOT NULL</code> 条件；此约定写入接口文档</td>
+    <td>产品 + 研发</td>
+  </tr>
+  <tr>
+    <td><b>ER-08</b><br><span class="tag t-p1">P1</span></td>
+    <td><b>告知同意留痕缺失</b></td>
+    <td>全库检索无 <code>consent</code>／<code>privacy</code>／<code>agreement</code> 相关表或字段。现有 <code>elder_authorization</code>（档案授权）与 <code>elder_family_bind</code>（亲情绑定）属业务授权，<b>不等同于隐私政策告知同意</b></td>
+    <td>《个人信息保护法》要求处理个人信息前取得同意并可留存证明。缺此留痕，监管核查时无法举证</td>
+    <td>补「告知同意留痕」结构：隐私政策版本号 + 同意时间 + 同意主体 + 同意范围（可按用户维度一表承载）</td>
+    <td>合规</td>
+  </tr>
+</table>
+
+<h3>4.3 P2 — 登记即可（5 项）</h3>
+<table>
+  <tr><th class="nowrap">ID</th><th>议题</th><th>证据（现状）</th><th>建议</th><th class="nowrap">裁决方</th></tr>
+  <tr><td><b>ER-09</b><br><span class="tag t-p2">P2</span></td><td>主键生成策略不一致</td><td><code>02_schema.sql</code> 全部 33 表主键 <code>BIGINT NOT NULL</code>、<b>0 处</b> <code>AUTO_INCREMENT</code>（应用层赋值）；<code>01_init.sql</code> 的 <code>gb_rule_version</code> 用 <code>AUTO_INCREMENT</code></td><td>统一策略并说明例外理由（字典表可自增 or 全部雪花），写入规范</td><td>研发</td></tr>
+  <tr><td><b>ER-10</b><br><span class="tag t-p2">P2</span></td><td>机构联系人字段口径</td><td><code>org.contact_name</code> 明文、<code>org.contact_phone_enc</code> 密文但<b>无</b> <code>*_hash</code> 检索列</td><td>合规定分类分级；若需「按电话查机构」则补 <code>contact_phone_hash</code>，否则明确该检索不支持</td><td>合规 + 产品</td></tr>
+  <tr><td><b>ER-11</b><br><span class="tag t-p2">P2</span></td><td>埋点事件名无字典</td><td><code>track_event.event_name</code> 注释「PRD §9 八类事件」，但无字典表、无白名单约束、无播种</td><td>事件名以常量枚举 + CI 校验，或入字典表；防止各端拼写漂移导致 BI 口径分裂</td><td>产品 + 研发</td></tr>
+  <tr><td><b>ER-12</b><br><span class="tag t-p2">P2</span></td><td>时区策略</td><td>全库 51 处 <code>DATETIME</code>、0 处 <code>TIMESTAMP</code>；<code>created_at DEFAULT CURRENT_TIMESTAMP</code> 依赖数据库时区</td><td>固定生产容器 TZ（建议 <code>Asia/Shanghai</code>）或统一存 UTC 并在应用层转换；二者择一并写入规范</td><td>研发</td></tr>
+  <tr><td><b>ER-13</b><br><span class="tag t-p2">P2</span></td><td>无外键约束下的引用完整性</td><td>全库 <b>0 个</b> <code>FOREIGN KEY</code>／<code>CONSTRAINT</code>，靠应用层保障</td><td>确认此为有意设计（互联网通行做法），并在编码规范中约定：删除走软删除、跨表写入须校验存在性、禁止级联物理删除</td><td>研发</td></tr>
+</table>
+
+<h2>5 PRD §3 功能清单（24 项）↔ DDL 覆盖映射</h2>
+<div class="card">
+  <p>用于产品侧逐条核对「有没有表承载」。<span class="tag t-ok">✓ 覆盖</span> 12 项 ｜ <span class="tag t-p1">⚠ 部分/待确认</span> 6 项 ｜ <span class="tag t-p2">✗ 无表</span> 6 项。</p>
+  <table>
+    <tr><th class="nowrap">序</th><th>功能点</th><th class="nowrap">优先级</th><th>承载表</th><th class="nowrap">判定</th></tr>
+    <tr><td>1</td><td>任务列表、筛选、指派、催办</td><td>P0</td><td><code>eval_task</code>、<code>eval_order</code></td><td><span class="tag t-ok">✓</span></td></tr>
+    <tr><td>2</td><td>问卷引擎（26 项指标、自适应分支、离线缓存）</td><td>P0</td><td><code>eval_item</code>、<code>eval_item_option</code>、<code>eval_answer</code></td><td><span class="tag t-p1">⚠ ER-06</span></td></tr>
+    <tr><td>3</td><td>证据留痕（拍照、录音、签名、定位）</td><td>P0</td><td><code>eval_evidence</code>（SHA-256 + 对象键 + 定位）</td><td><span class="tag t-ok">✓</span></td></tr>
+    <tr><td>4</td><td>草稿箱（自动保存、断点续填、冲突检测）</td><td>P1</td><td><code>eval_order</code>（<code>DRAFT</code>）</td><td><span class="tag t-p1">⚠ ER-05</span></td></tr>
+    <tr><td>5</td><td>等级判定（自动计算、规则版本化）</td><td>P0</td><td><code>gb_rule_version</code>、<code>gb_rule</code>、<code>gb_grade_threshold</code></td><td><span class="tag t-ok">✓</span></td></tr>
+    <tr><td>6</td><td>报告生成（PDF、二维码验真）</td><td>P0</td><td><code>eval_report</code>（<code>verify_hash</code>）</td><td><span class="tag t-ok">✓</span></td></tr>
+    <tr><td>7</td><td>复核流程（提交→复核→发布→驳回）</td><td>P0</td><td><code>eval_order</code>（<code>reviewer_id ≠ assessor_id</code>）、<code>eval_review_log</code></td><td><span class="tag t-ok">✓</span></td></tr>
+    <tr><td>8</td><td>个人档案（基本信息、健康史、用药记录）</td><td>P0</td><td><code>elder</code>（全密文 + 脱敏列）</td><td><span class="tag t-ok">✓</span></td></tr>
+    <tr><td>9</td><td>历史轨迹（多次评估对比、趋势图）</td><td>P1</td><td><code>eval_order</code>（多次）+ <code>report_dimension_score</code></td><td><span class="tag t-ok">✓</span></td></tr>
+    <tr><td>10</td><td>档案权限（授权、回收、有效期）</td><td>P1</td><td><code>elder_authorization</code></td><td><span class="tag t-p1">⚠ ER-07</span></td></tr>
+    <tr><td>11</td><td>方案推荐（按等级匹配模板库）</td><td>P1</td><td><code>care_template</code>、<code>care_plan</code></td><td><span class="tag t-ok">✓</span></td></tr>
+    <tr><td>12</td><td>任务派发（照护任务、执行打卡、完成率）</td><td>P2</td><td>—</td><td><span class="tag t-p2">✗ ER-04</span></td></tr>
+    <tr><td>13</td><td>组织人员（组织树、角色分配、资质档案）</td><td>P1</td><td><code>org</code>、<code>staff</code>（<code>cert_expire_at</code>）、<code>sys_role</code></td><td><span class="tag t-ok">✓</span></td></tr>
+    <tr><td>14</td><td>床位管理（床位状态、入住/退住）</td><td>P2</td><td><code>org_bed</code>（结构预留，字段最小化）</td><td><span class="tag t-p1">⚠ 预留</span></td></tr>
+    <tr><td>15</td><td>亲情绑定（扫码/手机号/人脸核验）</td><td>P1</td><td><code>elder_family_bind</code>（5 状态机）</td><td><span class="tag t-ok">✓</span></td></tr>
+    <tr><td>16</td><td>报告订阅（新报告推送、模板消息）</td><td>P2</td><td>—（走平台订阅消息，无库表需求）</td><td><span class="tag t-p1">⚠ 待确认</span></td></tr>
+    <tr><td>17</td><td>数据导出（批量导出、脱敏、留痕）</td><td>P1</td><td><code>export_task</code>（<code>mask_level</code>、<code>row_count</code>）</td><td><span class="tag t-ok">✓</span></td></tr>
+    <tr><td>18</td><td>API 上报（监管接口、可信时间戳、幂等）</td><td>P2</td><td><code>supervise_report</code>（<code>idempotent_key</code>）</td><td><span class="tag t-ok">✓</span></td></tr>
+    <tr><td>19</td><td>BI 看板（机构/项目/个人多维）</td><td>P2</td><td>—（查询聚合，无专用表）</td><td><span class="tag t-p1">⚠ 待确认</span></td></tr>
+    <tr><td>20</td><td>自定义报表（字段选择、定时生成、邮件推送）</td><td>P2</td><td>—</td><td><span class="tag t-p2">✗ ER-04</span></td></tr>
+    <tr><td>21</td><td>站内信/推送（系统通知、待办提醒）</td><td>P2</td><td>—</td><td><span class="tag t-p2">✗ ER-02</span></td></tr>
+    <tr><td>22</td><td>短信/模板消息（关键节点强触达）</td><td>P2</td><td>—</td><td><span class="tag t-p2">✗ ER-02</span></td></tr>
+    <tr><td>23</td><td>服务包（套餐展示、下单、支付）</td><td>P2</td><td>—</td><td><span class="tag t-p2">✗ ER-02</span></td></tr>
+    <tr><td>24</td><td>电子合同（在线签署、存证）</td><td>P2</td><td>—</td><td><span class="tag t-p2">✗ ER-02</span></td></tr>
+  </table>
+  <p><b>读数</b>：P0 七个功能点<b>全覆盖</b>；无表的 6 项全部落在 P2，其中 4 项（21–24）的归属本身就是 ER-02 待澄清的范围问题。因此本表的核心结论是——<b>ER 对本项目 P0 链路的支撑是完整的</b>，缺口集中在 P2 的范围未界定，而非设计遗漏。</p>
+</div>
+
+<h2>6 评审结论与签署</h2>
+<div class="card">
+  <h3 style="margin-top:0">结论（三选一，现场勾定）</h3>
+  <ul class="chk">
+    <li><b>通过</b>　—— ER 可直接作为 B2／C 阶段建库基线，P1、P2 项按 Action Items 跟进</li>
+    <li><b>有条件通过</b>　—— 待 P0 三项裁决完成、且 P1 项责任人确认后生效（<i>推荐</i>：P0 三项中 ER-01／ER-02 属 PRD 侧修正，不阻塞 DDL 冻结）</li>
+    <li><b>不通过</b>　—— 存在 P0 级设计缺陷，须修改后重审</li>
+  </ul>
+
+  <h3>P0 三项裁决结果（现场填写）</h3>
+  <table>
+    <tr><th class="nowrap">ID</th><th>裁决结果</th><th>决议依据 / 备注</th><th class="nowrap">责任人</th><th class="nowrap">期限</th></tr>
+    <tr><td><b>ER-01</b></td><td style="height:38px"></td><td></td><td></td><td></td></tr>
+    <tr><td><b>ER-02</b></td><td style="height:38px"></td><td></td><td></td><td></td></tr>
+    <tr><td><b>ER-03</b></td><td style="height:38px"></td><td></td><td></td><td></td></tr>
+  </table>
+
+  <h3>三方签署</h3>
+  <table class="sig">
+    <tr><th style="width:22%">角色</th><th style="width:28%">签署人</th><th style="width:28%">意见</th><th style="width:22%">日期</th></tr>
+    <tr><td>产品</td><td></td><td></td><td></td></tr>
+    <tr><td>研发</td><td></td><td></td><td></td></tr>
+    <tr><td>合规（DPO）</td><td></td><td></td><td></td></tr>
+    <tr><td>测试（列席）</td><td></td><td></td><td></td></tr>
+  </table>
+</div>
+
+<h2>7 评审后 Action Items（模板）</h2>
+<div class="card">
+  <table>
+    <tr><th class="nowrap">序</th><th>行动项</th><th>来源</th><th class="nowrap">责任人</th><th class="nowrap">期限</th><th class="nowrap">关联任务</th></tr>
+    <tr><td>1</td><td>回写 PRD §3／§5／§6 的 4 维度命名（以国标为准）</td><td>ER-01</td><td>产品</td><td></td><td><code>r4UcEv</code></td></tr>
+    <tr><td>2</td><td>在 PRD §1.2 显式声明「消息中心」「支付与合同」取舍，必要时移入 V2 需求池</td><td>ER-02</td><td>产品</td><td></td><td><code>rcJcAE</code>（V2 需求池）</td></tr>
+    <tr><td>3</td><td>给出审计日志／监管报表／评估记录的保留期与归档触发条件</td><td>ER-03</td><td>合规</td><td></td><td><code>rREFkt</code></td></tr>
+    <tr><td>4</td><td>确认功能点 12／20 是否本期交付；若交付则补表设计</td><td>ER-04</td><td>产品 + 研发</td><td></td><td>—</td></tr>
+    <tr><td>5</td><td>定离线冲突优先级规则；研发评估新增 <code>row_version</code> 列</td><td>ER-05</td><td>产品 + 研发</td><td></td><td>B3 / C 阶段</td></tr>
+    <tr><td>6</td><td>明确「应填未填／分支不适用／拒答」三类语义与字段</td><td>ER-06</td><td>产品 + 研发</td><td></td><td><code>rLxfKE</code>（问卷引擎）</td></tr>
+    <tr><td>7</td><td>约定「长期」授权 = <code>valid_to IS NULL</code> 并在失效任务中排除</td><td>ER-07</td><td>研发</td><td></td><td><code>rSQmPF</code></td></tr>
+    <tr><td>8</td><td>补告知同意留痕结构（隐私政策版本 + 同意时间 + 主体 + 范围）</td><td>ER-08</td><td>合规 + 研发</td><td></td><td><code>rREFkt</code></td></tr>
+    <tr><td>9</td><td>统一主键生成策略、时区策略、外键与软删除规范（写入编码规范）</td><td>ER-09／12／13</td><td>研发</td><td></td><td><code>r0wpMZ</code>（规范与门禁）</td></tr>
+    <tr><td>10</td><td>定 <code>org</code> 联系人字段分类分级；确认埋点事件名约束方式</td><td>ER-10／11</td><td>合规 + 产品</td><td></td><td>—</td></tr>
+    <tr><td>11</td><td>将本次合规结论作为 M1 验收项 #5「合规预审（DPO）」的输入，推进该项从「待审」转为「通过」</td><td>ER-03／08／10</td><td>合规</td><td></td><td>M1 准出红线</td></tr>
+  </table>
+  <p class="legend">说明：Action Items 第 1、2 项属 M1 准出红线范畴，须在进入 M2 相关开发前闭环；第 11 项是把本次评审的合规产出直接复用为 M1 验收证据，避免同一件事审两遍。</p>
+</div>
+
+<div class="foot">
+  银龄守护（老年人能力评估四端系统）· GB/T 42195-2022 ｜ B1-4 / <code>r4UcEv</code> · 子任务 <code>rSQmPF</code> ｜
+  评审对象以 <code>docker/mysql/init/02_schema.sql</code> 为准 ｜ 2026-09-18
+</div>
+
+</div>
+</body>
+</html>
