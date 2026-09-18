@@ -3,8 +3,7 @@ package cn.yl.common.api;
 /**
  * 链路追踪上下文。
  *
- * <p>MVP 阶段基于 ThreadLocal 简化实现，网关/过滤器写入 X-Trace-Id 后此处读取；
- * 后续接入 SkyWalking/OTel 时替换实现即可，调用方无感。
+ * <p>MVP 阶段基于 ThreadLocal 简化实现，网关/过滤器写入 X-Trace-Id 后此处读取； 后续接入 SkyWalking/OTel 时替换实现即可，调用方无感。
  */
 public final class TraceContext {
 
