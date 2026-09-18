@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>cn.yl</groupId>
+        <artifactId>yl-modules</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>yl-module-archive</artifactId>
+    <name>yl-module-archive</name>
+    <description>档案域：老人档案、评估报告归档、上传留存与归档策略、脱敏导出（任务组D）</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>cn.yl</groupId>
+            <artifactId>yl-api</artifactId>
+        </dependency>
+    </dependencies>
+</project>

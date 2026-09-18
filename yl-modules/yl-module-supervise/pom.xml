@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>cn.yl</groupId>
+        <artifactId>yl-modules</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>yl-module-supervise</artifactId>
+    <name>yl-module-supervise</name>
+    <description>监管域：监管角色与权限、监管视角数据、异常预警与合规留痕（任务组D，高风险）</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>cn.yl</groupId>
+            <artifactId>yl-api</artifactId>
+        </dependency>
+    </dependencies>
+</project>

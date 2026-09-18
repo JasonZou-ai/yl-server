@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>cn.yl</groupId>
+        <artifactId>yl-server</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>yl-modules</artifactId>
+    <packaging>pom</packaging>
+    <name>yl-modules</name>
+    <description>业务域聚合：账号权限 / 评估 / 档案 / 照护 / 监管 / 报表</description>
+
+    <modules>
+        <module>yl-module-account</module>
+        <module>yl-module-evaluation</module>
+        <module>yl-module-archive</module>
+        <module>yl-module-care</module>
+        <module>yl-module-supervise</module>
+        <module>yl-module-report</module>
+    </modules>
+</project>

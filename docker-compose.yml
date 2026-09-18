@@ -1,0 +1,73 @@
+# 本地一键启动依赖：MySQL 8 + Redis 7 + RocketMQ 5
+# 用法：docker compose up -d  （首次会初始化数据库与业务库）
+name: yl-server
+
+services:
+  mysql:
+    image: mysql:8.0.37
+    container_name: yl-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: yl_root_2026
+      MYSQL_DATABASE: yl_evaluation
+      TZ: Asia/Shanghai
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_unicode_ci
+      - --default-time-zone=+08:00
+      - --lower_case_table_names=1
+    ports:
+      - "3306:3306"
+    volumes:
+      - ./docker/data/mysql:/var/lib/mysql
+      - ./docker/mysql/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-pyl_root_2026"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7.2-alpine
+    container_name: yl-redis
+    restart: unless-stopped
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "yl_redis_2026"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - ./docker/data/redis:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "yl_redis_2026", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  rocketmq-namesrv:
+    image: apache/rocketmq:5.2.0
+    container_name: yl-rocketmq-namesrv
+    restart: unless-stopped
+    command: sh mqnamesrv
+    ports:
+      - "9876:9876"
+    environment:
+      JAVA_OPT_EXT: "-Xms256m -Xmx256m"
+
+  rocketmq-broker:
+    image: apache/rocketmq:5.2.0
+    container_name: yl-rocketmq-broker
+    restart: unless-stopped
+    depends_on:
+      - rocketmq-namesrv
+    command: sh mqbroker -n rocketmq-namesrv:9876 -c /home/rocketmq/conf/broker.conf
+    environment:
+      NAMESRV_ADDR: rocketmq-namesrv:9876
+      JAVA_OPT_EXT: "-Xms512m -Xmx512m"
+    ports:
+      - "10909:10909"
+      - "10911:10911"
+    volumes:
+      - ./docker/rocketmq/broker.conf:/home/rocketmq/conf/broker.conf:ro
+
+# 说明：
+#  - 生产环境不适用本文件；生产用 GitHub Actions 构建镜像后交由部署流水线接管。
+#  - COS（腾讯云对象存储）为外网服务，本地开发默认走 dev bucket，密钥由环境变量注入，不入库。

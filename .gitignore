@@ -1,0 +1,37 @@
+# ---- build ----
+target/
+!.mvn/wrapper/maven-wrapper.jar
+!**/src/main/**/target/
+!**/src/test/**/target/
+
+# ---- IDE ----
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/
+*.swp
+.settings/
+.project
+.classpath
+
+# ---- OS ----
+.DS_Store
+Thumbs.db
+
+# ---- logs / runtime ----
+logs/
+*.log
+*.pid
+
+# ---- local secrets（禁止入库：数据库口令 / COS 密钥 / JWT 私钥）----
+**/application-local.yml
+**/bootstrap-local.yml
+*.p12
+*.jks
+.env
+.env.local
+
+# ---- docker volumes ----
+docker/data/
+docker/logs/

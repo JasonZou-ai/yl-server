@@ -1,0 +1,53 @@
+# 本地开发环境（依赖 docker compose 拉起的中间件）
+server:
+  port: 8080
+
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://127.0.0.1:3306/yl_evaluation?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true&rewriteBatchedStatements=true
+    username: root
+    password: ${DB_PASSWORD:yl_root_2026}
+    hikari:
+      minimum-idle: 5
+      maximum-pool-size: 20
+      connection-timeout: 30000
+      pool-name: YlHikariPool
+  data:
+    redis:
+      host: 127.0.0.1
+      port: 6379
+      password: ${REDIS_PASSWORD:yl_redis_2026}
+      database: 0
+      timeout: 3s
+      lettuce:
+        pool:
+          max-active: 16
+          max-idle: 8
+          min-idle: 2
+  sql:
+    init:
+      # 生产环境禁用；本地由 docker/mysql/init 负责初始化
+      mode: never
+
+# RocketMQ 本地 Namesrv
+rocketmq:
+  name-server: 127.0.0.1:9876
+  producer:
+    group: yl-server-producer
+    send-message-timeout: 3000
+
+mybatis-plus:
+  configuration:
+    # 本地打开 SQL 日志便于自检
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+logging:
+  level:
+    cn.yl: DEBUG
+
+# 本地 COS 默认关闭，避免无凭证时报错；需要联调时置 true 并注入密钥
+yl:
+  storage:
+    cos:
+      enabled: false

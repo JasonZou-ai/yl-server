@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    <parent>
+        <groupId>cn.yl</groupId>
+        <artifactId>yl-modules</artifactId>
+        <version>1.0.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>yl-module-account</artifactId>
+    <name>yl-module-account</name>
+    <description>账号权限域：用户/角色/权限/组织、四端登录鉴权、敏感操作留痕（任务组B2）</description>
+
+    <dependencies>
+        <dependency>
+            <groupId>cn.yl</groupId>
+            <artifactId>yl-api</artifactId>
+        </dependency>
+    </dependencies>
+</project>
