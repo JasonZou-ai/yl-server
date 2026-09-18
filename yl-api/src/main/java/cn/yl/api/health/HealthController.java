@@ -10,10 +10,10 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-/** 健康探针：用于本地一键启动自检与部署流水线存活探测。 */
+/** 健康探针：用于本地一键启动自检与部署流水线存活探测。路径规范化为 /api/v1/system/health，与 OpenAPI 契约、安全放行清单保持一致。 */
 @Tag(name = "健康检查")
 @RestController
-@RequestMapping("/api/v1")
+@RequestMapping("/api/v1/system")
 public class HealthController {
 
     @Operation(summary = "服务健康检查")

@@ -38,8 +38,9 @@ jobs:
       - name: Checkstyle 规则校验
         run: mvn -B -ntp -DskipTests checkstyle:check
 
+      # SpotBugs(字节码缺陷扫描, effort=Max/threshold=Medium, 版本由父 POM 统一管理)
       - name: SpotBugs 缺陷扫描
-        run: mvn -B -ntp compile com.github.spotbugs:spotbugs-maven-plugin:4.10.4.1:check
+        run: mvn -B -ntp -DskipTests compile spotbugs:check
 
   # ---------- 2) 编译 + 单元/集成测试 + 覆盖率 ----------
   build-and-test:
@@ -57,7 +58,7 @@ jobs:
           cache: maven
 
       - name: 编译并执行测试（含 Testcontainers 集成测试）
-        run: mvn -B -ntp verify -DskipCheckstyle=true
+        run: mvn -B -ntp verify -DskipCheckstyle=true -DskipSpotbugs=true
 
       - name: 上传测试报告
         if: always()
@@ -112,4 +113,5 @@ jobs:
             -Dsonar.organization="$SONAR_ORG" \
             -Dsonar.host.url="$SONAR_HOST_URL" \
             -Dsonar.token="$SONAR_TOKEN" \
-            -DskipCheckstyle=true
+            -DskipCheckstyle=true \
+            -DskipSpotbugs=true

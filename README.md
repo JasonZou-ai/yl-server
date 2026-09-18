@@ -68,12 +68,21 @@ mvn -pl yl-bootstrap -am spring-boot:run -Dspring-boot.run.profiles=dev
 
 | 用途 | 地址 |
 |---|---|
-| 健康检查 | http://127.0.0.1:8080/api/v1/health |
+| 健康检查 | http://127.0.0.1:8080/api/v1/system/health |
 | 接口文档（Knife4j） | http://127.0.0.1:8080/doc.html |
 | Actuator | http://127.0.0.1:8080/actuator/health |
 
 默认端口占用：MySQL `3306`、Redis `6379`、RocketMQ Namesrv `9876` / Broker `10911`。
 本地开发口令（**仅限本地**）：MySQL `root/yl_root_2026`，Redis 密码 `yl_redis_2026`。
+
+### 契约与结构文件（B1-2 / B1-4 产出）
+
+| 文件 | 说明 |
+|---|---|
+| `openapi/yl-api.yaml` | **统一 API 契约**（OpenAPI 3.0.3，20 个路径）。四端共用；实现须与契约一致，契约变更走评审 |
+| `docker/mysql/init/01_init.sql` | 建库 + 国标规则版本表 `gb_rule_version` |
+| `docker/mysql/init/02_schema.sql` | **7 大核心域 + 3 支撑域 DDL（34 张表）**；含敏感字段密文列、国标规则域、审计与埋点 |
+| `checkstyle/checkstyle.xml` | 静态检查规则；豁免用源码内注释标记 `// CHECKSTYLE_OFF: <CheckName>` … `// CHECKSTYLE_ON: <CheckName>`（随代码走，不依赖外置文件） |
 
 ---
 
@@ -82,11 +91,21 @@ mvn -pl yl-bootstrap -am spring-boot:run -Dspring-boot.run.profiles=dev
 | 工具 | 作用 | 命令 |
 |---|---|---|
 | Spotless (google-java-format AOSP) | 格式统一 | `mvn spotless:apply`（修复）/ `mvn spotless:check`（校验） |
-| Checkstyle | 禁 `System.out` / `printStackTrace` / `java.util.Date`、圈复杂度 ≤15 等 | `mvn checkstyle:check` |
-| SpotBugs | 缺陷扫描 | `mvn com.github.spotbugs:spotbugs-maven-plugin:check` |
+| Checkstyle | 禁 `System.out` / `printStackTrace` / `java.util.Date`、圈复杂度 ≤15 等 | 绑定 `verify`，随 `mvn verify` 执行 |
+| SpotBugs | 字节码缺陷扫描（effort=Max，threshold=Medium，**Medium 及以上阻断构建**） | 绑定 `verify`，随 `mvn verify` 执行 |
 | JaCoCo | 覆盖率 | `mvn verify` |
 
-跳过静态检查快速构建（仅本地应急）：`mvn -Pfast verify`
+> 三个闸门均已绑定 `mvn verify`，**一次 `mvn verify` 即完成全部质量校验**，CI 与本地行为一致。
+
+**豁免约定（不得滥用于掩盖问题）：**
+
+- Checkstyle：源码内注释标记 `// CHECKSTYLE_OFF: <CheckName>` … `// CHECKSTYLE_ON: <CheckName>`，随代码走，不依赖外置文件。
+- SpotBugs：使用 `@SuppressFBWarnings(value = "...", justification = "...")` 精准标注，**`justification` 必填**。若是真实缺陷
+  （如本次修复的 `HRS_REQUEST_PARAMETER_TO_HTTP_HEADER` 头注入），必须**先修代码**，不得压制。
+
+跳过静态检查快速构建（仅本地应急）：`mvn -Pfast verify`（等价 `-DskipCheckstyle=true -DskipSpotbugs=true`）
+
+设计取舍见 `docs/ADR/0001-static-analysis-gates.md`。
 
 ---
 
@@ -113,10 +132,10 @@ mvn -pl yl-bootstrap -am spring-boot:run -Dspring-boot.run.profiles=dev
 
 ## 6. 待办衔接
 
-- `B1-2` 统一 API 规范与网关（OpenAPI 契约、错误码规范在此冻结）
-- `B1-4` 数据库 ER（7 大域建模、敏感字段加密、1 万条导出预留）
+- ~~`B1-2` 统一 API 规范与网关~~ → **已产出**：契约 `openapi/yl-api.yaml`、错误码字典、JWT 双令牌鉴权、Redis 限流、幂等切面
+- ~~`B1-4` 数据库 ER~~ → **已产出**：`docker/mysql/init/02_schema.sql`（34 表）、敏感字段 AES-256-GCM 加密、索引与 1 万条导出容量规划
 - `B2` 账号 RBAC（本模块 `yl-module-account`）
-- `C2` 国标规则引擎（本模块 `yl-module-evaluation`，规则版本表见 `docker/mysql/init/01_init.sql`）
+- `C2` 国标规则引擎（本模块 `yl-module-evaluation`，规则版本表见 `docker/mysql/init/01_init.sql`，26 项指标与规则条目播种归 C2-1）
 
 ---
 

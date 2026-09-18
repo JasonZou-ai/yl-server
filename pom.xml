@@ -31,6 +31,9 @@
         <!-- 静态检查开关：默认执行；-DskipCheckstyle=true 或 -Pfast 可临时跳过 -->
         <skipCheckstyle>false</skipCheckstyle>
 
+        <!-- 字节码缺陷扫描开关：默认执行；-DskipSpotbugs=true 或 -Pfast 可临时跳过 -->
+        <skipSpotbugs>false</skipSpotbugs>
+
         <spring-boot.version>3.2.5</spring-boot.version>
         <mybatis-plus.version>3.5.5</mybatis-plus.version>
         <jjwt.version>0.12.5</jjwt.version>
@@ -45,7 +48,8 @@
         <spotless.version>2.43.0</spotless.version>
         <google-java-format.version>1.19.2</google-java-format.version>
         <checkstyle.version>3.3.1</checkstyle.version>
-        <spotbugs.version>4.8.3.4</spotbugs.version>
+        <spotbugs.version>4.10.4.1</spotbugs.version>
+        <spotbugs.annotations.version>4.10.4</spotbugs.annotations.version>
         <jacoco.version>0.8.11</jacoco.version>
 
         <!-- SonarCloud -->
@@ -162,6 +166,14 @@
             <version>${lombok.version}</version>
             <scope>provided</scope>
         </dependency>
+
+        <!-- 静态扫描注解：仅编译期可见、不参与打包，用于对 SpotBugs 误报做精准且带理由的豁免 -->
+        <dependency>
+            <groupId>com.github.spotbugs</groupId>
+            <artifactId>spotbugs-annotations</artifactId>
+            <version>${spotbugs.annotations.version}</version>
+            <scope>provided</scope>
+        </dependency>
     </dependencies>
 
     <build>
@@ -197,6 +209,8 @@
                     <artifactId>spotless-maven-plugin</artifactId>
                     <version>${spotless.version}</version>
                     <configuration>
+                        <!-- 显式固定为 UNIX(LF)：否则默认取平台行尾，Windows 本地(CRLF)与 Linux CI(LF)判定不一致 -->
+                        <lineEndings>UNIX</lineEndings>
                         <java>
                             <googleJavaFormat>
                                 <version>${google-java-format.version}</version>
@@ -264,6 +278,28 @@
                     </execution>
                 </executions>
             </plugin>
+
+            <!-- 字节码缺陷扫描：verify 阶段执行，Medium 及以上阻断构建 -->
+            <plugin>
+                <groupId>com.github.spotbugs</groupId>
+                <artifactId>spotbugs-maven-plugin</artifactId>
+                <configuration>
+                    <effort>Max</effort>
+                    <threshold>Medium</threshold>
+                    <failOnError>true</failOnError>
+                    <includeTests>false</includeTests>
+                    <skip>${skipSpotbugs}</skip>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>spotbugs-verify</id>
+                        <phase>verify</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
         </plugins>
     </build>
 
@@ -272,6 +308,7 @@
             <id>fast</id>
             <properties>
                 <skipCheckstyle>true</skipCheckstyle>
+                <skipSpotbugs>true</skipSpotbugs>
             </properties>
         </profile>
     </profiles>

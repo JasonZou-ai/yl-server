@@ -1,0 +1,586 @@
+openapi: 3.0.3
+info:
+  title: 银龄守护 · 统一 API（yl-server）
+  description: |
+    四端（微信小程序 / 抖音小程序 / iOS / 安卓）共用同一套 API，由后端统一供给
+    （PRD YL-PRD-v1.0 §8「统一原则」）。
+
+    ## 统一约定
+    - **版本**：所有业务接口前缀 `/api/v1`，版本升级以新增路径而非破坏性修改实现。
+    - **鉴权**：`Authorization: Bearer <accessToken>`；access 2h / refresh 14d（JWT 双令牌）。
+      四端登录方式差异（微信/抖音授权、Apple ID/Face ID、账号密码）由 `/api/v1/auth/*` 统一换取 yl 自有令牌。
+    - **统一响应**：HTTP 状态码只表达传输层语义；业务语义一律走响应体 `code`。
+      `code=0` 成功，非 0 见「错误码字典」。
+    - **幂等**：写操作（提交评估、生成报告、上报、导出）必须携带 `Idempotency-Key`（客户端 UUID）；
+      服务端按 key 去重，重复请求直接返回首次结果，不重复执行。
+    - **分页**：`pageNum`（从 1 起）/ `pageSize`（1-100，默认 20）。
+    - **脱敏**：手机号/身份证/姓名等敏感字段默认脱敏返回（如 `138****5678`），
+      需查看明文须走 `/api/v1/security/reveal`（二次验证 + 留痕）。
+    - **追踪**：响应体与响应头 `X-Trace-Id` 均返回 traceId，便于全链路排障。
+  version: 1.0.0
+servers:
+  - url: http://localhost:8080
+    description: 本地开发（docker-compose 一键启动）
+  - url: https://api.yl.example.com
+    description: 生产（示例域名）
+
+tags:
+  - name: auth
+    description: 认证与令牌
+  - name: elder
+    description: 老人档案
+  - name: evaluation
+    description: 评估任务与评估单
+  - name: rule
+    description: 国标分级规则
+  - name: report
+    description: 评估报告
+  - name: supervise
+    description: 监管上报与导出
+  - name: system
+    description: 系统
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: 统一鉴权令牌（access token）
+
+  parameters:
+    IdempotencyKey:
+      name: Idempotency-Key
+      in: header
+      required: true
+      schema:
+        type: string
+        maxLength: 64
+      description: 幂等键，客户端生成的 UUID；同一键重复提交只执行一次
+    PageNum:
+      name: pageNum
+      in: query
+      required: false
+      schema: { type: integer, minimum: 1, default: 1 }
+    PageSize:
+      name: pageSize
+      in: query
+      required: false
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+
+  schemas:
+    R:
+      type: object
+      description: 统一响应包裹
+      properties:
+        code: { type: integer, description: 0=成功；非0=错误码 }
+        message: { type: string }
+        data: { nullable: true }
+        traceId: { type: string }
+        timestamp: { type: integer, format: int64 }
+      required: [code, message, traceId]
+    PageResult:
+      type: object
+      properties:
+        list: { type: array, items: {} }
+        total: { type: integer, format: int64 }
+        pageNum: { type: integer }
+        pageSize: { type: integer }
+        pages: { type: integer }
+    
+    LoginRequest:
+      type: object
+      description: 四端统一登录入口的请求体（登录方式由 channel 区分）
+      properties:
+        channel:
+          type: string
+          enum: [WECHAT, DOUYIN, PASSWORD, APPLE, FACE]
+          description: 登录渠道
+        code:
+          type: string
+          description: 平台授权码（WECHAT/DOUYIN/APPLE）；PASSWORD 方式为空
+        username: { type: string }
+        password: { type: string, description: 仅 PASSWORD 方式；服务端只比对散列 }
+        deviceType:
+          type: string
+          enum: [WXMP, DYMP, IOS, ANDROID, WEB]
+        deviceId: { type: string }
+      required: [channel, deviceType]
+    TokenPair:
+      type: object
+      properties:
+        accessToken: { type: string }
+        refreshToken: { type: string }
+        expiresIn: { type: integer, description: 秒 }
+        userId: { type: integer, format: int64 }
+        roles: { type: array, items: { type: string } }
+        orgId: { type: integer, format: int64, nullable: true }
+
+    ElderCreate:
+      type: object
+      properties:
+        name: { type: string, description: 明文提交，服务端加密落库 }
+        idCardNo: { type: string, description: 明文提交，服务端加密落库；禁止回显全文 }
+        gender: { type: integer, enum: [0, 1, 2] }
+        birthDate: { type: string, format: date }
+        phone: { type: string }
+        address: { type: string }
+        orgId: { type: integer, format: int64 }
+      required: [name, orgId]
+    ElderView:
+      type: object
+      description: 敏感字段默认脱敏返回
+      properties:
+        id: { type: integer, format: int64 }
+        elderNo: { type: string }
+        name: { type: string, description: 脱敏，如 张* }
+        idCardMask: { type: string, description: 如 5301**********1234 }
+        phone: { type: string, description: 如 138****5678 }
+        gender: { type: integer }
+        age: { type: integer }
+        orgId: { type: integer, format: int64 }
+        status: { type: integer }
+
+    EvalOrder:
+      type: object
+      properties:
+        id: { type: integer, format: int64 }
+        orderNo: { type: string }
+        elderId: { type: integer, format: int64 }
+        assessorId: { type: integer, format: int64 }
+        reviewerId: { type: integer, format: int64, nullable: true }
+        ruleVersionId: { type: integer, format: int64 }
+        totalScore: { type: number, nullable: true }
+        gradeCode:
+          type: string
+          nullable: true
+          enum: [GRADE_INTACT, GRADE_MILD, GRADE_MODERATE, GRADE_SEVERE, GRADE_TOTAL]
+        gradeUpgraded: { type: boolean }
+        upgradeReason: { type: string, nullable: true }
+        status:
+          type: string
+          enum: [DRAFT, SUBMITTED, PUBLISHED, REJECTED, VOID, ARCHIVED]
+        refuseCount: { type: integer }
+    GradeResult:
+      type: object
+      properties:
+        totalScore: { type: number }
+        gradeCode: { type: string }
+        gradeName: { type: string, description: 能力完好/轻度失能/中度失能/重度失能/完全失能 }
+        upgraded: { type: boolean }
+        upgradeReason: { type: string, nullable: true }
+        dimensionScores:
+          type: array
+          items:
+            type: object
+            properties:
+              dimensionCode: { type: integer }
+              dimensionName: { type: string }
+              rawScore: { type: number }
+              maxScore: { type: number }
+        ruleVersionId: { type: integer, format: int64 }
+
+security:
+  - bearerAuth: []
+
+paths:
+  /api/v1/auth/login:
+    post:
+      tags: [auth]
+      summary: 四端统一登录
+      description: 各端以各自平台凭据换取 yl 统一令牌；差异仅在 channel。
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+      responses:
+        '200':
+          description: 登录结果
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/R'
+                  - properties:
+                      data: { $ref: '#/components/schemas/TokenPair' }
+
+  /api/v1/auth/refresh:
+    post:
+      tags: [auth]
+      summary: 刷新令牌
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken: { type: string }
+              required: [refreshToken]
+      responses:
+        '200':
+          description: 新的令牌对
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/R'
+                  - properties:
+                      data: { $ref: '#/components/schemas/TokenPair' }
+
+  /api/v1/auth/logout:
+    post:
+      tags: [auth]
+      summary: 退出登录（令牌加入黑名单）
+      responses:
+        '200': { description: 成功, content: { application/json: { schema: { $ref: '#/components/schemas/R' } } } }
+
+  /api/v1/elders:
+    post:
+      tags: [elder]
+      summary: 新建老人档案
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ElderCreate' }
+      responses:
+        '200':
+          description: 创建结果（返回脱敏视图）
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/R'
+                  - properties:
+                      data: { $ref: '#/components/schemas/ElderView' }
+    get:
+      tags: [elder]
+      summary: 老人列表（分页 + 多维筛选）
+      parameters:
+        - { $ref: '#/components/parameters/PageNum' }
+        - { $ref: '#/components/parameters/PageSize' }
+        - name: orgId
+          in: query
+          schema: { type: integer, format: int64 }
+        - name: keyword
+          in: query
+          description: 姓名/档案号模糊检索（服务端按 hash 列匹配）
+          schema: { type: string }
+        - name: status
+          in: query
+          schema: { type: integer }
+      responses:
+        '200':
+          description: 分页结果
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/R'
+                  - properties:
+                      data:
+                        allOf:
+                          - $ref: '#/components/schemas/PageResult'
+                          - properties:
+                              list:
+                                type: array
+                                items: { $ref: '#/components/schemas/ElderView' }
+
+  /api/v1/elders/{elderId}:
+    get:
+      tags: [elder]
+      summary: 老人档案详情
+      parameters:
+        - name: elderId
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '200':
+          description: 详情
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/R'
+                  - properties:
+                      data: { $ref: '#/components/schemas/ElderView' }
+
+  /api/v1/security/reveal:
+    post:
+      tags: [elder]
+      summary: 查看敏感字段明文（二次验证 + 全留痕）
+      description: 需 secondaryToken（短信/人脸二次验证换取）；调用写入 audit_log(sensitive=1)。
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                bizType: { type: string, enum: [ELDER, USER] }
+                bizId: { type: integer, format: int64 }
+                fields: { type: array, items: { type: string } }
+                secondaryToken: { type: string }
+              required: [bizType, bizId, fields, secondaryToken]
+      responses:
+        '200':
+          description: 明文（调用方需自行做展示期防护）
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/R' }
+
+  /api/v1/eval/tasks:
+    get:
+      tags: [evaluation]
+      summary: 评估任务列表（按机构/评估员/状态筛选）
+      parameters:
+        - { $ref: '#/components/parameters/PageNum' }
+        - { $ref: '#/components/parameters/PageSize' }
+        - name: assessorId
+          in: query
+          schema: { type: integer, format: int64 }
+        - name: status
+          in: query
+          schema: { type: integer }
+      responses:
+        '200':
+          description: 分页结果
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/R'
+                  - properties:
+                      data: { $ref: '#/components/schemas/PageResult' }
+
+  /api/v1/eval/orders:
+    post:
+      tags: [evaluation]
+      summary: 创建评估单（校验评估员资质 + 30 天内重复评估）
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                elderId: { type: integer, format: int64 }
+                orgId: { type: integer, format: int64 }
+                scene: { type: string }
+                changeReason: { type: string, description: 30 天内重复评估时必填 }
+              required: [elderId, orgId]
+      responses:
+        '200':
+          description: 创建结果
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/R'
+                  - properties:
+                      data: { $ref: '#/components/schemas/EvalOrder' }
+
+  /api/v1/eval/orders/{orderId}/answers:
+    put:
+      tags: [evaluation]
+      summary: 保存作答（草稿，30s 自动保存 / 断点续填）
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                answers:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      itemId: { type: integer, format: int64 }
+                      optionCode: { type: string }
+                      score: { type: number }
+                      isRefused: { type: boolean }
+                      hasEvidence: { type: boolean }
+                      clientVersion: { type: integer, description: 乐观锁版本，冲突返回 10005 }
+              required: [answers]
+      responses:
+        '200': { description: 保存成功, content: { application/json: { schema: { $ref: '#/components/schemas/R' } } } }
+
+  /api/v1/eval/orders/{orderId}/grade:
+    post:
+      tags: [evaluation]
+      summary: 触达分级引擎（规则版本化、可热更）
+      description: 输出总分 + 等级 + 维度得分 + 等级上调结果。幂等：同一 order + 同一 key 不重复计算。
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      responses:
+        '200':
+          description: 分级结果
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/R'
+                  - properties:
+                      data: { $ref: '#/components/schemas/GradeResult' }
+
+  /api/v1/eval/orders/{orderId}/submit:
+    post:
+      tags: [evaluation]
+      summary: 提交复核（DRAFT → SUBMITTED；校验必填完整性与留证）
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      responses:
+        '200': { description: 成功, content: { application/json: { schema: { $ref: '#/components/schemas/R' } } } }
+        '409':
+          description: 状态不允许（10005/30002）
+
+  /api/v1/eval/orders/{orderId}/review:
+    post:
+      tags: [evaluation]
+      summary: 复核（发布/驳回；复核人必须 ≠ 录入人）
+      parameters:
+        - name: orderId
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                decision: { type: string, enum: [PUBLISH, REJECT] }
+                opinion: { type: string }
+              required: [decision]
+      responses:
+        '200': { description: 成功, content: { application/json: { schema: { $ref: '#/components/schemas/R' } } } }
+        '403':
+          description: 录入人自行复核被拒（20003）
+
+  /api/v1/rule/versions:
+    get:
+      tags: [rule]
+      summary: 国标规则版本列表
+      responses:
+        '200': { description: 列表, content: { application/json: { schema: { $ref: '#/components/schemas/R' } } } }
+
+  /api/v1/rule/mapping:
+    get:
+      tags: [rule]
+      summary: 国标条款 → 规则条目映射矩阵（可机器校验的追溯锚点）
+      parameters:
+        - name: ruleVersionId
+          in: query
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '200': { description: 映射矩阵, content: { application/json: { schema: { $ref: '#/components/schemas/R' } } } }
+
+  /api/v1/reports/{reportId}:
+    get:
+      tags: [report]
+      summary: 报告详情（含维度得分与验真信息）
+      parameters:
+        - name: reportId
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '200': { description: 详情, content: { application/json: { schema: { $ref: '#/components/schemas/R' } } } }
+
+  /api/v1/reports/{reportId}/generate:
+    post:
+      tags: [report]
+      summary: 生成 PDF 报告（幂等：防重复生成，PRD §7 幂等防重）
+      parameters:
+        - name: reportId
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      responses:
+        '200':
+          description: 生成结果（含 pdf 下载临时地址）
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/R' }
+
+  /api/v1/reports/verify:
+    get:
+      tags: [report]
+      summary: 二维码验真（扫码核验报告有效性）
+      security: []
+      parameters:
+        - name: code
+          in: query
+          required: true
+          schema: { type: string }
+      responses:
+        '200': { description: 验真结果, content: { application/json: { schema: { $ref: '#/components/schemas/R' } } } }
+
+  /api/v1/supervise/exports:
+    post:
+      tags: [supervise]
+      summary: 创建导出任务（≤5000 同步；>10000 走异步落地 COS；全留痕）
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                exportType: { type: string, enum: [EVAL_LIST, REPORT, STAT] }
+                format: { type: string, enum: [XLSX, PDF, CSV] }
+                queryParams: { type: object, additionalProperties: true }
+                secondaryToken: { type: string, description: 导出需二次验证 }
+              required: [exportType, format, secondaryToken]
+      responses:
+        '200':
+          description: 任务已创建（返回 taskNo 与状态）
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/R' }
+        '400':
+          description: 超出单次上限（60001）
+
+  /api/v1/supervise/report:
+    post:
+      tags: [supervise]
+      summary: 监管数据上报（支持重试 + 幂等）
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      responses:
+        '200': { description: 受理, content: { application/json: { schema: { $ref: '#/components/schemas/R' } } } }
+
+  /api/v1/system/health:
+    get:
+      tags: [system]
+      summary: 健康检查（actuator 探针）
+      security: []
+      responses:
+        '200': { description: UP }

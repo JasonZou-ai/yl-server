@@ -6,6 +6,15 @@
   银龄守护后端 Checkstyle 规则集
   设计原则：只拦「会出事故」的问题，不做风格洁癖（风格交给 Spotless/google-java-format）。
   严重级别为 error 的规则将阻断构建（violationSeverity=error）。
+
+  豁免方式（刻意不使用 SuppressionFilter 外置文件）：
+  本项目路径含中文（stage3_开发），maven-checkstyle-plugin 解析 propertyExpansion 时按
+  ISO-8859-1 处理，会把中文路径损坏成 ??????，导致 SuppressionFilter 找不到文件。
+  因此改用「源码内注释标记」豁免（SuppressionCommentFilter），随代码走、不依赖文件路径：
+      // CHECKSTYLE_OFF: IllegalImport
+      import java.util.Date;
+      // CHECKSTYLE_ON: IllegalImport
+  豁免必须写明库名与原因；禁止以「暂时」为由放宽。
 -->
 <module name="Checker">
     <property name="charset" value="UTF-8"/>
@@ -19,6 +28,13 @@
     </module>
 
     <module name="TreeWalker">
+        <!-- 源码内注释豁免：// CHECKSTYLE_OFF: <CheckName> ... // CHECKSTYLE_ON: <CheckName> -->
+        <module name="SuppressionCommentFilter">
+            <property name="offCommentFormat" value="CHECKSTYLE_OFF: ([\w\|]+)"/>
+            <property name="onCommentFormat" value="CHECKSTYLE_ON: ([\w\|]+)"/>
+            <property name="checkFormat" value="$1"/>
+        </module>
+
         <!-- 禁止 System.out / System.err 直接打印（必须走日志框架） -->
         <module name="RegexpSinglelineJava">
             <property name="format" value="System\.(out|err)\.print"/>
@@ -31,7 +47,7 @@
             <property name="message" value="禁止使用 printStackTrace()，请记录到日志或封装异常"/>
         </module>
 
-        <!-- 禁止 java.util.Date / Calendar（统一 java.time） -->
+        <!-- 禁止 java.util.Date / Calendar（统一 java.time）；库边界适配类用注释豁免 -->
         <module name="IllegalImport">
             <property name="illegalPkgs" value="java.util.Date, java.util.Calendar"/>
         </module>

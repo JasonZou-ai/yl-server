@@ -13,6 +13,9 @@ public enum ErrorCode {
     NOT_FOUND(10004, "资源不存在"),
     CONFLICT(10005, "数据冲突，请刷新后重试"),
     IDEMPOTENT_REPLAY(10006, "重复提交（幂等键已存在）"),
+    IDEMPOTENT_KEY_MISSING(10007, "缺少幂等键请求头"),
+    SECOND_VERIFY_REQUIRED(10008, "该操作需先完成二次验证"),
+    RATE_LIMITED(10429, "请求过于频繁，请稍后再试"),
     SYSTEM_ERROR(10999, "系统繁忙，请稍后重试"),
 
     /** 账号权限 */

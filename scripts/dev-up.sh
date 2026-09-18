@@ -28,5 +28,5 @@ echo "==> [3/3] 启动应用（dev）..."
 mvn -B -ntp -pl yl-bootstrap -am spring-boot:run -Dspring-boot.run.profiles=dev -DskipCheckstyle=true
 
 echo "完成后可访问："
-echo "  健康检查   http://127.0.0.1:8080/api/v1/health"
+echo "  健康检查   http://127.0.0.1:8080/api/v1/system/health"
 echo "  接口文档   http://127.0.0.1:8080/doc.html"

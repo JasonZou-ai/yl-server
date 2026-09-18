@@ -1,0 +1,26 @@
+# 统一行尾为 LF，保证 Windows 本地开发与 Linux CI 的 Spotless/Checkstyle 判定一致
+* text=auto eol=lf
+
+# 显式声明为二进制，避免任何行尾转换
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.gif  binary
+*.ico  binary
+*.pdf  binary
+*.zip  binary
+*.jar  binary
+*.xlsx binary
+*.docx binary
+*.pptx binary
+
+# 脚本在 Windows 上经 Git Bash / WSL 执行，统一 LF
+*.sh   text eol=lf
+*.cmd  text eol=crlf
+*.bat  text eol=crlf
+
+# SQL 迁移脚本保持 LF，避免校验和漂移
+*.sql  text eol=lf
+
+# GitHub Actions 工作流
+.github/workflows/*.yml text eol=lf
