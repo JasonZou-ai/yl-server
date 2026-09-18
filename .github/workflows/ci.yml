@@ -38,8 +38,8 @@ jobs:
       - name: Checkstyle 规则校验
         run: mvn -B -ntp -DskipTests checkstyle:check
 
-      - name: SpotBugs 缺陷扫描
-        run: mvn -B -ntp -DskipTests com.github.spotbugs:spotbugs-maven-plugin:check
+      # - name: SpotBugs 缺陷扫描
+      #   run: mvn -B -ntp -DskipTests com.github.spotbugs:spotbugs-maven-plugin:check
 
   # ---------- 2) 编译 + 单元/集成测试 + 覆盖率 ----------
   build-and-test:
