@@ -108,7 +108,7 @@ jobs:
             exit 0
           fi
           mvn -B -ntp verify sonar:sonar \
-            -Dsonar.projectKey=yl-server \
+            -Dsonar.projectKey=JasonZou-ai_yl-server \
             -Dsonar.organization="$SONAR_ORG" \
             -Dsonar.host.url="$SONAR_HOST_URL" \
             -Dsonar.token="$SONAR_TOKEN" \
