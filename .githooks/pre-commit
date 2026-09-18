@@ -1,0 +1,144 @@
+#!/bin/sh
+# =============================================================================
+# pre-commit 钩子：提交前轻量防线
+#
+# 关联任务：B1-1 技术选型与工程脚手架（子任务 r0wpMZ 代码规范与静态检查）
+# 决策依据：docs/ADR/0002-commit-convention-and-hooks.md
+#
+# 设计说明：
+#   默认只做「秒级」检查，不跑 Maven（否则每次提交等 30s+，开发者会直接 --no-verify，
+#   反而让门禁失效）。深度静态检查（Spotless/Checkstyle/SpotBugs）由 CI 与
+#   `mvn verify` 兜底；需要本地全量预检时显式开启：
+#
+#       YL_PRECOMMIT_FULL=1 git commit -m "..."
+#
+# 检查项（默认）：
+#   1) 构建产物 / 二进制误提交（target、*.class、*.jar，Maven Wrapper 除外）
+#   2) 敏感文件（私钥、*.jks、.env 等）与私钥内容
+#   3) 超大文件（> 5 MB，GitHub 单文件硬限制 100 MB）
+#   4) 行尾 CRLF（与 .gitattributes 的 eol=lf 约定冲突，会导致 Spotless 判定分歧）
+#   5) 调试残留（System.out.print / printStackTrace，Checkstyle 同规则的提前反馈）
+#
+# 启用：bash scripts/setup-hooks.sh
+# 临时绕过（不推荐）：git commit --no-verify
+# =============================================================================
+
+MAX_FILE_BYTES=5242880 # 5 MB
+CR=$(printf '\r')
+# 私钥标记拆成两段存储：否则本脚本的检测规则会在扫描自身时命中自己（"检查器自命中"）
+PEM_HEAD="-----BEGIN "
+PEM_TAIL="PRIVATE KEY-----"
+FAIL=0
+
+# 统计信息
+CHECKED=0
+SKIPPED_BINARY=0
+
+err() {
+    echo "      ✗ $1" >&2
+    FAIL=1
+}
+
+warn() {
+    echo "      ⚠ $1" >&2
+}
+
+STAGED=$(git diff --cached --name-only --diff-filter=ACMR)
+
+if [ -z "$STAGED" ]; then
+    exit 0
+fi
+
+# 注意：此处用 here-doc 而非管道，避免子 shell 导致 FAIL 变量丢失
+while IFS= read -r f; do
+    [ -z "$f" ] && continue
+    CHECKED=$((CHECKED + 1))
+
+    # ---------- 1) 构建产物 / 二进制 ----------
+    case "$f" in
+        *maven-wrapper.jar | *.mvn/wrapper/*)
+            ;; # Maven Wrapper 属受控二进制，放行
+        */target/* | target/* | *.class | *.jar | *.war | *.ear)
+            err "疑似构建产物：$f（请检查 .gitignore，勿提交编译输出）"
+            continue
+            ;;
+    esac
+
+    # ---------- 2) 敏感文件 ----------
+    case "$f" in
+        *.pem | *.key | *.p12 | *.pfx | *.jks | *.keystore | *.truststore | \
+            *id_rsa* | *id_dsa* | *id_ecdsa* | *id_ed25519* | \
+            .env | *.env | .env.* | *credentials.json | *service-account*.json)
+            err "疑似敏感凭据文件：$f（密钥不得入库，请改用环境变量 / KMS）"
+            continue
+            ;;
+    esac
+
+    # ---------- 3) 超大文件 ----------
+    SIZE=$(git cat-file -s ":$f" 2>/dev/null || echo 0)
+    case "$SIZE" in
+        '' | *[!0-9]*) SIZE=0 ;;
+    esac
+    if [ "$SIZE" -gt "$MAX_FILE_BYTES" ]; then
+        err "文件过大（$((SIZE / 1024 / 1024)) MB > 5 MB）：$f（请改用 Git LFS 或对象存储）"
+    fi
+
+    # ---------- 4)/5) 文本类文件的逐行检查 ----------
+    case "$f" in
+        *.java | *.sql | *.yml | *.yaml | *.xml | *.md | *.sh | *.properties | \
+            *.json | *.css | *.js | *.ts | *.html | *.txt | \
+            Dockerfile | .gitignore | .gitattributes | .editorconfig | .githooks/*)
+            CONTENT=$(git show ":$f" 2>/dev/null) || continue
+
+            # 4) 行尾 CRLF
+            if printf '%s\n' "$CONTENT" | grep -q "$CR"; then
+                err "存在 CRLF 行尾：$f（本项目约定 LF，见 .gitattributes；可执行 mvn spotless:apply 或 dos2unix 修复）"
+            fi
+
+            # 2b) 私钥内容
+            if printf '%s\n' "$CONTENT" | grep -q -- "${PEM_HEAD}.*${PEM_TAIL}"; then
+                err "文件内含私钥：$f（禁止入库）"
+            fi
+
+            # 5) 调试残留（仅 Java）
+            case "$f" in
+                *.java)
+                    if printf '%s\n' "$CONTENT" | grep -qE "(^|[^A-Za-z0-9_.])System\.out\.print|printStackTrace[[:space:]]*\("; then
+                        err "调试残留：$f 使用了 System.out / printStackTrace（Checkstyle 会阻断，请改用 SLF4J 日志）"
+                    fi
+                    ;;
+            esac
+            ;;
+        *)
+            SKIPPED_BINARY=$((SKIPPED_BINARY + 1))
+            ;;
+    esac
+done <<EOF
+$STAGED
+EOF
+
+# ---------- 6) 可选：本地全量静态检查 ----------
+if [ "${YL_PRECOMMIT_FULL:-0}" = "1" ]; then
+    if command -v mvn >/dev/null 2>&1; then
+        echo "      · YL_PRECOMMIT_FULL=1，执行 mvn spotless:check checkstyle:check ..." >&2
+        if ! mvn -q -o spotless:check checkstyle:check >/dev/null 2>&1; then
+            err "全量静态检查未通过（mvn spotless:apply 可自动修复格式；详细输出见 mvn spotless:check checkstyle:check）"
+        fi
+    else
+        warn "未找到 mvn，已跳过全量静态检查（CI 仍会执行）"
+    fi
+fi
+
+if [ "$FAIL" -ne 0 ]; then
+    echo "" >&2
+    echo "pre-commit 检查未通过，已阻断提交（共检查 $CHECKED 个暂存文件）。" >&2
+    echo "  · 确认无误需强制提交：git commit --no-verify" >&2
+    echo "  · 关闭本钩子：bash scripts/setup-hooks.sh --uninstall" >&2
+    exit 1
+fi
+
+if [ "${YL_PRECOMMIT_VERBOSE:-0}" = "1" ]; then
+    echo "pre-commit 通过：检查 $CHECKED 个文件，跳过非文本文件 $SKIPPED_BINARY 个。" >&2
+fi
+
+exit 0

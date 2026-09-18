@@ -1,0 +1,87 @@
+#!/bin/sh
+# =============================================================================
+# commit-msg 钩子：Conventional Commits 规范校验
+#
+# 关联任务：B1-1 技术选型与工程脚手架（子任务 r0wpMZ 代码规范与静态检查）
+# 决策依据：docs/ADR/0002-commit-convention-and-hooks.md
+#
+# 设计说明：
+#   1) 零第三方依赖（不引 node_modules / commitlint），同一份脚本在本地钩子与
+#      CI（.github/workflows/ci.yml 的 commit-lint 作业）复用，保证口径唯一。
+#   2) 仅校验首行（header），正文（body/footer）不设限，避免阻碍写清来龙去脉。
+#   3) 自动放行 Git 生成的 Merge / Revert / fixup! / squash! 提交。
+#
+# 启用：bash scripts/setup-hooks.sh
+# 临时绕过（不推荐）：git commit --no-verify
+# =============================================================================
+
+MSG_FILE="${1:-}"
+
+if [ -z "$MSG_FILE" ] || [ ! -f "$MSG_FILE" ]; then
+    echo "commit-msg: 用法: .githooks/commit-msg <commit-message-file>" >&2
+    exit 2
+fi
+
+TYPES='feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert'
+MAX_HEADER_LEN=120
+
+HELP_TEXT="
+提交信息须遵循 Conventional Commits：
+
+    <type>(<scope>)!: <描述>
+
+  type   必填，取值：feat fix docs style refactor perf test build ci chore revert
+  scope  可选，表示影响范围（模块名），如 api / rule / eval / archive / ci
+  !      可选，表示破坏性变更（BREAKING CHANGE）
+  描述   必填，建议使用中文，动词开头，结尾不加句号
+
+  示例：
+    feat(eval): 新增评估单提交复核接口
+    fix(rule): 修正分级阈值在 45 分边界上的判定错误
+    docs(adr): 补充提交规范与本地钩子决策记录
+    refactor(api)!: 调整统一响应体字段命名（破坏性变更）
+
+  详细说明请写在首行之后的正文中，正文不校验。
+"
+
+# 取首个非空、非注释行作为 header
+HEADER=$(sed -e '/^#/d' -e 's/[[:space:]]*$//' "$MSG_FILE" | sed -e '/^$/d' | head -n 1)
+
+if [ -z "$HEADER" ]; then
+    echo "" >&2
+    echo "✗ 提交信息为空，已阻断提交。" >&2
+    echo "$HELP_TEXT" >&2
+    exit 1
+fi
+
+# Git 自动生成的信息直接放行
+case "$HEADER" in
+    Merge* | Revert* | 'fixup!'* | 'squash!'*)
+        exit 0
+        ;;
+esac
+
+PATTERN="^(${TYPES})(\([a-zA-Z0-9_./-]+\))?(!)?: .+$"
+
+if ! printf '%s' "$HEADER" | grep -Eq "$PATTERN"; then
+    echo "" >&2
+    echo "✗ 提交信息不符合 Conventional Commits 规范：" >&2
+    echo "      $HEADER" >&2
+    echo "$HELP_TEXT" >&2
+    exit 1
+fi
+
+# 首行长度：仅提示，不阻断（中文按字符计，避免误伤）
+HEADER_LEN=$(printf '%s' "$HEADER" | wc -m | tr -d '[:space:]')
+if [ "${HEADER_LEN:-0}" -gt "$MAX_HEADER_LEN" ]; then
+    echo "⚠ 提示：提交信息首行 ${HEADER_LEN} 字符，建议不超过 ${MAX_HEADER_LEN}，细节请移入正文。" >&2
+fi
+
+# 描述结尾标点：仅提示，不阻断
+case "$HEADER" in
+    *.)
+        echo "⚠ 提示：描述结尾通常不加句号。" >&2
+        ;;
+esac
+
+exit 0

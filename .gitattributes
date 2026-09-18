@@ -19,6 +19,9 @@
 *.cmd  text eol=crlf
 *.bat  text eol=crlf
 
+# Git 钩子（无扩展名，必须 LF，否则 Linux/macOS 下 shebang 与语法解析会出错）
+.githooks/* text eol=lf
+
 # SQL 迁移脚本保持 LF，避免校验和漂移
 *.sql  text eol=lf
 

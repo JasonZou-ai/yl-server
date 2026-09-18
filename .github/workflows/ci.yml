@@ -14,6 +14,41 @@ env:
   MAVEN_OPTS: "-Xmx2g -Dfile.encoding=UTF-8"
 
 jobs:
+  # ---------- 0) 提交信息规范（本地 .githooks/commit-msg 与 CI 复用同一份脚本，口径唯一） ----------
+  commit-lint:
+    name: 提交信息规范
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: 校验提交信息（Conventional Commits）
+        env:
+          GITHUB_EVENT_NAME: ${{ github.event_name }}
+        run: |
+          set +e
+          fail=0
+          if [ "${GITHUB_EVENT_NAME}" = "pull_request" ]; then
+            BASE="${{ github.event.pull_request.base.sha }}"
+            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+          else
+            BASE="${{ github.event.before }}"
+            HEAD_SHA="${{ github.event.after }}"
+          fi
+          # 新分支的 before 为全零 SHA，此时退化为只校验 HEAD
+          if git cat-file -e "${BASE}" 2>/dev/null; then
+            SHAS=$(git log --format=%H "${BASE}..${HEAD_SHA}")
+          else
+            SHAS=$(git log -1 --format=%H "${HEAD_SHA}")
+          fi
+          for sha in ${SHAS}; do
+            git log -1 --format=%B "${sha}" > /tmp/commit-msg.txt
+            printf -- '--- %s | %s\n' "${sha}" "$(head -n 1 /tmp/commit-msg.txt)"
+            sh ./.githooks/commit-msg /tmp/commit-msg.txt || fail=1
+          done
+          exit ${fail}
+
   # ---------- 1) 格式与静态检查（PR 门禁，失败即阻断） ----------
   static-analysis:
     name: 格式与静态检查
@@ -42,7 +77,38 @@ jobs:
       - name: SpotBugs 缺陷扫描
         run: mvn -B -ntp -DskipTests compile spotbugs:check
 
-  # ---------- 2) 编译 + 单元/集成测试 + 覆盖率 ----------
+  # ---------- 2) DDL 落地验证（真实 MySQL 8 执行 init 脚本 + 结构与约束断言） ----------
+  schema-verify:
+    name: DDL 落地验证
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0.37
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+          MYSQL_ROOT_HOST: "%"
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -u root"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 确保 mysql 客户端可用
+        run: command -v mysql >/dev/null || { sudo apt-get update && sudo apt-get install -y mysql-client; }
+
+      - name: 执行并校验 DDL（scripts/verify-schema.sh）
+        env:
+          MYSQL_HOST: 127.0.0.1
+          MYSQL_PORT: "3306"
+          MYSQL_USER: root
+          MYSQL_PASSWORD: ""
+        run: bash scripts/verify-schema.sh
+
+  # ---------- 3) 编译 + 单元/集成测试 + 覆盖率 ----------
   build-and-test:
     name: 构建与测试
     runs-on: ubuntu-latest
@@ -76,7 +142,7 @@ jobs:
           path: '**/target/site/jacoco/**'
           if-no-files-found: ignore
 
-  # ---------- 3) SonarQube 质量门禁（需配置 SONAR_TOKEN Secret） ----------
+  # ---------- 4) SonarQube 质量门禁（需配置 SONAR_TOKEN Secret） ----------
   sonarqube:
     name: SonarQube 质量扫描
     runs-on: ubuntu-latest

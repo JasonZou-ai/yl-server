@@ -48,6 +48,18 @@ yl-common ← yl-domain ← yl-application ← yl-infrastructure
 
 > Maven 建议配置国内镜像（阿里云）加速依赖下载，见文末。
 
+### 首次克隆后：启用 Git 钩子（一次即可）
+
+```bash
+bash scripts/setup-hooks.sh
+```
+
+- `commit-msg`：校验提交信息符合 Conventional Commits（见 §3）
+- `pre-commit`：秒级检查——构建产物/二进制误提交、敏感凭据与私钥、超大文件、CRLF 行尾、调试残留
+
+钩子存放于随仓库版本控制的 `.githooks/`，通过 `core.hooksPath` 生效，**不需要往 `.git/hooks` 拷贝文件**。
+未启用也不影响正确性（CI 会兜底），但本地就失去了快速反馈。取舍见 `docs/ADR/0002-commit-convention-and-hooks.md`。
+
 ### 一键启动
 
 ```bash
@@ -83,6 +95,8 @@ mvn -pl yl-bootstrap -am spring-boot:run -Dspring-boot.run.profiles=dev
 | `docker/mysql/init/01_init.sql` | 建库 + 国标规则版本表 `gb_rule_version` |
 | `docker/mysql/init/02_schema.sql` | **7 大核心域 + 3 支撑域 DDL（34 张表）**；含敏感字段密文列、国标规则域、审计与埋点 |
 | `checkstyle/checkstyle.xml` | 静态检查规则；豁免用源码内注释标记 `// CHECKSTYLE_OFF: <CheckName>` … `// CHECKSTYLE_ON: <CheckName>`（随代码走，不依赖外置文件） |
+| `scripts/verify-schema.sh` | **DDL 落地验证**：真实 MySQL 执行 init 脚本，断言表/列/索引/国标播种，并做「软删除 × 唯一键」行为验证 |
+| `scripts/setup-hooks.sh` | 启用 Git 钩子（提交信息校验 + 提交前检查），`--status` / `--uninstall` 管理 |
 
 ---
 
@@ -107,16 +121,52 @@ mvn -pl yl-bootstrap -am spring-boot:run -Dspring-boot.run.profiles=dev
 
 设计取舍见 `docs/ADR/0001-static-analysis-gates.md`。
 
+### 提交信息规范（Conventional Commits）
+
+格式 `<type>(<scope>)!: <描述>`，`type` 取值：`feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert`。
+
+```bash
+git commit -m "feat(eval): 新增评估单提交复核接口"
+git commit -m "fix(rule): 修正 45 分边界上的等级判定错误"
+git commit -m "docs(adr): 补充提交规范与本地钩子决策记录"
+```
+
+本地由 `.githooks/commit-msg` 校验，CI 的 `commit-lint` 作业调用**同一份脚本**，口径唯一。
+首行之外的正文不校验——鼓励写清"为什么这么改"，国标规则类改动须留下条款依据。
+设计取舍见 `docs/ADR/0002-commit-convention-and-hooks.md`。
+
 ---
 
 ## 4. CI（GitHub Actions）
 
 | 工作流 | 触发 | 内容 |
 |---|---|---|
-| `.github/workflows/ci.yml` | PR / push | ①格式与静态检查 ②构建与测试 ③SonarQube（main/develop） |
+| `.github/workflows/ci.yml` | PR / push | ①提交信息规范 ②格式与静态检查 ③DDL 落地验证 ④构建与测试 ⑤SonarQube（main/develop） |
 | `.github/workflows/build-image.yml` | main 合并 / tag / 手动 | 构建镜像并推送，支持按 tag 回滚 |
 
 需要在仓库 Secrets 配置：`SONAR_TOKEN`、`SONAR_HOST_URL`、`REGISTRY_HOST`、`REGISTRY_USERNAME`、`REGISTRY_PASSWORD`。
+
+### DDL 落地验证（B1-4 / 任务 r4UcEv）
+
+```bash
+# 有 Docker：先起中间件，再校验
+docker compose up -d mysql
+bash scripts/verify-schema.sh
+
+# 任意 MySQL 8 实例（本地便携版 / 已有实例）
+MYSQL_HOST=127.0.0.1 MYSQL_PORT=3306 MYSQL_USER=root MYSQL_PASSWORD=xxx \
+  MYSQL_BIN=/path/to/mysql bash scripts/verify-schema.sh
+
+# 验证后清理测试库
+bash scripts/verify-schema.sh --drop
+```
+
+脚本先 DROP 再重建 `yl_evaluation`，顺序执行 `docker/mysql/init/*.sql`，然后断言 23 项：
+表数量（34）、3 处 `active_uk` 生成列、敏感字段密文/摘要列、**明文敏感列必须为 0**、
+索引数量、国标规则域播种（1 版本 / 4 维度 / 5 等级阈值 / 3 基规则 / 条款号可回溯）、
+评估单状态机与录入-复核互斥字段、埋点 180 天留存列，
+并做**行为验证**——软删除后同键绑定可重建、未删除时唯一键真实拒绝重复（`active_uk` 方案生效的证据）。
+CI 的 `schema-verify` 作业用 MySQL 8.0.37 service container 跑同一脚本。
 
 ---
 
@@ -134,6 +184,8 @@ mvn -pl yl-bootstrap -am spring-boot:run -Dspring-boot.run.profiles=dev
 
 - ~~`B1-2` 统一 API 规范与网关~~ → **已产出**：契约 `openapi/yl-api.yaml`、错误码字典、JWT 双令牌鉴权、Redis 限流、幂等切面
 - ~~`B1-4` 数据库 ER~~ → **已产出**：`docker/mysql/init/02_schema.sql`（34 表）、敏感字段 AES-256-GCM 加密、索引与 1 万条导出容量规划
+- ~~DDL 真实执行验证~~ → **已完成**：`scripts/verify-schema.sh` 在 MySQL 8.0.37 上 23 项断言全绿，已纳入 CI（`schema-verify` 作业，MySQL service container）
+- ~~提交规范与本地钩子~~ → **已完成**：`.githooks/`（commit-msg + pre-commit）+ `scripts/setup-hooks.sh`；CI `commit-lint` 复用同一份脚本
 - `B2` 账号 RBAC（本模块 `yl-module-account`）
 - `C2` 国标规则引擎（本模块 `yl-module-evaluation`，规则版本表见 `docker/mysql/init/01_init.sql`，26 项指标与规则条目播种归 C2-1）
 
