@@ -34,7 +34,6 @@
         <!-- 禁止 java.util.Date / Calendar（统一 java.time） -->
         <module name="IllegalImport">
             <property name="illegalPkgs" value="java.util.Date, java.util.Calendar"/>
-            <property name="message" value="请统一使用 java.time.* 时间 API"/>
         </module>
 
         <!-- 禁止通配符导入 -->
