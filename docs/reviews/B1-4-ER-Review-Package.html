@@ -77,7 +77,7 @@
   <div class="meta">
     对应任务 <code>r4UcEv</code>（P0｜后端）· 子任务 <code>rSQmPF</code>「7 大核心域 ER 设计并评审」｜
     评审对象：<code>docker/mysql/init/02_schema.sql</code>（33 表）+ <code>01_init.sql</code>（1 表）= 共 34 表 ｜
-    评审依据：PRD YL-PRD-v1.0 §2 / §3 / §4 / §6 / §7 / §9 / §10 与 GB/T 42195-2022 ｜
+    评审依据：PRD <b>YL-PRD-v1.1</b>（变更单 CR-M1-001 修订后）§1.2 / §2 / §3 / §4 / §6 / §7 / §9 / §10 与 GB/T 42195-2022 ｜
     版本 2026-09-18
   </div>
   <div class="tldr">
@@ -85,6 +85,16 @@
     <b>结构问题不再是本次评审的争点</b>。本次评审要解决的是<b>口径与范围问题</b>：共 <b>13 项待裁决</b>，
     其中 <b>3 项 P0</b>——且其中 2 项直接命中 M1 准出红线「PRD 存在 P0 级需求歧义未澄清」。
     <br><b>结论导向</b>：P0 三项必须现场裁决；P1 五项须指定责任人；P2 五项登记即可。
+  </div>
+  <div class="tldr" style="background:var(--ok-soft,#e8f5ec);border-left:4px solid var(--ok,#1a7f37)">
+    <b>✅ 评审决议已出（2026-09-18）</b>　本包 13 项待裁决<b>已全部处置</b>：
+    <b>P0 三项</b> —— <b>ER-01 会前已由 CR-M1-001 闭环</b>（PRD v1.1 四维度命名统一为国标口径，无需复议）；
+    ER-02 裁决「消息中心（21/22）、支付与合同（23/24）<b>全部移入 V2 需求池</b>」；
+    ER-03 裁决<b>保留期分档口径</b>（评估记录/报告 5 年 · 审计日志 3 年 · 监管报表 5 年 · 埋点 180 天）。
+    <b>P1 五项</b>已定责并同步产出 DDL 补丁提案；<b>P2 五项</b>登记。
+    评审结论：<b>有条件通过</b>。
+    <br>正式纪要 <code>docs/reviews/ER-Review-20260918.md</code>；DDL 补丁 <code>docs/reviews/ER-20260918-DDL-Patch-Proposal.sql</code>。
+    <br><span style="color:#8a5a0b">⚠ 本页以下内容保留为<b>会前原始材料</b>；其中 ER-01 描述已被 PRD v1.1 取代，一切以纪要为准。</span>
   </div>
 </header>
 
@@ -218,11 +228,11 @@
 <h2>4 待裁决清单（13 项）</h2>
 <p class="legend">严重度定义：<span class="tag t-p0">P0</span> 阻塞评审通过（须现场裁决）｜<span class="tag t-p1">P1</span> 须指定责任人并在 B2/C 启动前定｜<span class="tag t-p2">P2</span> 登记即可，不阻塞。</p>
 
-<h3>4.1 P0 — 阻塞项（3 项，现场裁决）</h3>
+<h3>4.1 P0 — 阻塞项（3 项，现场裁决）　<span class="tag t-ok">✓ 已全部闭环，见纪要 ER-Review-20260918.md</span></h3>
 <table>
   <tr><th class="nowrap">ID</th><th>议题</th><th>证据（现状）</th><th>影响</th><th>建议方案</th><th class="nowrap">裁决方</th></tr>
   <tr>
-    <td><b>ER-01</b><br><span class="tag t-p0">P0</span></td>
+    <td><b>ER-01</b><br><span class="tag t-ok">✓ 会前已闭环</span><br><span class="tag t-p0">P0</span></td>
     <td><b>4 维度命名口径冲突</b></td>
     <td>PRD §3 功能点 2 写「4 维度：<b>自理／运动／认知／感知觉</b>」；而 DDL <code>gb_dimension</code> 播种与 <code>eval_item.dimension_code</code> 注释为「<b>自理能力／基础运动能力／精神状态／感知觉与社会参与</b>」（GB/T 42195-2022 §4.1 口径）</td>
     <td>PRD §8「统一原则」要求文案四端完全一致且由后端供给。命名不统一将导致四端 UI 文案、报告维度名与库中维度字典三方打架，且属 M1 红线「P0 级需求歧义」</td>
@@ -230,7 +240,7 @@
     <td>产品<br><span class="tag t-mut">合规背书</span></td>
   </tr>
   <tr>
-    <td><b>ER-02</b><br><span class="tag t-p0">P0</span></td>
+    <td><b>ER-02</b><br><span class="tag t-ok">✓ 已裁决：全部移 V2</span><br><span class="tag t-p0">P0</span></td>
     <td><b>本期范围（MVP）边界歧义</b></td>
     <td>PRD §1.2 列举本期含 8 个一级模块，显式排除仅「长护险直连、AI 预筛」；但 §3 中「<b>消息中心</b>」（功能点 21、22）与「<b>支付与合同</b>」（功能点 23、24）两个一级模块标为 P2 却<b>未被 §1.2 提及</b>，DDL 亦无对应表</td>
     <td>直接命中 M1 准出红线「PRD 存在 P0 级需求歧义未澄清」。范围不清会导致 ER 被反复质疑「为什么没有消息表／支付表」</td>
@@ -238,7 +248,7 @@
     <td>产品</td>
   </tr>
   <tr>
-    <td><b>ER-03</b><br><span class="tag t-p0">P0</span></td>
+    <td><b>ER-03</b><br><span class="tag t-ok">✓ 已裁决：分档保留期</span><br><span class="tag t-p0">P0</span></td>
     <td><b>保留期未定义</b></td>
     <td>埋点已落 <code>expire_at</code>（≤180 天，PRD §9 硬约束）<span class="tag t-ok">✓</span>；但 <code>audit_log</code>（导出／作废／解绑／复核留痕）<b>无保留期字段</b>，<code>supervise_report</code>、评估记录法定保留期亦未定。PRD §4.4 有「归档（超保留期→仅监管）」态但未写期限</td>
     <td>合规红线。保留期缺失 → 「过期清理」与「归档」两个机制都无触发依据；且影响 M1 验收项 #5（DPO 预审）</td>
