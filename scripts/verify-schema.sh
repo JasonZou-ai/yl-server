@@ -3,7 +3,7 @@
 # DDL 落地验证：真实 MySQL 执行 + 结构断言 + 关键约束行为验证
 #
 # 关联任务：B1-4 数据库 ER 设计（任务 r4UcEv）
-# 依据：docker/mysql/init/*.sql（01 建库 + 国标规则版本表；02 核心域 33 张表）
+# 依据：docker/mysql/init/*.sql（01 建库 + 国标规则版本表；02 核心域 36 张表，含 ER 评审补丁 3 表）
 #
 # 用途：在真实 MySQL 8 上执行初始化脚本并断言"结构真实落地 + 关键约束真实生效"，
 #       避免"DDL 只存在于文件、从未被执行过"这类交付风险。
@@ -188,6 +188,15 @@ STATUS_COL=$(sql "SELECT COUNT(*) FROM information_schema.columns WHERE table_sc
 check "评估单状态机 + 录入/复核互斥 + 规则版本锁定字段" "$STATUS_COL" "4"
 check_ge "埋点留存控制列 expire_at（PRD §9 保留≤180 天）" "$(sql "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='$DB_NAME' AND table_name='track_event' AND column_name='expire_at';")" "1"
 check_ge "审计留痕表 audit_log" "$(sql "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='$DB_NAME' AND table_name='audit_log';")" "1"
+
+# ---- ER 三方评审补丁断言（2026-09-18 裁决：ER-03/04/05/06/07/08）----
+echo "      ER 三方评审补丁（ER-03/04/05/06/07/08）："
+check "ER-03 保留期列 retain_until（4 表）" "$(sql "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='$DB_NAME' AND column_name='retain_until';")" "4"
+check_ge "ER-05 乐观锁列 row_version" "$(sql "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='$DB_NAME' AND column_name='row_version';")" "2"
+check "ER-06 作答三语义列（answer_state + is_required）" "$(sql "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='$DB_NAME' AND column_name IN ('answer_state','is_required');")" "2"
+check "ER-07 长期授权列 is_permanent" "$(sql "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='$DB_NAME' AND table_name='elder_authorization' AND column_name='is_permanent';")" "1"
+check "ER-08 告知同意留痕表 consent_record" "$(sql "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='$DB_NAME' AND table_name='consent_record';")" "1"
+check "ER-04 照护任务表（care_task + care_task_log）" "$(sql "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='$DB_NAME' AND table_name IN ('care_task','care_task_log');")" "2"
 echo ""
 
 # ---------- 7) 行为验证：软删除 × 唯一键 ----------

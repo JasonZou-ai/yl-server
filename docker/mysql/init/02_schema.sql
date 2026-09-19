@@ -8,6 +8,14 @@
 --   2) 敏感字段命名后缀 _enc（密文，AES-256-GCM 信封加密）或 _hash（HMAC-SHA256，供等值检索）。
 --      禁止明文落库：身份证号、真实姓名、手机号、住址、健康史、用药记录、人脸特征。
 --   3) created_at / updated_at 统一 DATETIME，created_by / updated_by 记录操作人（审计）。
+--   4) 【ER 三方评审补丁 2026-09-18】依据 docs/reviews/ER-Review-20260918.md 裁决内联：
+--      ER-03 保留期列 retain_until（评估记录/报告 5 年 · 审计日志 3 年 · 监管报表 5 年）
+--      ER-04 照护任务 care_task / care_task_log（功能点 12 本期纳入）
+--      ER-05 乐观锁列 row_version（离线冲突口径：服务端为准）
+--      ER-06 作答三语义 eval_answer.answer_state + eval_item.is_required
+--      ER-07 长期授权 elder_authorization.is_permanent
+--      ER-08 告知同意留痕 consent_record
+--      表总数 34 → 37（基线 33 + 01_init 1 + 本次新增 3）
 -- =============================================================================
 
 USE `yl_evaluation`;
@@ -230,6 +238,7 @@ CREATE TABLE IF NOT EXISTS `elder_authorization` (
     `scope`         VARCHAR(255) NOT NULL COMMENT '授权范围（report/archive/care，逗号分隔）',
     `valid_from`    DATETIME    NULL,
     `valid_to`      DATETIME    NULL,
+    `is_permanent`  TINYINT     NOT NULL DEFAULT 0 COMMENT '1-长期有效（valid_to 为 NULL，ER-07）',
     `status`        TINYINT     NOT NULL DEFAULT 1 COMMENT '0-已回收 1-生效 2-过期',
     `granted_by`    BIGINT      NULL,
     `revoked_at`    DATETIME    NULL,
@@ -237,8 +246,10 @@ CREATE TABLE IF NOT EXISTS `elder_authorization` (
     `created_at`    DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
     KEY `idx_elder` (`elder_id`, `status`),
-    KEY `idx_grantee` (`grantee_user_id`, `status`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='档案授权（授权/回收/有效期）';
+    KEY `idx_grantee` (`grantee_user_id`, `status`),
+    -- ER-07：到期失效任务须显式排除长期授权
+    KEY `idx_expire_scan` (`status`, `is_permanent`, `valid_to`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='档案授权（授权/回收/有效期；ER-07 长期语义）';
 
 -- =============================================================================
 -- 域 4｜评估域（evaluation）：评估任务 / 评估单 / 作答 / 证据 / 复核日志
@@ -287,6 +298,8 @@ CREATE TABLE IF NOT EXISTS `eval_order` (
     `review_at`       DATETIME    NULL,
     `review_opinion`  VARCHAR(500) NULL COMMENT '复核意见',
     `published_at`    DATETIME    NULL,
+    `row_version`     INT         NOT NULL DEFAULT 0 COMMENT '乐观锁版本号（离线冲突检测）',
+    `retain_until`    DATETIME    NULL COMMENT '保留至（评估记录 5 年，ER-03）',
     `deleted`         TINYINT     NOT NULL DEFAULT 0,
     `created_at`      DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     `updated_at`      DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -295,8 +308,9 @@ CREATE TABLE IF NOT EXISTS `eval_order` (
     KEY `idx_elder_status` (`elder_id`, `status`),
     KEY `idx_assessor_status` (`assessor_id`, `status`),
     KEY `idx_org_status_time` (`org_id`, `status`, `created_at`),
-    KEY `idx_rule_version` (`rule_version_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='评估单（6 状态机）';
+    KEY `idx_rule_version` (`rule_version_id`),
+    KEY `idx_retain` (`retain_until`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='评估单（6 状态机；ER-03/ER-05 补丁）';
 
 CREATE TABLE IF NOT EXISTS `eval_item` (
     `id`            BIGINT       NOT NULL,
@@ -309,6 +323,7 @@ CREATE TABLE IF NOT EXISTS `eval_item` (
     `score_max`     DECIMAL(4,1) NOT NULL,
     `weight`        DECIMAL(5,2) NOT NULL DEFAULT 1.00,
     `need_evidence` TINYINT      NOT NULL DEFAULT 0 COMMENT '1-关键指标强制留证',
+    `is_required`   TINYINT      NOT NULL DEFAULT 0 COMMENT '1-必答（应填未填即阻断提交，ER-06）',
     `order_no`      SMALLINT     NOT NULL DEFAULT 0,
     `deleted`       TINYINT      NOT NULL DEFAULT 0,
     PRIMARY KEY (`id`),
@@ -335,13 +350,16 @@ CREATE TABLE IF NOT EXISTS `eval_answer` (
     `option_code` VARCHAR(16)  NULL,
     `score`       DECIMAL(4,1) NULL COMMENT '本条得分（拒绝回答为 NULL）',
     `is_refused`  TINYINT      NOT NULL DEFAULT 0 COMMENT '1-拒绝回答（不计分，触发人工复核）',
+    `answer_state` TINYINT     NOT NULL DEFAULT 0 COMMENT '作答状态：0-未作答 1-已作答 2-不适用(分支未触达) 3-拒答（ER-06）',
     `has_evidence` TINYINT     NOT NULL DEFAULT 0,
     `cost_ms`     INT          NULL COMMENT '作答耗时（埋点分析）',
     `answered_at` DATETIME     NULL,
+    `row_version` INT          NOT NULL DEFAULT 0 COMMENT '乐观锁版本号（离线冲突检测）',
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_order_item` (`order_id`, `item_id`),
-    KEY `idx_order` (`order_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='评估作答明细';
+    KEY `idx_order` (`order_id`),
+    KEY `idx_order_state` (`order_id`, `answer_state`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='评估作答明细（含作答三语义；ER-05/ER-06）';
 
 CREATE TABLE IF NOT EXISTS `eval_evidence` (
     `id`            BIGINT       NOT NULL,
@@ -449,6 +467,7 @@ CREATE TABLE IF NOT EXISTS `eval_report` (
     `status`        TINYINT      NOT NULL DEFAULT 0 COMMENT '0-生成中 1-有效 2-已作废',
     `generated_at`  DATETIME     NULL,
     `published_at`  DATETIME     NULL,
+    `retain_until`  DATETIME     NULL COMMENT '保留至（报告 5 年，ER-03）',
     `deleted`       TINYINT      NOT NULL DEFAULT 0,
     -- 仅活跃行唯一：一个评估单同时只允许一份有效报告
     `active_uk`     TINYINT GENERATED ALWAYS AS (IF(`deleted` = 0, 1, NULL)) STORED,
@@ -457,8 +476,9 @@ CREATE TABLE IF NOT EXISTS `eval_report` (
     UNIQUE KEY `uk_report_no` (`report_no`),
     UNIQUE KEY `uk_order` (`order_id`, `active_uk`),
     KEY `idx_elder_time` (`elder_id`, `published_at`),
-    KEY `idx_org_grade` (`org_id`, `grade_code`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='评估报告';
+    KEY `idx_org_grade` (`org_id`, `grade_code`),
+    KEY `idx_retain` (`retain_until`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='评估报告（ER-03 保留期）';
 
 CREATE TABLE IF NOT EXISTS `report_dimension_score` (
     `id`             BIGINT       NOT NULL,
@@ -503,6 +523,52 @@ CREATE TABLE IF NOT EXISTS `care_plan` (
     KEY `idx_elder` (`elder_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='照护方案';
 
+-- -----------------------------------------------------------------------------
+-- ER-04 补丁：功能点 12 照护任务派发（本期纳入）→ care_task / care_task_log
+-- 功能点 20 自定义报表 → 移 V2，本期以固定报表 + export_task 承载，不建表
+-- -----------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS `care_task` (
+    `id`            BIGINT       NOT NULL,
+    `task_no`       VARCHAR(32)  NOT NULL COMMENT '照护任务号',
+    `plan_id`       BIGINT       NULL COMMENT '来源照护方案',
+    `elder_id`      BIGINT       NOT NULL,
+    `org_id`        BIGINT       NOT NULL,
+    `assignee_id`   BIGINT       NULL COMMENT '执行人（护理员）',
+    `category`      VARCHAR(32)  NULL COMMENT '任务类别（生活照料/康复/用药提醒...）',
+    `title`         VARCHAR(128) NOT NULL,
+    `content`       VARCHAR(500) NULL,
+    `plan_start_at` DATETIME     NULL COMMENT '计划开始',
+    `plan_end_at`   DATETIME     NULL COMMENT '计划结束',
+    `status`        TINYINT      NOT NULL DEFAULT 0 COMMENT '0-待执行 1-执行中 2-已完成 3-已取消',
+    `row_version`   INT          NOT NULL DEFAULT 0 COMMENT '乐观锁版本号',
+    `deleted`       TINYINT      NOT NULL DEFAULT 0,
+    `created_by`    BIGINT       NULL,
+    `created_at`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_task_no` (`task_no`),
+    KEY `idx_assignee_status` (`assignee_id`, `status`),
+    KEY `idx_elder` (`elder_id`),
+    KEY `idx_org_plan` (`org_id`, `plan_start_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='照护任务派发（功能点 12，ER-04）';
+
+CREATE TABLE IF NOT EXISTS `care_task_log` (
+    `id`          BIGINT       NOT NULL,
+    `task_id`     BIGINT       NOT NULL,
+    `action`      VARCHAR(16)  NOT NULL COMMENT 'START/CHECKIN/DONE/SKIP',
+    `checkin_at`  DATETIME     NULL COMMENT '打卡时间',
+    `geo_lat`     DECIMAL(10,7) NULL,
+    `geo_lng`     DECIMAL(10,7) NULL,
+    `photo_key`   VARCHAR(255) NULL COMMENT '打卡照片对象键（可选）',
+    `remark`      VARCHAR(500) NULL,
+    `operator_id` BIGINT       NULL,
+    `created_at`  DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    KEY `idx_task_time` (`task_id`, `checkin_at`),
+    KEY `idx_operator` (`operator_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='照护任务执行打卡（完成率数据源，ER-04）';
+
 -- =============================================================================
 -- 域 7｜监管与报表域（supervise/report）：导出任务 / 监管上报 / 审计 / 埋点
 -- =============================================================================
@@ -539,12 +605,14 @@ CREATE TABLE IF NOT EXISTS `supervise_report` (
     `last_error`    VARCHAR(500) NULL,
     `idempotent_key` VARCHAR(64) NOT NULL COMMENT '上报幂等键（PRD 功能18）',
     `sent_at`       DATETIME     NULL,
+    `retain_until`  DATETIME     NULL COMMENT '保留至（监管报表 5 年，ER-03）',
     `created_at`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_month_org` (`report_month`, `org_id`),
     UNIQUE KEY `uk_idem` (`idempotent_key`),
-    KEY `idx_status` (`status`, `retry_count`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='监管上报记录';
+    KEY `idx_status` (`status`, `retry_count`),
+    KEY `idx_retain` (`retain_until`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='监管上报记录（ER-03 保留期）';
 
 CREATE TABLE IF NOT EXISTS `audit_log` (
     `id`             BIGINT       NOT NULL,
@@ -558,12 +626,38 @@ CREATE TABLE IF NOT EXISTS `audit_log` (
     `sensitive`      TINYINT      NOT NULL DEFAULT 0 COMMENT '1-敏感操作（需留痕）',
     `second_verify`  TINYINT      NOT NULL DEFAULT 0 COMMENT '是否通过二次验证',
     `detail`         JSON         NULL COMMENT '操作上下文（已脱敏）',
+    `retain_until`   DATETIME     NULL COMMENT '保留至（审计日志 3 年，ER-03）',
     `created_at`     DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
     KEY `idx_action_time` (`action`, `created_at`),
     KEY `idx_operator_time` (`operator_id`, `created_at`),
-    KEY `idx_biz` (`biz_type`, `biz_id`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='审计日志（敏感操作留痕）';
+    KEY `idx_biz` (`biz_type`, `biz_id`),
+    KEY `idx_retain` (`retain_until`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='审计日志（敏感操作留痕；ER-03 保留期 3 年）';
+
+-- -----------------------------------------------------------------------------
+-- ER-08 补丁：告知同意留痕（个保法「知情同意」举证）
+-- 与业务授权表 elder_authorization 区分：此处记录对隐私政策的同意
+-- -----------------------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS `consent_record` (
+    `id`              BIGINT       NOT NULL,
+    `subject_type`    VARCHAR(16)  NOT NULL COMMENT '主体类型：ELDER/FAMILY/STAFF',
+    `subject_id`      BIGINT       NOT NULL COMMENT '主体 ID',
+    `policy_code`     VARCHAR(32)  NOT NULL COMMENT '隐私政策编号',
+    `policy_version`  VARCHAR(16)  NOT NULL COMMENT '政策版本号',
+    `consent_at`      DATETIME     NOT NULL COMMENT '同意时间',
+    `consent_channel` VARCHAR(16)  NOT NULL COMMENT '渠道：APP/WECHAT/DOUYIN/IOS/PAPER',
+    `scope_json`      JSON         NULL COMMENT '授权收集范围快照',
+    `revoked_at`      DATETIME     NULL COMMENT '撤回时间',
+    `ip`              VARCHAR(45)  NULL,
+    `deleted`         TINYINT      NOT NULL DEFAULT 0,
+    `created_at`      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    KEY `idx_subject` (`subject_type`, `subject_id`),
+    KEY `idx_policy` (`policy_code`, `policy_version`),
+    KEY `idx_consent_time` (`consent_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='告知同意留痕（个保法举证，ER-08）';
 
 CREATE TABLE IF NOT EXISTS `idempotent_record` (
     `id`             BIGINT       NOT NULL,
