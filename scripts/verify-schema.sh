@@ -4,6 +4,7 @@
 #
 # 关联任务：B1-4 数据库 ER 设计（任务 r4UcEv）
 # 依据：docker/mysql/init/*.sql（01 建库 + 国标规则版本表；02 核心域 36 张表，含 ER 评审补丁 3 表）
+#      docs/ADR/0003-id-timezone-fk-softdelete.md（ER-09 主键 / ER-12 时区 / ER-13 外键与软删除）
 #
 # 用途：在真实 MySQL 8 上执行初始化脚本并断言"结构真实落地 + 关键约束真实生效"，
 #       避免"DDL 只存在于文件、从未被执行过"这类交付风险。
@@ -197,6 +198,21 @@ check "ER-06 作答三语义列（answer_state + is_required）" "$(sql "SELECT 
 check "ER-07 长期授权列 is_permanent" "$(sql "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='$DB_NAME' AND table_name='elder_authorization' AND column_name='is_permanent';")" "1"
 check "ER-08 告知同意留痕表 consent_record" "$(sql "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='$DB_NAME' AND table_name='consent_record';")" "1"
 check "ER-04 照护任务表（care_task + care_task_log）" "$(sql "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='$DB_NAME' AND table_name IN ('care_task','care_task_log');")" "2"
+
+# ---- ADR-0003 全库口径断言（ER-09 主键 / ER-12 时区 / ER-13 外键与软删除）----
+# 见 docs/ADR/0003-id-timezone-fk-softdelete.md
+# 三项均为「全库级」约定：不由单表决定，违反即为口径漂移，必须阻断构建。
+echo "      ADR-0003 全库口径（ER-09 / ER-12 / ER-13）："
+AI_COLS=$(sql "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='$DB_NAME' AND extra LIKE '%auto_increment%';")
+check "ER-09 自增列（业务表禁用，仅允许 gb_rule_version）" "$AI_COLS" "1"
+TS_COLS=$(sql "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='$DB_NAME' AND data_type='timestamp';")
+check "ER-12 TIMESTAMP 列（全库禁用，统一 DATETIME）" "$TS_COLS" "0"
+DT_COLS=$(sql "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='$DB_NAME' AND data_type='datetime';")
+check_ge "ER-12 DATETIME 列（统一时间列类型）" "$DT_COLS" "60"
+FK_COUNT=$(sql "SELECT COUNT(*) FROM information_schema.table_constraints WHERE table_schema='$DB_NAME' AND constraint_type='FOREIGN KEY';")
+check "ER-13 外键约束（全库禁用，引用完整性由应用层保证）" "$FK_COUNT" "0"
+DEL_COLS=$(sql "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='$DB_NAME' AND column_name='deleted';")
+check_ge "ER-13 软删除列 deleted" "$DEL_COLS" "19"
 echo ""
 
 # ---------- 7) 行为验证：软删除 × 唯一键 ----------
