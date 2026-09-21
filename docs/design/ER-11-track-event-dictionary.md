@@ -88,7 +88,11 @@
 | 29 | `page_stay` ★ | 页面停留 | 离开页面 | `page_id`、`duration_ms`、`enter_at`、`leave_at` | **s2** | 全 |
 | 30 | `error_occur` | 异常发生 | 捕获异常 | `error_code`、`page_id`、`is_network` | **s1** | 全 |
 
-> **收敛说明**：自 v0 的 48 事件收敛至 30，规则为「监管报表必需 + 核心漏斗 + 关键异常 + 合规敏感操作」；M1 禁采 8 事件、consent_record、archive 明文/下载审计事件**一律保留原名**（不得自造/简并）。被裁事件（`auth_page_view`、`auth_token_refresh`、`elder_create_start`、`elder_idcard_ocr`、`assessment_questionnaire_start`、`assessment_item_skip`、`assessment_offline_enter`、`assessment_evidence_capture`、`grade_auto_trigger`、`grade_manual_review`、`report_publish`、`report_print`、`care_plan_confirm` 已保留→`care_task_dispatch`、`care_task_checkin`、`archive_retention_set`、`archive_archive_trigger`、`app_launch`、`api_perf`）标记为 P2，后续按需补回。
+> **收敛说明**：自 v0 的 48 事件收敛至 30（48 − 18 = 30），规则为「监管报表必需 + 核心漏斗 + 关键异常 + 合规敏感操作」；M1 禁采 8 事件、consent_record、archive 明文/下载审计事件**一律保留原名**（不得自造/简并）。
+>
+> 被裁事件共 **18** 个：`auth_page_view`、`auth_token_refresh`、`elder_create_start`、`elder_idcard_ocr`、`assessment_questionnaire_start`、`assessment_item_skip`、`assessment_offline_enter`、`assessment_evidence_capture`、`grade_auto_trigger`、`grade_manual_review`、`report_publish`、`report_print`、`care_task_dispatch`、`care_task_checkin`、`archive_retention_set`、`archive_archive_trigger`、`app_launch`、`api_perf` —— 标记为 P2，后续按需补回。
+>
+> ⚠ **R5 修正（2026-09-22）**：`care_plan_confirm` **已保留为上表 #20（s1）**，此前被误列入上述被裁清单，易使读者误判「已保留的事件被裁掉」。现已从被裁清单移除，本段事件数为 `13 + 5 = 18`，与「48 − 30」自洽。
 
 ---
 
