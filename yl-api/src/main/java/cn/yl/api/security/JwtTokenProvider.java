@@ -86,4 +86,8 @@ public final class JwtTokenProvider {
     public Duration getAccessTtl() {
         return accessTtl;
     }
+
+    public Duration getRefreshTtl() {
+        return refreshTtl;
+    }
 }
