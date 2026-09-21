@@ -1,6 +1,6 @@
 # 四端统一埋点事件名字典（合并定稿 v1.1）
 
-> 编号 **YL-M2-ER11-TRACK-DICT-v1.1**｜编制 2026-09-21｜状态：**合并定稿（取代 v0 初稿 与 v1.0 定稿）**
+> 编号 **YL-M2-ER11-TRACK-DICT-v1.1**｜编制 2026-09-21｜状态：**合并定稿（取代 v0 初稿 与 v1.0 定稿）· 2026-09-21 定稿决议（见 §10）**
 > 真源：PRD §9 数据埋点需求 ＋ M1《脱敏与埋点合规方案》`YL-M1-A2-DESENS-001` §4（8 事件禁采清单）＋ 用户采纳的 5 项决策
 > 合规基线：《个人信息保护法》(PIPL)、《数据安全法》、GB/T 42195-2022、四端平台规则
 > 关联：ER 评审 ER-11（埋点事件名字典，r5HcnX）｜落库表 `track_event` / `track_event_dict`
@@ -145,20 +145,36 @@
 ## 7 track_event_dict 建表（合并 DDL）
 
 ```sql
-CREATE TABLE track_event_dict (
-  id            BIGINT        PRIMARY KEY AUTO_INCREMENT,
-  event_code    VARCHAR(64)   NOT NULL UNIQUE COMMENT '事件编码(与代码枚举一一对应)',
-  event_name    VARCHAR(128)  NOT NULL        COMMENT '中文名',
-  module        VARCHAR(64)                   COMMENT '归属模块',
-  page          VARCHAR(128)                  COMMENT '归属页面(白名单)',
-  param_schema  JSON                         COMMENT '参数结构(schema)',
-  sensitivity   ENUM('s0','s1','s2') NOT NULL DEFAULT 's0' COMMENT '敏感级别(s0不含个人信息/s1可识别需脱敏/s2敏感个人信息禁采原文)',
-  retain_days   INT          NOT NULL DEFAULT 180 COMMENT '留存天数(对齐PRD§9/M1§5)',
-  status        TINYINT      NOT NULL DEFAULT 1 COMMENT '1启用 0停用',
-  created_at    DATETIME,
-  updated_at    DATETIME
-) COMMENT '埋点事件元数据字典';
+CREATE TABLE IF NOT EXISTS `track_event_dict` (
+  `id`           BIGINT       NOT NULL COMMENT '主键（应用层生成，ADR-0003）',
+  `event_code`   VARCHAR(64)  NOT NULL COMMENT '事件编码（与代码枚举 EventCode 一一对应）',
+  `event_name`   VARCHAR(128) NOT NULL COMMENT '中文名',
+  `module`       VARCHAR(64)  NULL     COMMENT '归属模块',
+  `page`         VARCHAR(128) NULL     COMMENT '归属页面（白名单）',
+  `param_schema` JSON         NULL     COMMENT '参数结构（schema）',
+  `sensitivity`  ENUM('s0','s1','s2') NOT NULL DEFAULT 's0'
+                 COMMENT '敏感级别（s0 不含个人信息 / s1 可识别需脱敏 / s2 敏感个人信息禁采原文）',
+  `retain_days`  INT          NOT NULL DEFAULT 180 COMMENT '留存天数（对齐 PRD §9 / M1 §5）',
+  `status`       TINYINT      NOT NULL DEFAULT 1    COMMENT '0-停用 1-启用',
+  `deleted`      TINYINT      NOT NULL DEFAULT 0,
+  `active_uk`    TINYINT GENERATED ALWAYS AS (IF(`deleted` = 0, 1, NULL)) STORED,
+  `created_at`   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at`   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_event_code` (`event_code`, `active_uk`),
+  KEY `idx_module_page` (`module`, `page`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='埋点事件元数据字典（ER-11）';
 ```
+
+> **⚠ 本版对 v1.1 原 DDL 的修正（2026-09-21）**：原稿使用 `id BIGINT PRIMARY KEY AUTO_INCREMENT`、
+> `event_code ... UNIQUE`、且缺 `deleted` / `active_uk` —— **违反 ADR-0003 全库口径**
+> （业务表主键应用层生成、禁用 `AUTO_INCREMENT`；软删除统一用 `deleted` + `active_uk` 生成列），
+> 会直接触发 `verify-schema.sh` 的「自增列 = 1」断言失败。已按 ADR-0003 改写：
+> 主键改应用层生成、唯一键加 `active_uk`（停用/软删后同名事件可重新登记）、补软删除两列。
+>
+> **上库路径**：本表**尚未加入 `02_schema.sql`**（当前 36 表）。建表须随 **ER 补丁**上库
+> （建议与 ER-14 第三方绑定表同批），并同步 `verify-schema.sh` 断言：
+> 表数 37 → 39、`active_uk` 生成列 3 → 5、`deleted` 列 19 → 21。
 
 **后台校验规则**：上报的 `event_code` 不在 `track_event_dict`（且 status=1）时，后端拒绝写入并告警，确保四端不会埋入未登记/已停用事件。
 
@@ -186,5 +202,28 @@ CREATE TABLE track_event_dict (
 
 ---
 
+## 10 定稿决议（2026-09-21）
+
+需求方授权按推荐口径定稿，逐项闭环 v1.1 遗留问题：
+
+| # | 待决项 | 定稿口径 | 状态 |
+|---|---|---|---|
+| 1 | 事件数是否收敛 | **收敛至 30 条**（自 v0 的 48 条），规则＝监管报表必需 + 核心漏斗 + 关键异常 + 合规敏感操作；被裁事件标 P2 按需补回 | ✅ 定稿 |
+| 2 | `assessment_submit` 是否传精确总分 | **不传**，仅传 `level` + `dim_levels`（DPO-2） | ✅ 已确认 |
+| 3 | 是否采集 `device_id` | **不采集**（DPO-1） | ✅ 已确认 |
+| 4 | 落地方式（字典表 / 代码枚举 / 两者） | **两者兼有，代码枚举为真源**：`EventCode` 枚举为事实来源，`track_event_dict` 表为其**运行时投影**（供网关白名单校验与治理查询），二者由 CI 校验一致性 | ✅ 定稿 |
+| 5 | 是否新增 `track_event_dict` 表 | **新增**，DDL 已按 ADR-0003 修正（见 §7）；随 ER 补丁上库（建议与 ER-14 同批） | ✅ 定稿（待上库） |
+| 6 | `user_id` 是否明文上报（DPO-3） | **一律 HMAC-SHA256 摘要**，不传明文 —— 相对 DPO 已签字的 v1.0 属**隐私加强**，风险单向下降，研发侧按加强口径先行实现，**待 DPO 形式确认** | ⚠ 形待确认 |
+
+**定稿后的落地契约（对 SDK 的硬要求）**
+
+1. 事件名常量集须与本文档**同源**（`EventCode` 枚举 + CI 比对 `track_event_dict` 30 条）；
+2. **未登记事件名不得上报**（网关白名单校验，命中即拒绝并告警）；
+3. 参数按 s1/s2 规则**在端侧先脱敏再上报**（s2 仅传 ID/枚举/布尔/计数）；
+4. 小程序端须**先获授权**再初始化 SDK（对齐 M1 单独同意）；
+5. `expire_at = occurred_at + 180 天`，到期自动清理。
+
+---
+
 **编制**：AI（合并 v0 初稿 + v1.0 定稿）｜**依据**：PRD §9、M1 `YL-M1-A2-DESENS-001` §4/§5、ER 评审 ER-11、用户采纳的 5 项决策
-**关联**：`docs/design/B2-account-rbac-design.md`（敏感操作留痕）｜`track_event` / `track_event_dict`
+**关联**：`docs/design/B2-account-rbac-design.md`（敏感操作留痕）｜`track_event` / `track_event_dict`｜ADR-0003

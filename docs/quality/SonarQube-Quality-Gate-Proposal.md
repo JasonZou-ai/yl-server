@@ -1,9 +1,9 @@
-# SonarQube Quality Gate 阈值提案（v1 · 待评审定稿）
+# SonarQube Quality Gate 阈值提案（v1.1 · 已定稿）
 
-> 编号 **YL-M2-QG-PROPOSAL-v1**｜编制 2026-09-21｜状态：**提案，待评审定稿**
+> 编号 **YL-M2-QG-PROPOSAL-v1.1**｜编制 2026-09-21｜状态：**已定稿（§8 定稿决议）**
 > 依据：《需求基线冻结说明》§4（质量与变更治理）｜ADR-0001（静态分析门禁）｜ADR-0002（提交规范）
 > 关联任务：M2-S1 平台底座（`rbcN8b`）｜未闭环项「SonarQube Quality Gate 阈值（M3 前定）」
-> 平台：**SonarCloud**（`sonar.organization=jasonzou-ai`，`projectKey=JasonZou-ai_yl-server`）
+> 平台：**自建 SonarQube（内网部署）** —— 定稿决议 §8 第 5 项，源代码不出域
 
 ---
 
@@ -157,6 +157,38 @@ sonar.qualitygate.wait=true
 | 6 | 核心模块是否单设更严阈值 | 是（`yl-domain`/分级引擎 ≥ 80%） | 全模块统一 |
 
 > ※ **合规提示**：本项目涉敏感个人信息，若安全要求"源代码不出域"，则 SonarCloud（SaaS）不可用，须改**自建 SonarQube**（内网部署）。此点建议 DPO/安全侧一并确认。
+
+---
+
+## 8 定稿决议（2026-09-21）
+
+需求方授权按推荐口径定稿，§7 六项待确认**逐项闭环**：
+
+| # | 待确认项 | **定稿口径** | 理由 |
+|---|---|---|---|
+| 1 | 新代码窗口 | **Previous Version**（每次发版打 tag；M2 内未发版时以 M2 开工日 2026-09-18 为基线） | 与「增量不劣化」目标一致；固定日期窗口会随时间漂移、噪声增大 |
+| 2 | 新代码覆盖率阈值 | **M3 起 ≥ 60%** | 新代码可控、可达；低于 60% 无法反映回归保护强度 |
+| 3 | 全量覆盖率目标 | **M3 ≥ 40%、M4 ≥ 60%** | 存量补齐需要时间，分阶段避免一次性全红 |
+| 4 | 是否启用 `qualitygate.wait`（红灯阻断 CI） | **启用**（加 `-Dsonar.qualitygate.wait=true`） | 当前「扫而不管」等于无门禁；本项与 ADR-0001 的「配置存在 ≠ 门禁生效」教训直接对应 |
+| 5 | SonarCloud vs 自建 SonarQube | **自建 SonarQube（内网部署）** | 本项目涉敏感个人信息，**源代码不出域**要求下 SaaS 不可用；合规优先于运维便利 |
+| 6 | 核心模块是否更严 | **是**：`yl-domain` + 分级引擎模块新代码 **≥ 80%** | 分级判定是国标合规核心，须最高覆盖强度 |
+
+**补充定稿（P0 即时生效项，与 §3.1 一致）**：新代码 **0 Bug / 0 漏洞 / 安全热点复核 100% / 可维护性 ≥ A / 重复率 ≤ 3%**。
+
+### 8.1 批准后落地清单（按序执行）
+
+| # | 动作 | 产出 |
+|---|---|---|
+| 1 | Jacoco 绑 `verify` | `pom.xml` 加 `<executions>`（prepare-agent + report），修正「悬空」 |
+| 2 | 平台部署 | 内网自建 SonarQube + `YL-M2-Gate` Quality Gate（按 §3 阈值配置） |
+| 3 | 项目配置 | `sonar-project.properties`：`sonar.host.url`（内网）、`sonar.coverage.jacoco.xmlReportPaths`、排除 `target/**` |
+| 4 | CI 接线 | `ci.yml` 加 `-Dsonar.qualitygate.wait=true`，**红灯阻断合并 main** |
+| 5 | 测试补齐 | M3 开工前补 `src/test`（当前 **0 个测试类**，覆盖率门禁在此之前无法生效） |
+| 6 | 门禁台账 | 更新 `docs/ADR/0001-static-analysis-gates.md`：登记 Sonar 为第 4 道构建外门禁 |
+
+> **⚠ 定稿的前置事实提醒**：当前仓库 **0 个测试类**、Jacoco **从未执行**。
+> 因此第 2/3 项（覆盖率阈值）在 **M3 补齐测试前不会生效**——这是**有意设计**，
+> 避免在无测试基线上直接亮红灯导致 CI 长期红态、门禁被绕过（`--no-verify` 式失效）。
 
 ---
 
