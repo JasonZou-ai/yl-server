@@ -10,10 +10,11 @@
 #
 # 用途：在真实 MySQL 8 上执行初始化脚本并断言"结构真实落地 + 关键约束真实生效"，
 #       避免"DDL 只存在于文件、从未被执行过"这类交付风险。
-#       断言总数 60 项（**全部为已生效断言，无待批准守卫**）：
+#       断言总数 63 项（**全部为已生效断言，无待批准守卫**）：
 #         · ADR-0003 全库口径 5 项 + 敏感字段密文/摘要 7 项 + 国标规则域 4 项
 #           + ER 评审补丁 6 项 + B2 RBAC 种子/红线 16 项（含 CR-M2-001 新增 8 条）
-#           + ER-11 埋点字典 2 项 + ER-14 第三方绑定 6 项 + 关键表白名单 1 项 + 行为验证等；
+#           + ER-11 埋点字典 5 项（含 R3 闭合：禁采 8 事件原名 / 敏感分布 / 180 天留存）
+#           + ER-14 第三方绑定 6 项 + 关键表白名单 1 项 + 行为验证等；
 #         · 原「待批准补丁守卫」已于 2026-09-21 获 CCB 会签 + ER 三方面通过后全部转为真实断言
 #           （守卫机制保留，供后续提案式补丁复用，见 §[8/8]）。
 #       口径与盲区核查：docs/quality/verify-schema-assertion-reconciliation.md
@@ -357,8 +358,16 @@ check_pending "ER-11 表 track_event_dict 存在" "track_event_dict" \
     "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='$DB_NAME' AND table_name='track_event_dict' AND table_type='BASE TABLE';" "1"
 check_pending "ER-11 字典有效种子事件数" "track_event_dict" \
     "SELECT COUNT(*) FROM $DB_NAME.track_event_dict WHERE deleted=0;" "30"
+# R3 闭合（2026-09-22）：原埋点域仅 1 条断言 —— 8 禁采事件原名、s0/s1/s2 分级分布、
+#   180 天留存三项均无覆盖（「30 事件字典」过去只验计数、不验结构）。以下 3 条补齐。
+check_pending "ER-11 禁采 8 事件原名保留（M1 §4「一律保留原名」，合规可追溯）" "track_event_dict" \
+    "SELECT COUNT(*) FROM $DB_NAME.track_event_dict WHERE deleted=0 AND event_code IN ('assessment_create','assessment_item_answer','assessment_submit','report_view','report_export','bind_relative','offline_sync','page_stay');" "8"
+check_pending "ER-11 敏感分级分布 s0/s1/s2（须为 4/14/12，合计 30）" "track_event_dict" \
+    "SELECT CONCAT(SUM(sensitivity='s0'),'/',SUM(sensitivity='s1'),'/',SUM(sensitivity='s2')) FROM $DB_NAME.track_event_dict WHERE deleted=0;" "4/14/12"
+check_pending "ER-11 字典留存天数 retain_days=180 的条数（PRD §9 / M1 §5）" "track_event_dict" \
+    "SELECT COUNT(*) FROM $DB_NAME.track_event_dict WHERE deleted=0 AND retain_days=180;" "30"
 if table_exists "track_event_dict"; then
-    echo "      敏感分级分布（明细，不单独断言）："
+    echo "      敏感分级分布（明细，已由上述断言覆盖）："
     sql "SELECT CONCAT('        ', sensitivity, ' × ', COUNT(*)) FROM $DB_NAME.track_event_dict WHERE deleted=0 GROUP BY sensitivity ORDER BY sensitivity;"
 fi
 
@@ -401,7 +410,8 @@ echo ""
 
 # ---------- 汇总 ----------
 TOTAL_ASSERTIONS=$((PASS + FAIL + PENDING))
-EXPECTED_TOTAL_ASSERTIONS=60
+# 60 → 63：R3 闭合新增 3 条 ER-11 埋点断言（禁采 8 事件原名 / 敏感分级分布 / 180 天留存）
+EXPECTED_TOTAL_ASSERTIONS=63
 echo "=============================================================="
 echo " 结果：通过 $PASS 项，失败 $FAIL 项，待批准守卫 $PENDING 项（合计 $TOTAL_ASSERTIONS 项）"
 echo "=============================================================="

@@ -138,7 +138,7 @@ B2（账号·角色·权限）在把 `openapi/yl-api.yaml` 的 **22 个操作逐
 | **工期影响** | 研发侧改动量为**种子 6 条 INSERT + 17 条授权 + 断言 8 条**，约 0.5 人日；**不占用 C/D 模块工期**。 |
 | **合规影响** | **正向**：① `data:reveal` 使「查看明文敏感字段」从**无权限管控**变为**须二次验证 + 留痕**（补上 M1《脱敏规则》「查看需验证」的落点）；② 建档与查档纳入权限矩阵，满足 PIPL 最小必要与访问控制要求。 |
 | **数据模型影响** | `02_schema.sql` **不新增/不修改任何表**（6 个权限点与 17 条授权均为 `03_seed_rbac.sql` 的数据行）。 |
-| **测试回归范围** | 断言由 43 → **51 项**（新增 ❌ 红线 8 条）；既有 43 项口径不变，**无回归**。 |
+| **测试回归范围** | 本 CR 引入的断言增量为 **+8 条 ❌ 红线**（当时 43 → 51）；**断言总数口径以 `docs/quality/verify-schema-assertion-reconciliation.md` 为唯一来源**，其后 ER-11/ER-14 上库 + R3 闭合逐步增至当前 **63 项**。本 CR 自身**无回归**（纯增量：6 权限点 + 17 授权）。 |
 | **对外承诺** | 无对外承诺依赖；四端设计稿不涉及权限码，**原型无需改动**。 |
 | **权限越界风险** | 8 条新 ❌ 红线已固化为 CI 断言（越界授权即阻断构建），非纸面约定。 |
 
@@ -153,8 +153,8 @@ B2（账号·角色·权限）在把 `openapi/yl-api.yaml` 的 **22 个操作逐
 |---|---|
 | 回填依据 | `docs/design/B2-permission-api-matrix.md`（22 操作 100% 带 `x-required-permission`） |
 | 当前契约 | `openapi/yl-api.yaml`：21 路径 / 22 操作；9 有权限码 / 6 `none` / **7 `pending-cr`** |
-| 当前种子 | `03_seed_rbac.sql`：5 角色 / 16 权限点 / 23 授权（敏感 3） |
-| 当前门禁 | `scripts/verify-schema.sh` **43 项全绿 / 0 失败**（本地 MySQL 8.0.37） |
+| 当前种子 | `03_seed_rbac.sql`：5 角色 / 16 权限点 / 23 授权（敏感 3）——**CR 起草时基线**；落地后为 **22 权限点 / 40 授权（敏感 4）** |
+| 当前门禁 | `scripts/verify-schema.sh` **43 项全绿 / 0 失败**（本地 MySQL 8.0.37）——**CR 起草时基线**；当前为 **63 项全绿 / 0 失败**（口径见 `docs/quality/verify-schema-assertion-reconciliation.md`） |
 | 代码锚点 | `PermissionCode`（16 个常量，禁止私自增删）、`SensitivePermissions`、`PermissionAspect` |
 | 待应用补丁 | `docs/change/CR-M2-001-seed-patch-proposal.sql`（**本 CR 批准前不上库**） |
 

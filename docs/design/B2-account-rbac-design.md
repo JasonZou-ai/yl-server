@@ -142,7 +142,7 @@
 7. 红线：`SUPERVISOR` 不得持 `evaluation:order:review`
 8. 红线：`FAMILY` 不得持 `evaluation:item:input`
 
-脚本断言总数 **43 项**，本地 MySQL 8.0.37 实测 **全绿 0 失败**（2026-09-21）。
+脚本断言总数 **63 项**（R1–R5 闭合后；口径唯一来源见 `docs/quality/verify-schema-assertion-reconciliation.md`），本地 MySQL 8.0.37 实测 **全绿 0 失败**（2026-09-22；B2 关账时为 43 项）。
 
 ## 8 落地清单（对应 B2 四个子任务）
 
