@@ -1,8 +1,12 @@
 name: CI
 
 on:
+  # 分支命名兼容两种风格：斜杠式 `feature/<name>` 与连字符式 `feature-<name>`。
+  # ⚠ GitHub 分支过滤的通配符 `*` **不匹配 `/`**，故 'feature/**' 无法命中
+  #   'feature-b2-account-rbac'——曾导致推送该分支静默不触发 CI（只能绕道 PR）。
+  #   故两种风格均显式列出；hotfix 同理。
   push:
-    branches: [ main, develop, 'feature/**', 'hotfix/**' ]
+    branches: [ main, develop, 'feature/**', 'feature-*', 'hotfix/**', 'hotfix-*' ]
   pull_request:
     branches: [ main, develop ]
 
