@@ -1,8 +1,9 @@
 -- =============================================================================
 -- ER-11 DDL 补丁提案 · 埋点事件名字典表（track_event_dict）
---   ⚠ 状态：**提案，未应用**。须随 ER 补丁上库（建议与 ER-14 第三方绑定表同批）。
---            本文件**不得单独上库**——须与 scripts/verify-schema.sh 的计数断言同步修改，
---            否则「表总数 = 37（精确）」与「active_uk 生成列 = 3（精确）」两条断言会立即失败。
+--   ✅ 状态：**已应用（2026-09-21）**。ER 通过后正文已并入 docker/mysql/init/02_schema.sql
+--            （域 8 治理域），并同步 verify-schema.sh（表数 37→39、active_uk 3→5、
+--            deleted 19→21、断言总数 60）。
+--   ⚠ 本文件保留为变更留痕，**请勿重复执行**（CREATE TABLE IF NOT EXISTS + ON DUPLICATE KEY UPDATE，重复执行无害）。
 --
 -- 依据：docs/design/ER-11-track-event-dictionary.md §7（合并定稿 v1.1，30 事件）
 -- 口径：ADR-0003（应用层主键 / DATETIME / 无外键 / deleted + active_uk）
