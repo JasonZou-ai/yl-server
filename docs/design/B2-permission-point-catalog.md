@@ -152,7 +152,7 @@
 
 **契约权限点明确率 68% → 100%**（22/22，0 处 `pending-cr`）。
 
-### 5.2 反向缺口：6 类权限点尚无归属接口（不阻塞 CR-M2-001，随 C/D 模块补登）
+### 5.2 反向缺口：6 类接口尚无归属（= **8 个权限码**，不阻塞 CR-M2-001，随 C/D 模块补登）
 
 | 权限点 | 应补接口（建议） | 敏感 |
 |---|---|:--:|
@@ -165,6 +165,18 @@
 
 > 补登后契约由 **21 路径 / 22 操作 → 28 路径 / 29 操作**。
 
+> ⚠ **口径纠偏**：「6 类」是**接口维度**归类（`bind`/`reject` 同属 `/family`、`care` 两码同属 `/care/plans`、
+> `org` 两码同属 `/account/orgs`）；落到**权限码维度是 8 个**。前端标注必须按 **8 个码**逐一标，否则会漏掉
+> `:reject` / `:suggest` / `:read` 这三个「同路径不同码」的点。
+
+### 5.3 前端接入须知
+
+- 常量参考实现：`docs/design/B2-frontend-permission-codes.ts`（22 码 + `UNIMPLEMENTED_PERMS` 8 码 + `SENSITIVE_PERMS` 4 码）。
+- 前端**只做入口显隐**，不做鉴权判定；真正的判定在后端四道闸。
+- `UNIMPLEMENTED_PERMS` 中的码：即使登录态下发了，也只能用于**置灰/隐藏入口**，**不得发起请求**（后端无接口，调必 404）。
+- `SENSITIVE_PERMS` 中的码：命中前先弹二次验证入口，避免请求被打回 `SECOND_VERIFY_REQUIRED (10008)`。
+- 注：`evaluation:order:review:read` 已由现有 `POST /eval/orders/{orderId}/review` 只读态承载，**不属于未实现**。
+
 ---
 
 ## 6 行为异常检测（CR-M2-001 §2.5 · PM 补充意见）
@@ -173,12 +185,17 @@
 |---|---|---|
 | 监控对象 | **非护理角色**：ELDER / FAMILY / SUPERVISOR（ASSESSOR / ORG_ADMIN 为护理相关角色，默认不纳入） | `yl.security.archive-access-guard.monitored-roles` |
 | 触发条件 | 同一账号对档案类接口（`elder:archive:read`）**滑动 1 小时**内调用 **> N**，默认 **N=50** | `threshold` / `window-minutes` |
+| **处置模式** | 配置项 **`mode`**：`off` 旁路（不计数）｜`audit` 只留痕不通知（灰度期）｜**`alert` 留痕 + 通知（默认，不拦截）**｜`enforce` 留痕 + 通知 + 拒绝请求（`RATE_LIMITED 10429`，**须先变更契约**）。未知值回落 `alert`——配置写错时保持监控强度，不静默关掉护栏 | `ArchiveAccessGuardMode` |
 | 统计窗口 | **滑动 1 小时（非自然小时）**——Redis ZSET + Lua 原子「修剪—写入—计数」 | `RedisSlidingWindowCounter` |
 | 处置动作 | 写 `audit_log`（`action=ARCHIVE_ACCESS_ALERT`）→ 通知监管角色，同窗口内去重 | `ArchiveAccessRateGuard` |
 | 失败姿态 | **失败开放**：计数/去重/通知异常只记警告，绝不阻断档案读取 | `ArchiveAccessRateGuard` |
 
 **未实现的选项（需明示）**：CR 把「降级为单次二次验证」列为**可选**动作。档案读取是非敏感权限点，强制二次验证会使客户端在无
 `X-Second-Verify-Token` 时直接失败，属契约破坏性变更，超出本 CR 授权范围，**故本期不实现**；生产如需启用，应在 C/D 模块落地时一并变更契约。
+
+**告警响应 SLA 与处置流程**：见 `docs/design/B2-archive-access-alert-sop.md`（v1.0）——告警分级 S1/S2/S3、确认 T+15~30min、
+闭环 T+2h~1 工作日、超时升级、灰度路径 G1 `audit` → G2 `alert` → G3 `enforce`（阻塞于契约变更）。值班人选待 PM 指派，
+未回填前 SLA 时限不生效。
 
 ---
 
@@ -221,5 +238,8 @@ mvn -Pfast verify                                 # 期望：格式 + 编译 + �
 | 2026-09-22 | **#4 契约回填** | ✅ 7 处 `pending-cr` 清零，明确率 100% | 研发侧 |
 | 2026-09-22 | **#7 审计配套** | ✅ `ArchiveAccessRateGuard` + 滑动窗口计数 + 告警通知 | 研发侧 |
 | 2026-09-22 | **#6 文档同步** | ✅ 矩阵升 v2（缺口清零）、设计 §2/§5/§7/§9 同步 | 研发侧 |
-| — | 落地清单 #5（回写 PRD §2.2 + 修订记录） | ⏳ 待办（须 CCB 追认） | 产品 |
+| 2026-09-22 | **告警 `mode` 配置项** | ✅ `ArchiveAccessGuardMode`（off/audit/alert/enforce，默认 alert），12 例单测 | 研发侧 |
+| 2026-09-22 | **告警响应 SOP v1.0** | ✅ `docs/design/B2-archive-access-alert-sop.md`（分级 + SLA + 灰度路径） | 研发侧 |
+| 2026-09-22 | **前端权限码常量** | ✅ `docs/design/B2-frontend-permission-codes.ts`（22 码 + 未实现 8 码 + 敏感 4 码） | 研发侧 |
+| — | 落地清单 #5（回写 PRD §2.2 + 修订记录） | ⏳ 待办（须 CCB 追认，**建议限时 2026-09-24，逾期先加横幅**） | 产品 |
 | — | 反向缺口 6 类补登契约 | ⏳ 待办（随 C/D 模块，不阻塞本 CR） | 研发 |
