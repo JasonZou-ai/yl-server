@@ -7,6 +7,7 @@ import cn.yl.common.security.RefreshTokenStore;
 import cn.yl.modules.account.domain.LoginChannel;
 import cn.yl.modules.account.domain.entity.LoginLog;
 import cn.yl.modules.account.domain.entity.SysUser;
+import cn.yl.modules.account.domain.thirdparty.LoginChannelAdapter;
 import cn.yl.modules.account.dto.AccountProfile;
 import cn.yl.modules.account.dto.LoginRequest;
 import cn.yl.modules.account.dto.LoginResponse;
@@ -14,6 +15,7 @@ import cn.yl.modules.account.mapper.LoginLogMapper;
 import cn.yl.modules.account.mapper.SysUserMapper;
 import cn.yl.modules.account.security.SecondVerifyGuard;
 import cn.yl.modules.account.security.SecondVerifyVerifier;
+import cn.yl.modules.account.service.thirdparty.LoginChannelRegistry;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import java.time.LocalDateTime;
@@ -46,9 +48,13 @@ public class AuthService {
     private final SecondVerifyGuard secondVerifyGuard;
     private final SecondVerifyVerifier secondVerifyVerifier;
     private final PasswordEncoder passwordEncoder;
+    private final LoginChannelRegistry loginChannelRegistry;
 
     /**
-     * 登录。
+     * 登录（四渠道统一主流程）。
+     *
+     * <p>流程：按渠道取适配器（未接入 / 未完成平台配置 → 明确拒绝）→ 适配器解析登录名（平台渠道在此完成换证与绑定解析） → 账密渠道比对口令散列 → 校验账号状态 → 换发双令牌
+     * → 写 {@code login_log}（成功/失败均留痕）。
      *
      * @param channel 登录渠道
      * @param request 登录请求
@@ -57,18 +63,28 @@ public class AuthService {
      * @return 统一换发的令牌与档案摘要
      */
     public LoginResponse login(LoginChannel channel, LoginRequest request, String ip, String ua) {
-        if (!channel.passwordSupported()) {
-            writeLoginLog(null, request.getUsername(), channel, ip, ua, false, "渠道未接入");
-            throw new BizException(ErrorCode.LOGIN_FAILED, "该渠道登录暂未接入：" + channel.code());
+        LoginChannelAdapter adapter;
+        try {
+            adapter = loginChannelRegistry.require(channel);
+        } catch (BizException e) {
+            writeLoginLog(null, null, channel, ip, ua, false, e.getMessage());
+            throw e;
         }
-        Optional<SysUser> found = userMapper.selectByUsername(request.getUsername());
+        String username;
+        try {
+            username = adapter.resolveUsername(request);
+        } catch (BizException e) {
+            // 平台渠道的换证/绑定失败：平台标识不进日志，仅落业务文案
+            writeLoginLog(null, null, channel, ip, ua, false, e.getMessage());
+            throw e;
+        }
+        Optional<SysUser> found = userMapper.selectByUsername(username);
         if (found.isEmpty()) {
-            writeLoginLog(null, request.getUsername(), channel, ip, ua, false, "账号不存在");
+            writeLoginLog(null, username, channel, ip, ua, false, "账号不存在");
             throw new BizException(ErrorCode.LOGIN_FAILED);
         }
         SysUser user = found.get();
-        if (user.getPasswordHash() == null
-                || !passwordEncoder.matches(request.getPassword(), user.getPasswordHash())) {
+        if (channel.passwordSupported() && !passwordMatched(user, request.getPassword())) {
             writeLoginLog(user.getId(), user.getUsername(), channel, ip, ua, false, "口令错误");
             throw new BizException(ErrorCode.LOGIN_FAILED);
         }
@@ -85,6 +101,14 @@ public class AuthService {
         touchLastLogin(user.getId());
         writeLoginLog(user.getId(), user.getUsername(), channel, ip, ua, true, null);
         return response;
+    }
+
+    /** 口令比对（抗时序比较由 BCrypt 保证）；口令散列缺失或未传口令一律视为不匹配。 */
+    private boolean passwordMatched(SysUser user, String rawPassword) {
+        if (rawPassword == null || user.getPasswordHash() == null) {
+            return false;
+        }
+        return passwordEncoder.matches(rawPassword, user.getPasswordHash());
     }
 
     /**

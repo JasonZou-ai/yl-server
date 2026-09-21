@@ -53,6 +53,27 @@ yl:
       refresh-token-ttl: 14d
     # 敏感字段（身份证号等）加密密钥，生产由 KMS 注入
     sensitive-field-key: ${SENSITIVE_FIELD_KEY:}
+    # 等值检索摘要密钥（HMAC-SHA256），与加密密钥分离；两者都非空才装配 SensitiveFieldCodec
+    sensitive-field-hash-key: ${SENSITIVE_FIELD_HASH_KEY:}
+    # 敏感操作二次验证（四道闸·第四闸）
+    second-verify:
+      # 联调期比对口令；留空即「未配置」，一律拒绝二次验证（安全默认，防开箱绕过）
+      dev-code: ${SECOND_VERIFY_DEV_CODE:}
+    # 第三方平台登录（B2 / rpW1xZ）：app-id / app-secret 齐备才视为该渠道可用
+    third-party:
+      wechat:
+        app-id: ${WECHAT_APP_ID:}
+        app-secret: ${WECHAT_APP_SECRET:}
+        # 以下 endpoint 留空即用平台默认地址；联调/沙箱可覆盖
+        session-url: ${WECHAT_SESSION_URL:}
+        token-url: ${WECHAT_TOKEN_URL:}
+        phone-url: ${WECHAT_PHONE_URL:}
+      douyin:
+        app-id: ${DOUYIN_APP_ID:}
+        app-secret: ${DOUYIN_APP_SECRET:}
+        session-url: ${DOUYIN_SESSION_URL:}
+        # 抖音手机号接口需平台单独授权；留空即「未配置」，携带 phoneCode 登录会被明确拒绝
+        phone-url: ${DOUYIN_PHONE_URL:}
   storage:
     # 对象存储：腾讯云 COS
     cos:

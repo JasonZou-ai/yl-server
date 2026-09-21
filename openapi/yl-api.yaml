@@ -188,6 +188,7 @@ paths:
     post:
       tags: [auth]
       summary: 四端统一登录
+      x-required-permission: none
       description: 各端以各自平台凭据换取 yl 统一令牌；差异仅在 channel。
       security: []
       requestBody:
@@ -210,6 +211,7 @@ paths:
     post:
       tags: [auth]
       summary: 刷新令牌
+      x-required-permission: none
       security: []
       requestBody:
         required: true
@@ -231,10 +233,51 @@ paths:
                   - properties:
                       data: { $ref: '#/components/schemas/TokenPair' }
 
+  /api/v1/auth/second-verify:
+    post:
+      tags: [auth]
+      summary: 换取二次验证一次性凭据（敏感操作前置）
+      description: |
+        敏感操作（导出 / 作废评估单 / 解绑亲情 / 查看明文）前调用。校验通过后返回一次性凭据，
+        后续业务请求以 `X-Second-Verify-Token` 头携带；凭据一次性消费、300 秒有效（Redis GETDEL）。
+      x-required-permission: none
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                method:
+                  type: string
+                  enum: [SCAN, PHONE, FACE]
+                  description: 二次验证方式
+                credential:
+                  type: string
+                  description: 渠道凭据（联调期为配置口令；生产为短信/扫码/人脸渠道结果）
+              required: [method, credential]
+      responses:
+        '200':
+          description: 一次性凭据
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/R'
+                  - properties:
+                      data:
+                        type: object
+                        properties:
+                          token: { type: string }
+                          expiresIn:
+                            type: integer
+                            description: 有效期（秒），当前为 300
+
   /api/v1/auth/logout:
     post:
       tags: [auth]
       summary: 退出登录（令牌加入黑名单）
+      x-required-permission: none
       responses:
         '200': { description: 成功, content: { application/json: { schema: { $ref: '#/components/schemas/R' } } } }
 
@@ -242,6 +285,7 @@ paths:
     post:
       tags: [elder]
       summary: 新建老人档案
+      x-required-permission: pending-cr
       parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
       requestBody:
         required: true
@@ -261,6 +305,7 @@ paths:
     get:
       tags: [elder]
       summary: 老人列表（分页 + 多维筛选）
+      x-required-permission: pending-cr
       parameters:
         - { $ref: '#/components/parameters/PageNum' }
         - { $ref: '#/components/parameters/PageSize' }
@@ -295,6 +340,7 @@ paths:
     get:
       tags: [elder]
       summary: 老人档案详情
+      x-required-permission: pending-cr
       parameters:
         - name: elderId
           in: path
@@ -315,6 +361,7 @@ paths:
     post:
       tags: [elder]
       summary: 查看敏感字段明文（二次验证 + 全留痕）
+      x-required-permission: pending-cr
       description: 需 secondaryToken（短信/人脸二次验证换取）；调用写入 audit_log(sensitive=1)。
       parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
       requestBody:
@@ -340,6 +387,7 @@ paths:
     get:
       tags: [evaluation]
       summary: 评估任务列表（按机构/评估员/状态筛选）
+      x-required-permission: pending-cr
       parameters:
         - { $ref: '#/components/parameters/PageNum' }
         - { $ref: '#/components/parameters/PageSize' }
@@ -364,6 +412,7 @@ paths:
     post:
       tags: [evaluation]
       summary: 创建评估单（校验评估员资质 + 30 天内重复评估）
+      x-required-permission: evaluation:order:create
       parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
       requestBody:
         required: true
@@ -392,6 +441,7 @@ paths:
     put:
       tags: [evaluation]
       summary: 保存作答（草稿，30s 自动保存 / 断点续填）
+      x-required-permission: evaluation:item:input
       parameters:
         - name: orderId
           in: path
@@ -424,6 +474,7 @@ paths:
     post:
       tags: [evaluation]
       summary: 触达分级引擎（规则版本化、可热更）
+      x-required-permission: evaluation:item:input
       description: 输出总分 + 等级 + 维度得分 + 等级上调结果。幂等：同一 order + 同一 key 不重复计算。
       parameters:
         - name: orderId
@@ -446,6 +497,7 @@ paths:
     post:
       tags: [evaluation]
       summary: 提交复核（DRAFT → SUBMITTED；校验必填完整性与留证）
+      x-required-permission: evaluation:item:input
       parameters:
         - name: orderId
           in: path
@@ -461,6 +513,7 @@ paths:
     post:
       tags: [evaluation]
       summary: 复核（发布/驳回；复核人必须 ≠ 录入人）
+      x-required-permission: evaluation:order:review
       parameters:
         - name: orderId
           in: path
@@ -486,6 +539,7 @@ paths:
     get:
       tags: [rule]
       summary: 国标规则版本列表
+      x-required-permission: pending-cr
       responses:
         '200': { description: 列表, content: { application/json: { schema: { $ref: '#/components/schemas/R' } } } }
 
@@ -493,6 +547,7 @@ paths:
     get:
       tags: [rule]
       summary: 国标条款 → 规则条目映射矩阵（可机器校验的追溯锚点）
+      x-required-permission: pending-cr
       parameters:
         - name: ruleVersionId
           in: query
@@ -505,6 +560,7 @@ paths:
     get:
       tags: [report]
       summary: 报告详情（含维度得分与验真信息）
+      x-required-permission: report:view
       parameters:
         - name: reportId
           in: path
@@ -517,6 +573,7 @@ paths:
     post:
       tags: [report]
       summary: 生成 PDF 报告（幂等：防重复生成，PRD §7 幂等防重）
+      x-required-permission: evaluation:order:review
       parameters:
         - name: reportId
           in: path
@@ -534,6 +591,7 @@ paths:
     get:
       tags: [report]
       summary: 二维码验真（扫码核验报告有效性）
+      x-required-permission: none
       security: []
       parameters:
         - name: code
@@ -547,6 +605,7 @@ paths:
     post:
       tags: [supervise]
       summary: 创建导出任务（≤5000 同步；>10000 走异步落地 COS；全留痕）
+      x-required-permission: data:export
       parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
       requestBody:
         required: true
@@ -573,6 +632,7 @@ paths:
     post:
       tags: [supervise]
       summary: 监管数据上报（支持重试 + 幂等）
+      x-required-permission: supervise:report:submit
       parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
       responses:
         '200': { description: 受理, content: { application/json: { schema: { $ref: '#/components/schemas/R' } } } }
@@ -581,6 +641,7 @@ paths:
     get:
       tags: [system]
       summary: 健康检查（actuator 探针）
+      x-required-permission: none
       security: []
       responses:
         '200': { description: UP }

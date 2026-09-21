@@ -103,14 +103,33 @@
 
 ## 6 多端登录适配（PRD §8 统一原则）
 
-| 渠道 | login_type | device_type | 能力 |
-|---|---|---|---|
-| 微信小程序 | WECHAT | WXMP | code2session |
-| 抖音小程序 | DOUYIN | DYMP | 平台授权 |
-| iOS | PWD/FACE | IOS | 账密 + 短信 |
-| Android | PWD | ANDROID | 账密 + 短信 |
+统一入口 `POST /auth/login/{channel}`，`channel ∈ {wechat, douyin, ios, android, face}`（大小写不敏感）。
 
-统一入口 `POST /auth/login/{channel}` → 各渠道适配器换取平台身份 → **统一换发本服务 access+refresh 令牌**（Redis 存 refresh）→ 写 `login_log`。
+### 6.1 渠道适配器（策略层，已实现）
+
+| 渠道 | 适配器 | 换证方式 | 绑定解析 | 本期状态 |
+|---|---|---|---|---|
+| IOS / ANDROID | `PasswordChannelAdapter` | 账密（BCrypt 比对） | 直接为登录名 | ✅ 可用 |
+| WECHAT | `WechatLoginAdapter` → `WechatThirdPartyAuthenticator` | `sns/jscode2session` 换 openid；`wxa/business/getuserphonenumber` 换手机号 | 手机号 HMAC 摘要 → `sys_user.phone_hash` | ✅ 代码就绪，待 app-id/secret |
+| DOUYIN | `DouyinLoginAdapter` → `DouyinThirdPartyAuthenticator` | `api/apps/v2/jscode2session` 换 openid | 同上 | ⚠ 换证就绪；**手机号接口需平台单独授权**，未配置则明确拒绝 |
+| FACE | `FaceChannelAdapter` | — | — | ⛔ 本期不接入（生物识别信息需单独同意 + PIA 增补，`configured()` 恒 false） |
+
+- 分发由 `LoginChannelRegistry` 完成：**未注册或未完成平台配置的渠道一律明确拒绝**，不静默降级为其它认证方式；同渠道重复注册在启动期即失败。
+- 登录名解析后统一走：账号状态校验 → 换发本服务 access+refresh（refresh 存 Redis 可吊销）→ 写 `login_log`（成功/失败均留痕）。
+- 平台侧标识（openId）**不落库、不入日志**，只在内存用于本次绑定解析（对齐 ER-11 S2 禁采）。
+
+以 `login_log` 记录口径：`WECHAT/WXMP`、`DOUYIN/DYMP`、`PWD/IOS`、`PWD/ANDROID`、`FACE/IOS`。
+
+### 6.2 ⚠ 第三方绑定的 DDL 缺口（ER-14 候选）
+
+现状：`sys_user` **无** `openid/unionid` 列，全库亦无第三方账号绑定表 → 平台登录**无法持久绑定本服务账号**。
+
+| 方案 | 说明 | 代价 |
+|---|---|---|
+| **A. 手机号绑定（本期已实现）** | 平台回传手机号 → HMAC 摘要命中 `phone_hash`；明文不落库 | 每次登录都依赖平台手机号授权；用户未授权手机号即无法登录 |
+| B. 新增绑定表（建议评估） | `sys_user_third_party(user_id, platform, open_id, union_id)`，openId 以密文 + 摘要列存储 | DDL 变更，须走 ER 评审 + `verify-schema.sh` 断言补充；openId 属敏感外部标识，需纳入脱敏口径 |
+
+> 建议：若产品要求「首次授权后免手机号登录」，须采纳方案 B 并立 ER-14；本期先以方案 A 交付，**不擅自加表**。
 
 ## 7 门禁（`verify-schema.sh` · B2 段 · 8 项）
 
@@ -123,6 +142,8 @@
 7. 红线：`SUPERVISOR` 不得持 `evaluation:order:review`
 8. 红线：`FAMILY` 不得持 `evaluation:item:input`
 
+脚本断言总数 **43 项**，本地 MySQL 8.0.37 实测 **全绿 0 失败**（2026-09-21）。
+
 ## 8 落地清单（对应 B2 四个子任务）
 
 | 子任务 | 落地物 |
@@ -130,7 +151,8 @@
 | `rky1SW` 五角色账号体系 | `yl-module-account`：User/Role/Permission/OrgMember 聚合 + Mapper + 本设计 §2 种子 |
 | `rwkav6` 权限鉴权中间件 | `@RequiresPermission` + `PermissionAspect` + `DataPermissionInterceptor` + `AuditLogAspect`（§3/§5） |
 | `ri91pT` 敏感操作二次验证与留痕 | `SecondVerifyGuard` + Redis 凭据 + `audit_log`/`consent_record` 写入（§5，承接 ER-08） |
-| `rpW1xZ` 多端登录适配 | `POST /auth/login/{channel}` 四渠道适配器 + 统一令牌换发（§6） |
+| `rpW1xZ` 多端登录适配 | 渠道适配器策略层（§6.1）+ `POST /auth/login/{channel}`、`/auth/refresh`、`/auth/second-verify` |
+
 
 ## 9 DDL 缺口与处置
 
@@ -140,9 +162,16 @@
 | 种子缺口 | **已补齐**：`03_seed_rbac.sql`（本设计 §2） |
 | 建议加固 | `eval_order` 互斥 `CHECK` 约束（可选，本期服务层兜底） |
 | 权限常驻风险 | `void` / `unbind` 不授予常驻权限，运行时提权 |
+| **第三方账号绑定表** | **缺**（`sys_user` 无 openid 列，无绑定表）→ §6.2，方案 A 绕开、方案 B 待评估立 ER-14 |
+| 敏感字段编解码装配 | 原为**零装配**（`SensitiveFieldCodec` 无 Bean）；本轮补 `SensitiveFieldConfig`，**条件装配**（密钥非空才建，避免 dev 起不来） |
 
 ## 10 剩余事项
 
-- [ ] 二次验证方式与 M1《敏感个人信息单独同意设计》的**逐场景对齐复核**（转 DPO 会签，见 `docs/change/DPO-Signoff-ER-03-08-10.md`）。
+- [x] 权限点与 `openapi/yl-api.yaml` 各接口的 `@RequiresPermission` 标注**逐接口回填** → **已完成**（2026-09-21）：22 个操作 100% 回填 `x-required-permission`；缺口见 `docs/design/B2-permission-api-matrix.md`（7 处 `pending-cr` 待 CR）。
+- [x] 多端登录渠道适配器（`rpW1xZ`）→ **已完成**（2026-09-21）：见 §6.1；FACE 明确不接入。
+- [ ] **ER-14 评估**：第三方账号绑定表（方案 B，§6.2）——若产品要求「免手机号重复授权登录」则必须做。
+- [ ] 抖音手机号接口：待平台授权文档确认后配置 `yl.security.third-party.douyin.phone-url`。
+- [ ] 二次验证方式与 M1《敏感个人信息单独设计》的**逐场景对齐复核**（DPO 已会签 ER-03/08/10，人脸场景仍待单独同意文本）。
 - [ ] `ER-11 埋点事件名字典` 与 `r5HcnX` 埋点 SDK 一并落地。
-- [ ] 权限点与 `openapi/yl-api.yaml` 中各接口的 `@RequiresPermission` 标注**逐接口回填**（随各模块实现推进）。
+- [ ] 各业务模块 Controller 实现时按 §5/§2 逐接口标注 `@RequiresPermission`（矩阵文档为唯一基准）。
+

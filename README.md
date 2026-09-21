@@ -91,9 +91,9 @@ mvn -pl yl-bootstrap -am spring-boot:run -Dspring-boot.run.profiles=dev
 
 | 文件 | 说明 |
 |---|---|
-| `openapi/yl-api.yaml` | **统一 API 契约**（OpenAPI 3.0.3，20 个路径）。四端共用；实现须与契约一致，契约变更走评审 |
+| `openapi/yl-api.yaml` | **统一 API 契约**（OpenAPI 3.0.3，21 个路径 / 22 个操作，每个操作均带 `x-required-permission`）。四端共用；实现须与契约一致，契约变更走评审 |
 | `docker/mysql/init/01_init.sql` | 建库 + 国标规则版本表 `gb_rule_version` |
-| `docker/mysql/init/02_schema.sql` | **7 大核心域 + 3 支撑域 DDL（34 张表）**；含敏感字段密文列、国标规则域、审计与埋点 |
+| `docker/mysql/init/02_schema.sql` | **7 大核心域 + 3 支撑域 DDL（36 张表）**；含敏感字段密文列、国标规则域、审计与埋点 |
 | `checkstyle/checkstyle.xml` | 静态检查规则；豁免用源码内注释标记 `// CHECKSTYLE_OFF: <CheckName>` … `// CHECKSTYLE_ON: <CheckName>`（随代码走，不依赖外置文件） |
 | `scripts/verify-schema.sh` | **DDL 落地验证**：真实 MySQL 执行 init 脚本，断言表/列/索引/国标播种，并做「软删除 × 唯一键」行为验证 |
 | `scripts/setup-hooks.sh` | 启用 Git 钩子（提交信息校验 + 提交前检查），`--status` / `--uninstall` 管理 |
@@ -194,8 +194,10 @@ RBAC 落库口径见 `docs/design/B2-account-rbac-design.md`。
 - ~~ER-09 / 12 / 13 全库口径（主键 / 时区 / 外键 / 软删除）~~ → **已完成**：`docs/ADR/0003-id-timezone-fk-softdelete.md`，并固化为 `verify-schema.sh` 断言（违反即 CI 失败）
 - ~~`B2-0` RBAC 基础数据播种（五角色 / 权限矩阵落库）~~ → **已完成**：`docker/mysql/init/03_seed_rbac.sql`（5 角色 / 16 权限点 / 23 授权）＋ `docs/design/B2-account-rbac-design.md`；矩阵 ❌ 单元格已固化为断言
 - ~~提交规范与本地钩子~~ → **已完成**：`.githooks/`（commit-msg + pre-commit）+ `scripts/setup-hooks.sh`；CI `commit-lint` 复用同一份脚本
-- **待人工签字（不可由研发代签）**：ER-03 保留期 / ER-08 告知同意留痕 待 **DPO 会签**（ER 纪要 §七 生效条件 2）
-- `B2` 账号 RBAC 代码实现（本模块 `yl-module-account`：鉴权中间件 / 二次验证 / 多端登录）
+- ~~`B2` 账号 RBAC 代码实现（鉴权中间件 / 二次验证 / 多端登录）~~ → **已完成**（2026-09-21）：四道闸（`PermissionAspect` / `DataScopePermissionHandler` / `SecondVerifyGuard` / `AuditLogAspect`）+ 渠道适配器策略层（`LoginChannelRegistry`）+ `AuthController`（login/{channel}、refresh、second-verify）；**全仓 `mvn verify` 14 模块全绿（SpotBugs 0 / Checkstyle 0）**
+- **待人工签字（不可由研发代签）**：~~DPO 会签 ER-03 / ER-08 / ER-10~~ → **已会签**（2026-09-21，`docs/change/DPO-Signoff-ER-03-08-10.md`）；CCB 会签 `CR-M1-002` **已签发**
+- `ER-14 评估`：第三方账号绑定表（当前以手机号摘要绑定绕开，见 `docs/design/B2-account-rbac-design.md` §6.2）
+- 权限矩阵缺口 7 处 `pending-cr`（建档 / 敏感明文 / 任务列表 / 规则只读）待 CR 补 PRD §2.2，见 `docs/design/B2-permission-api-matrix.md`
 - `C2` 国标规则引擎（本模块 `yl-module-evaluation`，规则版本表见 `docker/mysql/init/01_init.sql`，26 项指标与规则条目播种归 C2-1）
 
 ---

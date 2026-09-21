@@ -1,5 +1,6 @@
 package cn.yl.modules.account.dto;
 
+import java.util.Collections;
 import java.util.List;
 import lombok.Data;
 
@@ -17,8 +18,20 @@ public class LoginResponse {
     private long expiresIn;
 
     private long userId;
+
+    /** 角色码集合：写入即快照、读取返回不可变视图（见下方访问器）。 */
     private List<String> roles;
 
     /** 数据域口径（1-本人 2-本机构 3-全量 4-只读全局）。 */
     private int dataScope;
+
+    /** 角色码集合（不可变视图；未赋值时为空集合）。 */
+    public List<String> getRoles() {
+        return roles == null ? List.of() : Collections.unmodifiableList(roles);
+    }
+
+    /** 写入时快照。 */
+    public void setRoles(List<String> roles) {
+        this.roles = roles == null ? List.of() : List.copyOf(roles);
+    }
 }

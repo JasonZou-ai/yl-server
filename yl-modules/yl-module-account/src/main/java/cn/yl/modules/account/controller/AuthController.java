@@ -12,6 +12,7 @@ import cn.yl.modules.account.dto.SecondVerifyRequest;
 import cn.yl.modules.account.dto.SecondVerifyResponse;
 import cn.yl.modules.account.security.SecondVerifyGuard;
 import cn.yl.modules.account.service.AuthService;
+import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -30,7 +31,11 @@ import org.springframework.web.bind.annotation.RestController;
  */
 @RestController
 @RequestMapping("/api/v1/auth")
-@RequiredArgsConstructor
+@RequiredArgsConstructor(
+        onConstructor_ =
+                @SuppressFBWarnings(
+                        value = "EI_EXPOSE_REP2",
+                        justification = "AuthService 是 Spring 容器管理的无状态单例 Bean，构造器注入是标准 DI 用法"))
 public class AuthController {
 
     private final AuthService authService;
