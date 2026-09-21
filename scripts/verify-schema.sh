@@ -3,11 +3,14 @@
 # DDL 落地验证：真实 MySQL 执行 + 结构断言 + 关键约束行为验证
 #
 # 关联任务：B1-4 数据库 ER 设计（任务 r4UcEv）
-# 依据：docker/mysql/init/*.sql（01 建库 + 国标规则版本表；02 核心域 36 张表，含 ER 评审补丁 3 表）
+# 依据：docker/mysql/init/*.sql（01 建库 + 国标规则版本表；02 核心域 36 张表，
+#        含 ER 评审补丁 3 表；03 RBAC 种子 = 五角色 / 16 权限点 / 23 授权）
 #      docs/ADR/0003-id-timezone-fk-softdelete.md（ER-09 主键 / ER-12 时区 / ER-13 外键与软删除）
+#      docs/design/B2-account-rbac-design.md（B2 权限矩阵落库口径）
 #
 # 用途：在真实 MySQL 8 上执行初始化脚本并断言"结构真实落地 + 关键约束真实生效"，
 #       避免"DDL 只存在于文件、从未被执行过"这类交付风险。
+#       断言总数 43 项（含 ADR-0003 全库口径 5 项 + B2 权限矩阵红线 8 项）。
 #
 # 用法：
 #   bash scripts/verify-schema.sh                     # 默认连 127.0.0.1:3306 root（空密码）
@@ -213,6 +216,21 @@ FK_COUNT=$(sql "SELECT COUNT(*) FROM information_schema.table_constraints WHERE 
 check "ER-13 外键约束（全库禁用，引用完整性由应用层保证）" "$FK_COUNT" "0"
 DEL_COLS=$(sql "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='$DB_NAME' AND column_name='deleted';")
 check_ge "ER-13 软删除列 deleted" "$DEL_COLS" "19"
+echo ""
+
+# ---- B2 RBAC 种子断言（PRD v1.1 §2.1 五角色 / §2.2 权限矩阵）----
+# 见 docker/mysql/init/03_seed_rbac.sql、docs/design/B2-account-rbac-design.md
+# 设计意图：把权限矩阵里的 ❌ 单元格固化为断言——角色一旦越界即阻断构建。
+echo "      B2 RBAC 种子（PRD §2.1 / §2.2）："
+check "五角色 sys_role" "$(sql "SELECT COUNT(*) FROM $DB_NAME.sys_role WHERE deleted=0;")" "5"
+check "权限点 sys_permission" "$(sql "SELECT COUNT(*) FROM $DB_NAME.sys_permission WHERE deleted=0;")" "16"
+check "角色-权限授权 sys_role_permission" "$(sql "SELECT COUNT(*) FROM $DB_NAME.sys_role_permission;")" "23"
+check_ge "敏感操作权限点 need_second_verify=1" "$(sql "SELECT COUNT(*) FROM $DB_NAME.sys_permission WHERE need_second_verify=1;")" "2"
+RBAC_JOIN="FROM $DB_NAME.sys_role_permission rp JOIN $DB_NAME.sys_role r ON r.id=rp.role_id JOIN $DB_NAME.sys_permission p ON p.id=rp.perm_id WHERE"
+check "矩阵红线：评估员(ASSESSOR)不得持复核权限" "$(sql "SELECT COUNT(*) $RBAC_JOIN r.role_code='ASSESSOR' AND p.perm_code='evaluation:order:review';")" "0"
+check "矩阵红线：老人(ELDER)不得持录入权限" "$(sql "SELECT COUNT(*) $RBAC_JOIN r.role_code='ELDER' AND p.perm_code='evaluation:item:input';")" "0"
+check "矩阵红线：监管(SUPERVISOR)不得持复核写权限" "$(sql "SELECT COUNT(*) $RBAC_JOIN r.role_code='SUPERVISOR' AND p.perm_code='evaluation:order:review';")" "0"
+check "矩阵红线：家属(FAMILY)不得持录入权限" "$(sql "SELECT COUNT(*) $RBAC_JOIN r.role_code='FAMILY' AND p.perm_code='evaluation:item:input';")" "0"
 echo ""
 
 # ---------- 7) 行为验证：软删除 × 唯一键 ----------

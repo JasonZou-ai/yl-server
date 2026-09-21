@@ -161,15 +161,17 @@ MYSQL_HOST=127.0.0.1 MYSQL_PORT=3306 MYSQL_USER=root MYSQL_PASSWORD=xxx \
 bash scripts/verify-schema.sh --drop
 ```
 
-脚本先 DROP 再重建 `yl_evaluation`，顺序执行 `docker/mysql/init/*.sql`，然后断言 **34 项**：
+脚本先 DROP 再重建 `yl_evaluation`，顺序执行 `docker/mysql/init/*.sql`，然后断言 **43 项**：
 表数量（37）、3 处 `active_uk` 生成列、敏感字段密文/摘要列、**明文敏感列必须为 0**、
 索引数量、国标规则域播种（1 版本 / 4 维度 / 5 等级阈值 / 3 基规则 / 条款号可回溯）、
 评估单状态机与录入-复核互斥字段、埋点 180 天留存列、
-**ADR-0003 全库口径**（自增列 = 1、`TIMESTAMP` = 0、`DATETIME` ≥ 60、外键 = 0、`deleted` ≥ 19），
+**ADR-0003 全库口径**（自增列 = 1、`TIMESTAMP` = 0、`DATETIME` ≥ 60、外键 = 0、`deleted` ≥ 19）、
+**B2 权限矩阵红线**（五角色 = 5、权限点 = 16、授权 = 23；评估员/老人/监管/家属越界授权 = 0），
 并做**行为验证**——软删除后同键绑定可重建、未删除时唯一键真实拒绝重复（`active_uk` 方案生效的证据）。
 CI 的 `schema-verify` 作业用 MySQL 8.0.37 service container 跑同一脚本。
 
-全库级口径（主键策略 / 时区 / 引用完整性 / 软删除）见 `docs/ADR/0003-id-timezone-fk-softdelete.md`。
+全库级口径（主键策略 / 时区 / 引用完整性 / 软删除）见 `docs/ADR/0003-id-timezone-fk-softdelete.md`；
+RBAC 落库口径见 `docs/design/B2-account-rbac-design.md`。
 
 ---
 
@@ -187,12 +189,13 @@ CI 的 `schema-verify` 作业用 MySQL 8.0.37 service container 跑同一脚本�
 
 - ~~`B1-2` 统一 API 规范与网关~~ → **已产出**：契约 `openapi/yl-api.yaml`、错误码字典、JWT 双令牌鉴权、Redis 限流、幂等切面
 - ~~`B1-4` 数据库 ER~~ → **已产出**：`docker/mysql/init/`（合计 37 表 = `02_schema.sql` 36 + `01_init.sql` 1，含 ER 评审补丁 3 表）、敏感字段 AES-256-GCM 加密、索引与 1 万条导出容量规划
-- ~~DDL 真实执行验证~~ → **已完成**：`scripts/verify-schema.sh` 在 MySQL 8.0.37 上 **34 项断言全绿**，已纳入 CI（`schema-verify` 作业，MySQL service container）
+- ~~DDL 真实执行验证~~ → **已完成**：`scripts/verify-schema.sh` 在 MySQL 8.0.37 上 **43 项断言全绿**，已纳入 CI（`schema-verify` 作业，MySQL service container）
 - ~~ER 三方评审 P1 DDL 补丁~~ → **已应用**：ER-03 / 04 / 05 / 06 / 07 / 08 六项落库（表数 34 → 37），提交 `75b704a`
 - ~~ER-09 / 12 / 13 全库口径（主键 / 时区 / 外键 / 软删除）~~ → **已完成**：`docs/ADR/0003-id-timezone-fk-softdelete.md`，并固化为 `verify-schema.sh` 断言（违反即 CI 失败）
+- ~~`B2-0` RBAC 基础数据播种（五角色 / 权限矩阵落库）~~ → **已完成**：`docker/mysql/init/03_seed_rbac.sql`（5 角色 / 16 权限点 / 23 授权）＋ `docs/design/B2-account-rbac-design.md`；矩阵 ❌ 单元格已固化为断言
 - ~~提交规范与本地钩子~~ → **已完成**：`.githooks/`（commit-msg + pre-commit）+ `scripts/setup-hooks.sh`；CI `commit-lint` 复用同一份脚本
 - **待人工签字（不可由研发代签）**：ER-03 保留期 / ER-08 告知同意留痕 待 **DPO 会签**（ER 纪要 §七 生效条件 2）
-- `B2` 账号 RBAC（本模块 `yl-module-account`）
+- `B2` 账号 RBAC 代码实现（本模块 `yl-module-account`：鉴权中间件 / 二次验证 / 多端登录）
 - `C2` 国标规则引擎（本模块 `yl-module-evaluation`，规则版本表见 `docker/mysql/init/01_init.sql`，26 项指标与规则条目播种归 C2-1）
 
 ---
