@@ -10,7 +10,11 @@
 #
 # 用途：在真实 MySQL 8 上执行初始化脚本并断言"结构真实落地 + 关键约束真实生效"，
 #       避免"DDL 只存在于文件、从未被执行过"这类交付风险。
-#       断言总数 43 项（含 ADR-0003 全库口径 5 项 + B2 权限矩阵红线 8 项）。
+#       断言总数 60 项（= 已生效 44 项 + 待批准补丁守卫 16 项）：
+#         · 已生效 44 项（含 ADR-0003 全库口径 5 项 + B2 RBAC 种子/红线 8 项）；
+#         · 待批准补丁守卫 16 项（ER-11 ×2 / ER-14 ×6 / CR-M2-001 ×8）——
+#           守卫未满足记 PENDING（不计失败），补丁上库后自动转为真实断言。
+#       口径与盲区核查：docs/quality/verify-schema-assertion-reconciliation.md
 #
 # 用法：
 #   bash scripts/verify-schema.sh                     # 默认连 127.0.0.1:3306 root（空密码）
@@ -94,6 +98,45 @@ check_ge() { # desc / actual / min
         pass_msg "$1 = $2（≥ $3）"
     else
         fail_msg "$1 = ${2:-空}（期望 ≥ $3）"
+    fi
+}
+
+# ---------------------------------------------------------------------------
+# 待批准补丁守卫（Pending-Patch Guard）
+#   背景（2026-09-21 实测）：ER-11 埋点字典表 / ER-14 第三方绑定表 / CR-M2-001 权限红线
+#   尚未获批准上库。若把断言直接写成"硬断言"，补丁未上库时会因表不存在而误红；
+#   若完全不写，则补丁上库后可能"DDL 变了断言没变"而静默漂移。
+#   守卫语义：守卫表/守卫条件不满足 → 记 PENDING（不计失败、不计通过）；
+#             一旦满足 → 转为真实断言，期望值不符即失败。
+#   口径：docs/quality/verify-schema-assertion-reconciliation.md
+# ---------------------------------------------------------------------------
+PENDING=0
+
+pend_msg() {
+    echo "  ○ $1（PENDING：待批准上库，不计失败）"
+    PENDING=$((PENDING + 1))
+}
+
+# 表是否存在（存在=0）
+table_exists() {
+    [ "$(sql "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='$DB_NAME' AND table_name='$1' AND table_type='BASE TABLE';")" = "1" ]
+}
+
+# 守卫式断言：守卫表存在才执行（desc / guard_table / query / expected）
+check_pending() {
+    if table_exists "$2"; then
+        check "$1" "$(sql "$3")" "$4"
+    else
+        pend_msg "$1（期望 $4）"
+    fi
+}
+
+# 条件守卫式断言：守卫查询值等于 guard_value 才执行（desc / guard_query / guard_value / query / expected）
+check_pending_if() {
+    if [ "$(sql "$2")" = "$3" ]; then
+        check "$1" "$(sql "$4")" "$5"
+    else
+        pend_msg "$1（期望 $5）"
     fi
 }
 
@@ -275,10 +318,79 @@ check "同键历史记录并存条数（1 条已删除 + 1 条生效）" "$ROW_C
 sql "${BASE_SQL} DELETE FROM elder_family_bind WHERE id BETWEEN 9001 AND 9003;"
 echo ""
 
+# ---------- 8) 待批准补丁守卫（Pending-Patch Guard） ----------
+# 背景（2026-09-21 实测）：ER-11 埋点字典表 / ER-14 第三方绑定表 / CR-M2-001 权限红线
+#   尚未获批准上库。实测把两份 DDL 补丁放进 docker/mysql/init/ 后，若不同步断言，
+#   本脚本会因「active_uk 期望 3 实际 5」「retain_until 期望 4 实际 5」直接失败 2 项。
+#   故本节把新断言写成"守卫式"：守卫未满足记 PENDING（不失败），守卫满足即转为真实断言。
+echo "[8/8] 待批准补丁守卫：ER-11 埋点字典 / ER-14 第三方绑定 / CR-M2-001 权限红线"
+echo "      语义：守卫未满足记 PENDING（不计失败）；补丁上库后自动转为真实断言。"
+echo "      口径：docs/quality/verify-schema-assertion-reconciliation.md"
+echo ""
+
+# —— 立即生效（与补丁是否上库无关）——
+check "埋点禁采：全库 device_id 列（ER-11 §6 DPO-1）" "$(sql "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='$DB_NAME' AND column_name='device_id';")" "0"
+
+# —— ER-11 埋点事件名字典表（随 ER 补丁上库）——
+echo "      ER-11 埋点事件名字典（30 事件；s0/s1/s2 三级）："
+check_pending "ER-11 表 track_event_dict 存在" "track_event_dict" \
+    "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='$DB_NAME' AND table_name='track_event_dict' AND table_type='BASE TABLE';" "1"
+check_pending "ER-11 字典有效种子事件数" "track_event_dict" \
+    "SELECT COUNT(*) FROM $DB_NAME.track_event_dict WHERE deleted=0;" "30"
+if table_exists "track_event_dict"; then
+    echo "      敏感分级分布（明细，不单独断言）："
+    sql "SELECT CONCAT('        ', sensitivity, ' × ', COUNT(*)) FROM $DB_NAME.track_event_dict WHERE deleted=0 GROUP BY sensitivity ORDER BY sensitivity;"
+fi
+
+# —— ER-14 第三方账号绑定表（PM 五项裁决已填，待研发/合规附议）——
+echo "      ER-14 第三方账号绑定表："
+check_pending "ER-14 表 sys_user_third_party 存在" "sys_user_third_party" \
+    "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='$DB_NAME' AND table_name='sys_user_third_party' AND table_type='BASE TABLE';" "1"
+check_pending "ER-14 明文 open_id/union_id 列（PM 硬否决，必须为 0）" "sys_user_third_party" \
+    "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='$DB_NAME' AND table_name='sys_user_third_party' AND column_name IN ('open_id','union_id');" "0"
+check_pending "ER-14 open_id_hash 为 CHAR(64)" "sys_user_third_party" \
+    "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='$DB_NAME' AND table_name='sys_user_third_party' AND column_name='open_id_hash' AND data_type='char' AND character_maximum_length=64;" "1"
+check_pending "ER-14 保留期列 retain_until（PM 裁决 §5.1-A：注销后 30 天）" "sys_user_third_party" \
+    "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='$DB_NAME' AND table_name='sys_user_third_party' AND column_name='retain_until' AND data_type='datetime';" "1"
+check_pending "ER-14 索引 idx_retain_until（物理删除扫描支撑）" "sys_user_third_party" \
+    "SELECT COUNT(DISTINCT index_name) FROM information_schema.statistics WHERE table_schema='$DB_NAME' AND table_name='sys_user_third_party' AND index_name='idx_retain_until';" "1"
+check_pending "ER-14 双唯一键（uk_platform_openid + uk_user_platform，均含 active_uk）" "sys_user_third_party" \
+    "SELECT COUNT(DISTINCT index_name) FROM information_schema.statistics WHERE table_schema='$DB_NAME' AND table_name='sys_user_third_party' AND index_name IN ('uk_platform_openid','uk_user_platform') AND non_unique=0;" "2"
+
+# —— CR-M2-001 权限矩阵新增 ❌ 红线 8 条（待 CCB 会签）——
+# 守卫：种子补丁 id 2017–2022 已入库（=6）才算已应用，否则记 PENDING
+echo "      CR-M2-001 权限矩阵新增红线（PRD §2.2 新增 5 行）："
+CR_GUARD="SELECT COUNT(*) FROM $DB_NAME.sys_permission WHERE id BETWEEN 2017 AND 2022;"
+check_pending_if "CR-M2-001 红线：老人(ELDER)不得持建档权限" "$CR_GUARD" "6" \
+    "SELECT COUNT(*) $RBAC_JOIN r.role_code='ELDER' AND p.perm_code='elder:archive:create';" "0"
+check_pending_if "CR-M2-001 红线：监管(SUPERVISOR)不得持建档权限" "$CR_GUARD" "6" \
+    "SELECT COUNT(*) $RBAC_JOIN r.role_code='SUPERVISOR' AND p.perm_code='elder:archive:create';" "0"
+check_pending_if "CR-M2-001 红线：老人(ELDER)不得持明文查看权限" "$CR_GUARD" "6" \
+    "SELECT COUNT(*) $RBAC_JOIN r.role_code='ELDER' AND p.perm_code='data:reveal';" "0"
+check_pending_if "CR-M2-001 红线：评估员(ASSESSOR)不得持明文查看权限" "$CR_GUARD" "6" \
+    "SELECT COUNT(*) $RBAC_JOIN r.role_code='ASSESSOR' AND p.perm_code='data:reveal';" "0"
+check_pending_if "CR-M2-001 红线：家属(FAMILY)不得持明文查看权限" "$CR_GUARD" "6" \
+    "SELECT COUNT(*) $RBAC_JOIN r.role_code='FAMILY' AND p.perm_code='data:reveal';" "0"
+check_pending_if "CR-M2-001 红线：监管(SUPERVISOR)不得持明文查看权限" "$CR_GUARD" "6" \
+    "SELECT COUNT(*) $RBAC_JOIN r.role_code='SUPERVISOR' AND p.perm_code='data:reveal';" "0"
+check_pending_if "CR-M2-001 红线：老人(ELDER)不得持评估任务列表权限" "$CR_GUARD" "6" \
+    "SELECT COUNT(*) $RBAC_JOIN r.role_code='ELDER' AND p.perm_code='evaluation:task:read';" "0"
+check_pending_if "CR-M2-001 红线：家属(FAMILY)不得持评估任务列表权限" "$CR_GUARD" "6" \
+    "SELECT COUNT(*) $RBAC_JOIN r.role_code='FAMILY' AND p.perm_code='evaluation:task:read';" "0"
+echo ""
+
 # ---------- 汇总 ----------
+TOTAL_ASSERTIONS=$((PASS + FAIL + PENDING))
+EXPECTED_TOTAL_ASSERTIONS=60
 echo "=============================================================="
-echo " 结果：通过 $PASS 项，失败 $FAIL 项"
+echo " 结果：通过 $PASS 项，失败 $FAIL 项，待批准守卫 $PENDING 项（合计 $TOTAL_ASSERTIONS 项）"
 echo "=============================================================="
+
+# 断言总数自检：断言被增删但未同步头注释/本常量即报警（防止断言被静默删掉）
+if [ "$TOTAL_ASSERTIONS" -ne "$EXPECTED_TOTAL_ASSERTIONS" ]; then
+    echo "✗ 断言总数自检失败：期望 $EXPECTED_TOTAL_ASSERTIONS，实际 $TOTAL_ASSERTIONS" >&2
+    FAIL=$((FAIL + 1))
+fi
 
 if [ "$DROP_AFTER" = "1" ]; then
     sql "DROP DATABASE IF EXISTS \`$DB_NAME\`;"
