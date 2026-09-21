@@ -285,7 +285,7 @@ paths:
     post:
       tags: [elder]
       summary: 新建老人档案
-      x-required-permission: pending-cr
+      x-required-permission: elder:archive:create
       parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
       requestBody:
         required: true
@@ -305,7 +305,7 @@ paths:
     get:
       tags: [elder]
       summary: 老人列表（分页 + 多维筛选）
-      x-required-permission: pending-cr
+      x-required-permission: elder:archive:read
       parameters:
         - { $ref: '#/components/parameters/PageNum' }
         - { $ref: '#/components/parameters/PageSize' }
@@ -340,7 +340,7 @@ paths:
     get:
       tags: [elder]
       summary: 老人档案详情
-      x-required-permission: pending-cr
+      x-required-permission: elder:archive:read
       parameters:
         - name: elderId
           in: path
@@ -361,7 +361,7 @@ paths:
     post:
       tags: [elder]
       summary: 查看敏感字段明文（二次验证 + 全留痕）
-      x-required-permission: pending-cr
+      x-required-permission: data:reveal
       description: 需 secondaryToken（短信/人脸二次验证换取）；调用写入 audit_log(sensitive=1)。
       parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
       requestBody:
@@ -387,7 +387,7 @@ paths:
     get:
       tags: [evaluation]
       summary: 评估任务列表（按机构/评估员/状态筛选）
-      x-required-permission: pending-cr
+      x-required-permission: evaluation:task:read
       parameters:
         - { $ref: '#/components/parameters/PageNum' }
         - { $ref: '#/components/parameters/PageSize' }
@@ -539,7 +539,7 @@ paths:
     get:
       tags: [rule]
       summary: 国标规则版本列表
-      x-required-permission: pending-cr
+      x-required-permission: rule:view
       responses:
         '200': { description: 列表, content: { application/json: { schema: { $ref: '#/components/schemas/R' } } } }
 
@@ -547,7 +547,7 @@ paths:
     get:
       tags: [rule]
       summary: 国标条款 → 规则条目映射矩阵（可机器校验的追溯锚点）
-      x-required-permission: pending-cr
+      x-required-permission: rule:view
       parameters:
         - name: ruleVersionId
           in: query
