@@ -1,8 +1,9 @@
 -- =============================================================================
 -- CR-M2-001 种子补丁提案 · 权限矩阵缺口补齐
---   ⚠ 状态：**提案，未应用**。须 CR-M2-001 获得 CCB 会签 + PM 签发后方可并入
---            docker/mysql/init/03_seed_rbac.sql，并同步 PermissionCode /
---            SensitivePermissions / verify-schema.sh 断言（43 → 51 项）。
+--   ✅ 状态：**已应用（2026-09-21）**。CCB 会签 + PM 签发通过后，正文已并入
+--            docker/mysql/init/03_seed_rbac.sql 第 4 节，并同步 verify-schema.sh
+--            （权限点 22 / 授权 40 / 敏感点 4 / 断言总数 60）。
+--   ⚠ 本文件保留为变更留痕，**请勿重复执行**（正文与已落地内容一致；重复执行因 INSERT IGNORE 无害）。
 --
 -- 依据：docs/change/CR-M2-001-permission-matrix-gap.md
 --       docs/design/B2-permission-api-matrix.md（7 处 pending-cr 的来源）
