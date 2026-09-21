@@ -125,8 +125,10 @@ B2（账号·角色·权限）在把 `openapi/yl-api.yaml` 的 **22 个操作逐
 | 落地位置 | `PermissionAspect` 扩展点或独立 `ArchiveAccessRateGuard`（**建议独立**，避免鉴权链路过重） |
 | 是否阻塞本 CR | **不阻塞**。属审计配套，随本 CR 落地一并配置（见 §六 落地清单 #7） |
 
-> ⚠ **待 PM 会签确认的 2 个参数**：① N 取值是否取 50；② ASSESSOR / ORG_ADMIN 是否纳入监控对象。
-> 未确认前研发侧按「N=50、仅监控 ELDER/FAMILY/SUPERVISOR」实现，**参数外置可配**，不写死。
+> ✅ **2 个参数已随 CCB 会签定案（2026-09-21）**：① N = **50**；② **ASSESSOR / ORG_ADMIN 不纳入**监控对象（仅监控非护理角色
+> ELDER / FAMILY / SUPERVISOR）。三项落地物（2026-09-22）：`SlidingWindowCounter` 端口 + `RedisSlidingWindowCounter`（ZSET + Lua 原子滑动窗口）、
+> `ArchiveAccessRateGuard`（判定 + 去重 + 写审计告警）、`ArchiveAccessAlertNotifier`（通知监管角色，默认日志实现）。
+> 全部参数外置可配（`yl.security.archive-access-guard.*`），后续调整无需改码。
 
 ---
 
@@ -189,17 +191,17 @@ B2（账号·角色·权限）在把 `openapi/yl-api.yaml` 的 **22 个操作逐
 
 **生效条件**：会签栏 5 个角色全部签署（CCB 多数同意 + PM 签发）。
 
-**批准后落地清单（一次提交完成）**
+**批准后落地清单**
 
-| # | 动作 | 产出 |
-|---|---|---|
-| 1 | 应用种子补丁 | `docker/mysql/init/03_seed_rbac.sql` 追加 6 权限点 + 17 授权（id 2017–2022 / **3024–3040**） |
-| 2 | 同步代码常量 | `PermissionCode` 增 6 常量；`SensitivePermissions` 增 `data:reveal` |
-| 3 | 增补断言 | `verify-schema.sh`：权限点 = 22、授权 = 40、敏感点 = 4、新增 ❌ 红线 8 条（**断言总数 43 → 60，口径见 `docs/quality/verify-schema-assertion-reconciliation.md`**） |
-| 4 | 回填契约 | `openapi/yl-api.yaml` 7 处 `pending-cr` → 明确权限码；`x-required-permission` 明确率 100% |
-| 5 | 回写 PRD | §2.2 增 5 行、修订记录加「v1.1（同版回写 CR-M2-001）」行（**按 CR-M1-002 先例同版回写、不升版**，须 CCB 追认） |
-| 6 | 文档同步 | `B2-permission-api-matrix.md` 升 v2（缺口清零）；`B2-account-rbac-design.md` §2/§4 同步 |
-| 7 | **审计配套（PM 补充 §2.5）** | 新增 `ArchiveAccessRateGuard`（滑动 1h 计数，N=50 外置可配）+ 告警写入 + 监管角色通知；`verify-schema.sh` **不新增断言**（属运行时行为，非结构约束） |
+| # | 动作 | 产出 | 状态 |
+|---|---|---|---|
+| 1 | 应用种子补丁 | `docker/mysql/init/03_seed_rbac.sql` 追加 6 权限点 + 17 授权（id 2017–2022 / **3024–3040**） | ✅ 2026-09-21 |
+| 2 | 同步代码常量 | `PermissionCode` 增 6 常量；`SensitivePermissions` 增 `data:reveal` | ✅ 2026-09-22 |
+| 3 | 增补断言 | `verify-schema.sh`：权限点 = 22、授权 = 40、敏感点 = 4、新增 ❌ 红线 8 条（**断言总数 43 → 63，口径见 `docs/quality/verify-schema-assertion-reconciliation.md`**） | ✅ 2026-09-21 / 09-22 |
+| 4 | 回填契约 | `openapi/yl-api.yaml` 7 处 `pending-cr` → 明确权限码；`x-required-permission` 明确率 **100%（22/22）** | ✅ 2026-09-22 |
+| 5 | 回写 PRD | §2.2 增 5 行、修订记录加「v1.1（同版回写 CR-M2-001）」行（**按 CR-M1-002 先例同版回写、不升版**，须 CCB 追认） | ⏳ 待办（须 CCB 追认） |
+| 6 | 文档同步 | `B2-permission-api-matrix.md` 升 v2（缺口清零）；`B2-account-rbac-design.md` §2/§5/§7/§9 同步；**新增 `B2-permission-point-catalog.md`（22 点 × 5 角色全清单）** | ✅ 2026-09-22 |
+| 7 | **审计配套（PM 补充 §2.5）** | 新增 `ArchiveAccessRateGuard`（滑动 1h 计数，N=50 外置可配）+ 告警写入 `audit_log` + 监管角色通知；`verify-schema.sh` **不新增断言**（属运行时行为，非结构约束） | ✅ 2026-09-22 |
 
 **回滚方案**：改动为**纯增量**（新增行/新增授权），回滚只需删除 6 条 `sys_permission`（id 2017–2022）、
 17 条 `sys_role_permission`、契约中 7 处 `x-required-permission` 改回 `pending-cr`；
@@ -217,4 +219,9 @@ B2（账号·角色·权限）在把 `openapi/yl-api.yaml` 的 **22 个操作逐
 | 2026-09-21 | **提交 CCB 会签** | ⏳ 已提交，**待 5 个角色签署**（PM 签发 / 后端 / 四端 / 测试 / 合规） | CCB |
 | 2026-09-21 | **CCB 会签 + PM 签发通过** | ✅ 5 个角色全部同意；§2.5 告警参数定案（N=50，监控 ELDER/FAMILY/SUPERVISOR） | CCB / 产品经理 |
 | 2026-09-21 | **种子落地（独立提交）** | ✅ `03_seed_rbac.sql` 增 6 权限点 + 17 授权；`verify-schema.sh` 权限点 22 / 授权 40，8 条红线转为真实断言 | 研发侧 |
-| — | PM 签发 + 落地 7 步 | ⏳ 待办（#2 代码常量 / #4 契约回填 / #5 回写 PRD / #6 文档同步 / #7 审计配套） | 产品 / 研发 |
+| 2026-09-22 | **落地 #2 同步代码常量** | ✅ `PermissionCode` 22 常量（+6）、`SensitivePermissions` 4 敏感点（+`data:reveal`） | 研发侧 |
+| 2026-09-22 | **落地 #4 回填契约** | ✅ `openapi/yl-api.yaml` 7 处 `pending-cr` → 明确权限码；明确率 **100%（22/22）** | 研发侧 |
+| 2026-09-22 | **落地 #7 审计配套** | ✅ `ArchiveAccessRateGuard` + 滑动窗口计数（ZSET+Lua）+ 告警写库 + 监管通知；单测 7 例通过 | 研发侧 |
+| 2026-09-22 | **落地 #6 文档同步** | ✅ 矩阵升 v2（缺口清零）、设计 §2/§5/§7/§9 同步、新增权限点清单 | 研发侧 |
+| — | 落地 #5 回写 PRD | ⏳ 待办（须 CCB 追认） | 产品 |
+| — | 反向缺口 6 类补登契约 | ⏳ 待办（随 C/D 模块，不阻塞本 CR） | 研发 |

@@ -29,9 +29,10 @@
 
 > `data_scope` 取值域 1-本人 / 2-本机构 / 3-全量 / 4-只读全局；五角色**均不占用 3-全量**（该档留给平台级账号，不在本期五角色内）。
 
-### 2.2 权限点（`sys_permission`，16 行）
+### 2.2 权限点（`sys_permission`，22 行）
 
-矩阵九行展开为 14 个原子权限，另加 2 个敏感操作权限点（不常驻授予）：
+矩阵九行展开为 14 个原子权限，另加 2 个敏感操作权限点（不常驻授予）；**CR-M2-001（2026-09-21 CCB 会签 + PM 签发，2026-09-22 落地）
+再补 6 个权限点**，共 22 个：
 
 | perm_code | 名称 | module | need_second_verify | 矩阵行 |
 |---|---|---|---|---|
@@ -51,8 +52,19 @@
 | `account:family:bind:reject` | 拒绝亲情绑定（老人端） | account | 0 | 行9🔶 |
 | `evaluation:order:void` | 作废评估单 | evaluation | **1** | 附加 |
 | `account:family:unbind` | 解绑亲情关系 | account | **1** | 附加 |
+| `elder:archive:create` | 老人建档 | elder | 0 | 行10（CR-M2-001） |
+| `elder:archive:create:apply` | 发起代办建档申请（受限） | elder | 0 | 行10🔶（CR-M2-001） |
+| `elder:archive:read` | 查看老人档案 | elder | 0 | 行11（CR-M2-001） |
+| `evaluation:task:read` | 评估任务列表查看 | evaluation | 0 | 行12（CR-M2-001） |
+| `data:reveal` | 查看敏感字段明文 | security | **1** | 行13（CR-M2-001） |
+| `rule:view` | 国标规则只读（条款回溯） | rule | 0 | 行14（CR-M2-001） |
 
-### 2.3 授权（`sys_role_permission`，23 行）
+> 完整清单（含逐点契约归属与角色矩阵）见 `docs/design/B2-permission-point-catalog.md`。
+> 代码孪生：`PermissionCode`（22 常量）+ `SensitivePermissions`（4 个敏感点），**与种子逐格对齐，禁止私自增删**。
+> ⚠ `elder:archive:read` 五角色全授予，可见范围由 §3 第三闸 `data_scope` 控制；正因其不再具备限速含义，
+> 另加行为异常检测兜底（见 §5.1）。
+
+### 2.3 授权（`sys_role_permission`，40 行）
 
 | 矩阵行 | ELDER | ASSESSOR | FAMILY | ORG_ADMIN | SUPERVISOR |
 |---|:--:|:--:|:--:|:--:|:--:|
@@ -65,8 +77,15 @@
 | 监管数据上报 | ❌ | ❌ | ❌ | ✅ | ✅ |
 | 导出/批量操作 | ❌ | ❌ | ❌ | ✅* | ✅* |
 | 亲情绑定/解绑 | 🔶reject | ❌ | ✅ | ✅ | ❌ |
+| 老人建档 | ❌ | ✅ | 🔶apply | ✅ | ❌ |
+| 查看老人档案 | ✅ | ✅ | ✅ | ✅ | ✅ |
+| 评估任务列表 | ❌ | ✅ | ❌ | ✅ | 👁read |
+| 查看敏感字段明文 | ❌ | ❌ | ❌ | ✅* | ❌ |
+| 国标规则只读 | ✅ | ✅ | ✅ | ✅ | ✅ |
 
+> 行 10–14 为 CR-M2-001 新增（2026-09-22 落地）；授权记录 23 → **40 条**（新增 id 3024–3040）。
 > `*` 需二次验证（`need_second_verify=1`）。`evaluation:order:void` / `account:family:unbind` 默认**不授予任何角色**，由机构管理员运行时经二次验证临时提权，避免权限常驻。
+> 角色持有数：ELDER 4 / ASSESSOR 8 / FAMILY 6 / ORG_ADMIN 14 / SUPERVISOR 8，合计 **40**，与种子逐条对应。
 
 ## 3 鉴权中间件（四道闸）
 
@@ -96,10 +115,28 @@
 | 导出 / 批量 | `data:export` | `audit_log(sensitive=1, second_verify=1)` | 3 年（ER-03） |
 | 作废评估单 | `evaluation:order:void` | `audit_log` + `eval_review_log` | 3 年 |
 | 解绑亲情 | `account:family:unbind` | `audit_log` | 3 年 |
-| 查看明文敏感字段 | 任意（拦截器级） | `audit_log(detail=脱敏上下文)` | 3 年 |
+| 查看明文敏感字段 | `data:reveal`（CR-M2-001 新增，拦截器级） | `audit_log(sensitive=1, second_verify=1)` | 3 年 |
 
+- 敏感权限点共 **4 个**，代码登记在 `SensitivePermissions`；`PermissionAspect` 命中即转第四闸（`X-Second-Verify-Token`，Redis `GETDEL`，TTL 300s）。
 - `AuditLogAspect` 拦截 `@Audit(action=..., sensitive=true)`，写 `audit_log`，`retain_until = now + 3y`。
 - **告知同意**：`consent_record`（ER-08 已落库）记录 `policy_code/version`、`consent_channel`、`scope_json` 快照、`revoked_at`，满足个保法举证。
+
+### 5.1 行为异常检测：档案异常访问告警（CR-M2-001 §2.5 · PM 补充意见）
+
+`elder:archive:read` 授予全部 5 个角色后，**权限点层面的限速含义消失**，须补一层行为检测兜住批量拉档风险：
+
+| 项 | 口径 | 落点 |
+|---|---|---|
+| 监控对象 | 非护理角色 **ELDER / FAMILY / SUPERVISOR**（ASSESSOR / ORG_ADMIN 为护理相关角色，默认不纳入） | `ArchiveAccessRateGuard` + `yl.security.archive-access-guard.monitored-roles` |
+| 触发条件 | 同一账号对档案类接口（`elder:archive:read`）**滑动 1 小时**内调用 **> N**（默认 **50**） | `threshold` / `window-minutes`（外置可配） |
+| 统计实现 | Redis ZSET + Lua 原子「修剪—写入—计数」；**滑动窗口，非自然小时** | `SlidingWindowCounter`（端口）/ `RedisSlidingWindowCounter`（实现） |
+| 处置动作 | 写 `audit_log(action=ARCHIVE_ACCESS_ALERT)` → 通知监管角色（同窗口内去重） | `ArchiveAccessRateGuard` + `ArchiveAccessAlertNotifier` |
+| 触发时机 | 第二闸授权通过后由 `PermissionAspect` 一行委派（守卫**只告警、不拦截、失败开放**） | `PermissionAspect` |
+
+- **不拦截的理由**：CR 把「降级为单次二次验证」列为**可选**。档案读取是非敏感权限点，强制二次验证会使客户端在无 `X-Second-Verify-Token` 时直接失败，
+  属契约破坏性变更，超出本 CR 授权范围，故本期只告警；生产如需启用须在 C/D 模块落地时一并变更契约。
+- **失败开放的理由**：告警是旁路监控能力，计数 / 去重 / 通知任一环节异常只记警告，不得因监控设施抖动阻断档案读取这一业务主链路。
+- **不新增 `verify-schema.sh` 断言**：属运行时行为，非结构约束（CR 落地清单 #7 已明示）。
 
 ## 6 多端登录适配（PRD §8 统一原则）
 
@@ -134,15 +171,24 @@
 ## 7 门禁（`verify-schema.sh` · B2 段 · 8 项）
 
 1. 五角色 `sys_role` = 5
-2. 权限点 `sys_permission` = 16
-3. 授权 `sys_role_permission` = 23
-4. 敏感权限点 `need_second_verify=1` ≥ 2
+2. 权限点 `sys_permission` = **22**（CR-M2-001 补齐后）
+3. 授权 `sys_role_permission` = **40**
+4. 敏感权限点 `need_second_verify=1` **= 4**（精确值，含 `data:reveal`）
 5. 红线：`ASSESSOR` 不得持 `evaluation:order:review`
 6. 红线：`ELDER` 不得持 `evaluation:item:input`
 7. 红线：`SUPERVISOR` 不得持 `evaluation:order:review`
 8. 红线：`FAMILY` 不得持 `evaluation:item:input`
 
+> CR-M2-001 落地后，原「≥ 下界」口径已改为**精确值**（R2 修复），并新增 4 条矩阵红线（`ELDER`/`FAMILY` 不得持
+> `elder:archive:create`、`ASSESSOR`/`SUPERVISOR` 不得持 `data:reveal` 等）。
+
 脚本断言总数 **63 项**（R1–R5 闭合后；口径唯一来源见 `docs/quality/verify-schema-assertion-reconciliation.md`），本地 MySQL 8.0.37 实测 **全绿 0 失败**（2026-09-22；B2 关账时为 43 项）。
+<br>**行为类告警（`ArchiveAccessRateGuard`）不纳入本脚本断言**——属运行时行为而非结构约束（§5.1）。
+
+### 7.1 单元测试
+
+`ArchiveAccessRateGuardTest`（7 例）：超阈值告警 / 恰好等于阈值不告警 / 护理角色不纳入 / 非档案权限点不计数 /
+同窗口去重 / 开关关闭与阈值非法时惰性 / 计数设施异常时失败开放。
 
 ## 8 落地清单（对应 B2 四个子任务）
 
@@ -162,14 +208,19 @@
 | 种子缺口 | **已补齐**：`03_seed_rbac.sql`（本设计 §2） |
 | 建议加固 | `eval_order` 互斥 `CHECK` 约束（可选，本期服务层兜底） |
 | 权限常驻风险 | `void` / `unbind` 不授予常驻权限，运行时提权 |
-| **第三方账号绑定表** | **缺**（`sys_user` 无 openid 列，无绑定表）→ §6.2，方案 A 绕开、方案 B 待评估立 ER-14 |
+| **第三方账号绑定表** | **已落地**：ER-14 经三方裁决通过并建表 `sys_user_third_party`（仅存 HMAC 摘要 + 双 `active_uk` + `retain_until`），见 `docs/reviews/ER-14-third-party-binding-proposal.md` |
 | 敏感字段编解码装配 | 原为**零装配**（`SensitiveFieldCodec` 无 Bean）；本轮补 `SensitiveFieldConfig`，**条件装配**（密钥非空才建，避免 dev 起不来） |
 
 ## 10 剩余事项
 
-- [x] 权限点与 `openapi/yl-api.yaml` 各接口的 `@RequiresPermission` 标注**逐接口回填** → **已完成**（2026-09-21）：22 个操作 100% 回填 `x-required-permission`；缺口见 `docs/design/B2-permission-api-matrix.md`（7 处 `pending-cr` 待 CR）。
+- [x] 权限点与 `openapi/yl-api.yaml` 各接口的 `@RequiresPermission` 标注**逐接口回填** → **已完成**（2026-09-22）：22 个操作 100% 回填 `x-required-permission`，**0 处 `pending-cr`**；对照矩阵见 `docs/design/B2-permission-api-matrix.md`（v2）；完整权限点清单见 `docs/design/B2-permission-point-catalog.md`。
 - [x] 多端登录渠道适配器（`rpW1xZ`）→ **已完成**（2026-09-21）：见 §6.1；FACE 明确不接入。
-- [ ] **ER-14 评估**：第三方账号绑定表（方案 B，§6.2）——若产品要求「免手机号重复授权登录」则必须做。
+- [x] **ER-14 评估**：第三方账号绑定表（方案 B，§6.2）→ **已通过并落地**（2026-09-21）。
+- [x] CR-M2-001 落地清单 #2 / #4 / #7 → **已完成**（2026-09-22）：代码常量同步（22 常量 + 4 敏感点）、契约回填（7 → 0 处 `pending-cr`）、审计配套（§5.1 `ArchiveAccessRateGuard`）。
+- [x] CR-M2-001 落地清单 #6（文档同步）→ **已完成**（2026-09-22）：`B2-permission-api-matrix.md` 升 v2（缺口清零）、本设计 §2/§5/§7/§9 同步、新增 `B2-permission-point-catalog.md`。
+- [ ] CR-M2-001 落地清单 #5（回写 PRD §2.2 增 5 行矩阵 + 修订记录加「v1.1 同版回写 CR-M2-001」）——须 CCB 追认，待办。
+- [x] 告警参数定案（随 CCB 会签，2026-09-21）：**N = 50**、仅监控非护理角色 ELDER / FAMILY / SUPERVISOR（`ASSESSOR` / `ORG_ADMIN` 不纳入）；参数外置可配，调整无需改码。
+- [ ] 反向缺口 6 类「权限点无归属接口」随 C/D 模块补登契约（§4 of `B2-permission-api-matrix.md`）。
 - [ ] 抖音手机号接口：待平台授权文档确认后配置 `yl.security.third-party.douyin.phone-url`。
 - [ ] 二次验证方式与 M1《敏感个人信息单独设计》的**逐场景对齐复核**（DPO 已会签 ER-03/08/10，人脸场景仍待单独同意文本）。
 - [ ] `ER-11 埋点事件名字典` 与 `r5HcnX` 埋点 SDK 一并落地。
