@@ -1,6 +1,8 @@
 package cn.yl.modules.account.security;
 
 import cn.yl.api.security.LoginUser;
+import cn.yl.common.exception.BizException;
+import cn.yl.common.exception.ErrorCode;
 import cn.yl.common.ratelimit.SlidingWindowCounter;
 import cn.yl.modules.account.domain.PermissionCode;
 import cn.yl.modules.account.service.AuditService;
@@ -26,15 +28,16 @@ import org.springframework.stereotype.Component;
  * <p><b>三个刻意的设计取舍</b>：
  *
  * <ol>
- *   <li><b>只告警、不拦截</b>。CR 把「降级为单次二次验证」列为<b>可选</b>项。档案读取是非敏感权限点，强制二次验证会使客户端在无 {@code
- *       X-Second-Verify-Token} 的情况下直接失败，属契约破坏性变更，超出本 CR 授权范围，故不实现。
+ *   <li><b>默认只告警、不拦截</b>。CR 把「降级为单次二次验证」列为<b>可选</b>项，且档案读取是非敏感权限点——强制二次验证 会使客户端在无 {@code
+ *       X-Second-Verify-Token} 的情况下直接失败，属契约破坏性变更，超出本 CR 授权范围。处置强度 外置为 {@link
+ *       ArchiveAccessGuardMode}（默认 {@code ALERT}），{@code ENFORCE} 仅作能力位预留，须先变更契约方可启用。
  *   <li><b>失败开放</b>。计数 / 去重 / 通知任一环节异常均只记警告，绝不向调用方抛错——告警是旁路监控能力，不能因监控设施抖动而阻断档案读取这一业务主链路。
  *   <li><b>独立组件</b>。按 CR 建议做成独立守卫而非把逻辑塞进 {@code PermissionAspect}；切面仅保留一行委派，鉴权链路的职责不被稀释。
  * </ol>
  *
- * <p>配置（{@code yl.security.archive-access-guard.*}）：{@code enabled} / {@code threshold} / {@code
- * window-minutes} / {@code monitored-roles} / {@code notifier}。阈值 ≤0 或监控角色为空时按「未启用」处理并告警，
- * 而非让应用启动失败（沿用 {@code SensitiveFieldConfig} 的既定取舍）。
+ * <p>配置（{@code yl.security.archive-access-guard.*}）：{@code enabled} / {@code mode} / {@code
+ * threshold} / {@code window-minutes} / {@code monitored-roles} / {@code notifier}。阈值 ≤0
+ * 或监控角色为空时按「未启用」处理并告警， 而非让应用启动失败（沿用 {@code SensitiveFieldConfig} 的既定取舍）。
  */
 @Slf4j
 @Component
@@ -59,6 +62,8 @@ public class ArchiveAccessRateGuard {
 
     private final boolean enabled;
 
+    private final ArchiveAccessGuardMode mode;
+
     private final int threshold;
 
     private final long windowMinutes;
@@ -73,6 +78,7 @@ public class ArchiveAccessRateGuard {
 
     /**
      * @param enabled 总开关
+     * @param mode 处置模式（默认 {@code alert}；未知值回落 {@code alert}）
      * @param threshold 阈值 N（滑动窗口内允许的最大调用次数，超过即告警）
      * @param windowMinutes 滑动窗口长度（分钟，默认 60 = 1 小时）
      * @param monitoredRolesCsv 监控角色码（逗号分隔，默认仅非护理角色）
@@ -82,6 +88,7 @@ public class ArchiveAccessRateGuard {
      */
     public ArchiveAccessRateGuard(
             @Value("${yl.security.archive-access-guard.enabled:true}") boolean enabled,
+            @Value("${yl.security.archive-access-guard.mode:alert}") String mode,
             @Value("${yl.security.archive-access-guard.threshold:50}") int threshold,
             @Value("${yl.security.archive-access-guard.window-minutes:60}") long windowMinutes,
             @Value(
@@ -92,6 +99,7 @@ public class ArchiveAccessRateGuard {
             SlidingWindowCounter counter,
             AuditService auditService,
             ArchiveAccessAlertNotifier notifier) {
+        this.mode = ArchiveAccessGuardMode.parse(mode);
         this.threshold = threshold;
         this.windowMinutes =
                 windowMinutes <= 0 || windowMinutes > 24 * 60
@@ -101,7 +109,13 @@ public class ArchiveAccessRateGuard {
         this.counter = counter;
         this.auditService = auditService;
         this.notifier = notifier;
-        this.enabled = enabled && threshold > 0 && !this.monitoredRoles.isEmpty();
+        this.enabled =
+                enabled && this.mode.tracks() && threshold > 0 && !this.monitoredRoles.isEmpty();
+        if (this.mode.enforces()) {
+            log.warn(
+                    "档案异常访问守卫处于 ENFORCE 模式：超阈值将直接拒绝请求（{}）。启用前须确认契约已声明该错误码与重试语义",
+                    ErrorCode.RATE_LIMITED);
+        }
         if (enabled && !this.enabled) {
             log.warn(
                     "档案异常访问守卫配置不完整（threshold={} monitored-roles='{}'），本次按未启用处理",
@@ -117,6 +131,7 @@ public class ArchiveAccessRateGuard {
      *
      * @param user 当前登录主体
      * @param grantedPermissions 本次调用所需权限码
+     * @throws BizException 仅 {@code ENFORCE} 模式下超阈值时抛出（{@link ErrorCode#RATE_LIMITED}）
      */
     public void onPermissionGranted(LoginUser user, String[] grantedPermissions) {
         if (!enabled
@@ -132,21 +147,30 @@ public class ArchiveAccessRateGuard {
             return;
         }
         long windowSeconds = windowMinutes * 60L;
+        boolean reject = false;
         try {
             long count =
                     counter.recordAndCount(COUNT_DIMENSION_PREFIX + user.userId(), windowSeconds);
             if (count > threshold) {
-                raiseAlert(user, count, windowSeconds);
+                reject = raiseAlert(user, count, windowSeconds);
             }
         } catch (RuntimeException ex) {
             log.warn("档案访问频次统计失败，跳过本次告警判定：userId={}", user.userId(), ex);
         }
+        // 拒绝动作置于 try 之外：ENFORCE 是显式选择的处置强度，不能被「失败开放」的兜底捕获吞掉
+        if (reject) {
+            throw new BizException(ErrorCode.RATE_LIMITED);
+        }
     }
 
-    /** 写告警事件 + 通知监管角色（同一窗口内对该账号只告警一次）。 */
-    private void raiseAlert(LoginUser user, long count, long windowSeconds) {
+    /**
+     * 写告警事件 + 按模式通知监管角色（同一窗口内对该账号只告警一次）。
+     *
+     * @return 是否需要拒绝本次请求（仅 {@code ENFORCE} 模式返回 {@code true}）
+     */
+    private boolean raiseAlert(LoginUser user, long count, long windowSeconds) {
         if (!counter.tryAcquireOnce(ALERT_DIMENSION_PREFIX + user.userId(), windowSeconds)) {
-            return;
+            return mode.enforces();
         }
         ArchiveAccessAlert alert =
                 new ArchiveAccessAlert(
@@ -162,7 +186,14 @@ public class ArchiveAccessRateGuard {
             // 留痕失败不应连带吞掉监管通知：两条链路各自独立，相互不阻塞
             log.warn("档案异常访问告警写审计失败：userId={}", user.userId(), ex);
         }
-        notifier.notify(alert);
+        if (mode.notifies()) {
+            try {
+                notifier.notify(alert);
+            } catch (RuntimeException ex) {
+                log.warn("档案异常访问告警通知失败：userId={}", user.userId(), ex);
+            }
+        }
+        return mode.enforces();
     }
 
     /** 告警上下文（全为数值，无需 JSON 转义）。 */

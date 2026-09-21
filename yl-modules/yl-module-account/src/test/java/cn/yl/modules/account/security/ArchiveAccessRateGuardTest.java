@@ -1,6 +1,7 @@
 package cn.yl.modules.account.security;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
@@ -10,6 +11,8 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
 import cn.yl.api.security.LoginUser;
+import cn.yl.common.exception.BizException;
+import cn.yl.common.exception.ErrorCode;
 import cn.yl.common.ratelimit.SlidingWindowCounter;
 import cn.yl.modules.account.service.AuditService;
 import java.util.ArrayList;
@@ -39,8 +42,26 @@ class ArchiveAccessRateGuardTest {
             int threshold,
             boolean enabled,
             String monitoredRoles) {
+        return guard(
+                counter,
+                auditService,
+                notifier,
+                threshold,
+                enabled,
+                monitoredRoles,
+                ArchiveAccessGuardMode.ALERT.name());
+    }
+
+    private static ArchiveAccessRateGuard guard(
+            SlidingWindowCounter counter,
+            AuditService auditService,
+            ArchiveAccessAlertNotifier notifier,
+            int threshold,
+            boolean enabled,
+            String monitoredRoles,
+            String mode) {
         return new ArchiveAccessRateGuard(
-                enabled, threshold, 60L, monitoredRoles, counter, auditService, notifier);
+                enabled, mode, threshold, 60L, monitoredRoles, counter, auditService, notifier);
     }
 
     @Test
@@ -170,6 +191,103 @@ class ArchiveAccessRateGuardTest {
                 .onPermissionGranted(user("FAMILY"), new String[] {ARCHIVE_READ});
 
         assertThat(notifier.alerts).isEmpty();
+    }
+
+    @Test
+    @DisplayName("mode=off：完全旁路，不计数、不留痕、不通知")
+    void inertWhenModeOff() {
+        FakeCounter counter = new FakeCounter();
+        counter.nextCount = 999L;
+        CapturingNotifier notifier = new CapturingNotifier();
+        AuditService auditService = mock(AuditService.class);
+
+        guard(counter, auditService, notifier, 50, true, "ELDER", "off")
+                .onPermissionGranted(user("ELDER"), new String[] {ARCHIVE_READ});
+
+        assertThat(counter.recorded).isZero();
+        assertThat(notifier.alerts).isEmpty();
+        verify(auditService, never()).record(anyString(), any(), eq(false), anyString());
+    }
+
+    @Test
+    @DisplayName("mode=audit：只写审计留痕，不推送监管通知（灰度期）")
+    void auditsWithoutNotifying() {
+        FakeCounter counter = new FakeCounter();
+        counter.nextCount = 80L;
+        CapturingNotifier notifier = new CapturingNotifier();
+        AuditService auditService = mock(AuditService.class);
+
+        guard(counter, auditService, notifier, 50, true, "FAMILY", "audit")
+                .onPermissionGranted(user("FAMILY"), new String[] {ARCHIVE_READ});
+
+        verify(auditService, times(1))
+                .record(eq("ARCHIVE_ACCESS_ALERT"), eq("ELDER"), eq(false), anyString());
+        assertThat(notifier.alerts).isEmpty();
+    }
+
+    @Test
+    @DisplayName("mode=enforce：留痕 + 通知后拒绝请求（错误码 10429）")
+    void rejectsWhenModeEnforce() {
+        FakeCounter counter = new FakeCounter();
+        counter.nextCount = 120L;
+        CapturingNotifier notifier = new CapturingNotifier();
+        AuditService auditService = mock(AuditService.class);
+
+        assertThatThrownBy(
+                        () ->
+                                guard(
+                                                counter,
+                                                auditService,
+                                                notifier,
+                                                50,
+                                                true,
+                                                "FAMILY",
+                                                "enforce")
+                                        .onPermissionGranted(
+                                                user("FAMILY"), new String[] {ARCHIVE_READ}))
+                .isInstanceOf(BizException.class)
+                .extracting(ex -> ((BizException) ex).getCode())
+                .isEqualTo(ErrorCode.RATE_LIMITED.getCode());
+
+        assertThat(notifier.alerts).hasSize(1);
+        verify(auditService, times(1))
+                .record(eq("ARCHIVE_ACCESS_ALERT"), eq("ELDER"), eq(false), anyString());
+    }
+
+    @Test
+    @DisplayName("mode=enforce 且计数设施异常：失败开放，不拒绝、不告警")
+    void failsOpenEvenInEnforceMode() {
+        SlidingWindowCounter broken =
+                new SlidingWindowCounter() {
+                    @Override
+                    public long recordAndCount(String dimension, long windowSeconds) {
+                        throw new IllegalStateException("redis 不可用");
+                    }
+
+                    @Override
+                    public boolean tryAcquireOnce(String dimension, long windowSeconds) {
+                        throw new IllegalStateException("redis 不可用");
+                    }
+                };
+        CapturingNotifier notifier = new CapturingNotifier();
+
+        guard(broken, mock(AuditService.class), notifier, 50, true, "FAMILY", "enforce")
+                .onPermissionGranted(user("FAMILY"), new String[] {ARCHIVE_READ});
+
+        assertThat(notifier.alerts).isEmpty();
+    }
+
+    @Test
+    @DisplayName("未知 mode 回落 alert：配置写错时不静默关掉护栏")
+    void fallsBackToAlertOnUnknownMode() {
+        FakeCounter counter = new FakeCounter();
+        counter.nextCount = 99L;
+        CapturingNotifier notifier = new CapturingNotifier();
+
+        guard(counter, mock(AuditService.class), notifier, 50, true, "FAMILY", "draconian")
+                .onPermissionGranted(user("FAMILY"), new String[] {ARCHIVE_READ});
+
+        assertThat(notifier.alerts).hasSize(1);
     }
 
     /** 可编程的计数端口替身。 */

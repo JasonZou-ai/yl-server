@@ -64,6 +64,10 @@ yl:
     archive-access-guard:
       # 总开关；关闭后完全不产生计数 I/O
       enabled: ${ARCHIVE_GUARD_ENABLED:true}
+      # 处置模式：off=旁路｜audit=只留痕不通知（灰度期）｜alert=留痕+通知监管（默认，不拦截）
+      #           enforce=留痕+通知+拒绝请求（须先变更契约，声明 429 与重试语义；默认不启用）
+      # 未知值回落 alert（配置写错时保持监控强度，不静默关掉护栏）
+      mode: ${ARCHIVE_GUARD_MODE:alert}
       # 阈值 N（超过即告警；≤0 视为未配置，守卫按未启用处理）
       threshold: ${ARCHIVE_GUARD_THRESHOLD:50}
       # 滑动窗口长度（分钟，非自然小时；≤0 或 >1440 回落默认 60）
