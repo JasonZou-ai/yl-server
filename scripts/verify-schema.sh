@@ -4,15 +4,16 @@
 #
 # 关联任务：B1-4 数据库 ER 设计（任务 r4UcEv）
 # 依据：docker/mysql/init/*.sql（01 建库 + 国标规则版本表；02 核心域 36 张表，
-#        含 ER 评审补丁 3 表；03 RBAC 种子 = 五角色 / 16 权限点 / 23 授权）
+#        含 ER 评审补丁 3 表；03 RBAC 种子 = 五角色 / 22 权限点 / 40 授权）
 #      docs/ADR/0003-id-timezone-fk-softdelete.md（ER-09 主键 / ER-12 时区 / ER-13 外键与软删除）
 #      docs/design/B2-account-rbac-design.md（B2 权限矩阵落库口径）
 #
 # 用途：在真实 MySQL 8 上执行初始化脚本并断言"结构真实落地 + 关键约束真实生效"，
 #       避免"DDL 只存在于文件、从未被执行过"这类交付风险。
-#       断言总数 60 项（= 已生效 44 项 + 待批准补丁守卫 16 项）：
-#         · 已生效 44 项（含 ADR-0003 全库口径 5 项 + B2 RBAC 种子/红线 8 项）；
-#         · 待批准补丁守卫 16 项（ER-11 ×2 / ER-14 ×6 / CR-M2-001 ×8）——
+#       断言总数 60 项（= 已生效 52 项 + 待批准补丁守卫 8 项）：
+#         · 已生效 52 项（含 ADR-0003 全库口径 5 项 + B2 RBAC 种子/红线 16 项，
+#           其中 CR-M2-001 新增 8 条红线已于 2026-09-21 随 CCB 会签转为真实断言）；
+#         · 待批准补丁守卫 8 项（ER-11 ×2 / ER-14 ×6）——
 #           守卫未满足记 PENDING（不计失败），补丁上库后自动转为真实断言。
 #       口径与盲区核查：docs/quality/verify-schema-assertion-reconciliation.md
 #
@@ -266,8 +267,8 @@ echo ""
 # 设计意图：把权限矩阵里的 ❌ 单元格固化为断言——角色一旦越界即阻断构建。
 echo "      B2 RBAC 种子（PRD §2.1 / §2.2）："
 check "五角色 sys_role" "$(sql "SELECT COUNT(*) FROM $DB_NAME.sys_role WHERE deleted=0;")" "5"
-check "权限点 sys_permission" "$(sql "SELECT COUNT(*) FROM $DB_NAME.sys_permission WHERE deleted=0;")" "16"
-check "角色-权限授权 sys_role_permission" "$(sql "SELECT COUNT(*) FROM $DB_NAME.sys_role_permission;")" "23"
+check "权限点 sys_permission" "$(sql "SELECT COUNT(*) FROM $DB_NAME.sys_permission WHERE deleted=0;")" "22"
+check "角色-权限授权 sys_role_permission" "$(sql "SELECT COUNT(*) FROM $DB_NAME.sys_role_permission;")" "40"
 check_ge "敏感操作权限点 need_second_verify=1" "$(sql "SELECT COUNT(*) FROM $DB_NAME.sys_permission WHERE need_second_verify=1;")" "2"
 RBAC_JOIN="FROM $DB_NAME.sys_role_permission rp JOIN $DB_NAME.sys_role r ON r.id=rp.role_id JOIN $DB_NAME.sys_permission p ON p.id=rp.perm_id WHERE"
 check "矩阵红线：评估员(ASSESSOR)不得持复核权限" "$(sql "SELECT COUNT(*) $RBAC_JOIN r.role_code='ASSESSOR' AND p.perm_code='evaluation:order:review';")" "0"
@@ -357,7 +358,7 @@ check_pending "ER-14 索引 idx_retain_until（物理删除扫描支撑）" "sys
 check_pending "ER-14 双唯一键（uk_platform_openid + uk_user_platform，均含 active_uk）" "sys_user_third_party" \
     "SELECT COUNT(DISTINCT index_name) FROM information_schema.statistics WHERE table_schema='$DB_NAME' AND table_name='sys_user_third_party' AND index_name IN ('uk_platform_openid','uk_user_platform') AND non_unique=0;" "2"
 
-# —— CR-M2-001 权限矩阵新增 ❌ 红线 8 条（待 CCB 会签）——
+# —— CR-M2-001 权限矩阵新增 ❌ 红线 8 条（2026-09-21 CCB 会签通过 → 已转为真实断言）——
 # 守卫：种子补丁 id 2017–2022 已入库（=6）才算已应用，否则记 PENDING
 echo "      CR-M2-001 权限矩阵新增红线（PRD §2.2 新增 5 行）："
 CR_GUARD="SELECT COUNT(*) FROM $DB_NAME.sys_permission WHERE id BETWEEN 2017 AND 2022;"
