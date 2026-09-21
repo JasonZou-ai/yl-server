@@ -59,6 +59,20 @@ yl:
     second-verify:
       # 联调期比对口令；留空即「未配置」，一律拒绝二次验证（安全默认，防开箱绕过）
       dev-code: ${SECOND_VERIFY_DEV_CODE:}
+    # 档案接口异常访问告警守卫（CR-M2-001 §2.5，PM 补充意见）
+    #   口径：非护理角色对档案类接口（elder:archive:read）滑动 1 小时内调用 > threshold 次 → 写审计告警 + 通知监管角色
+    archive-access-guard:
+      # 总开关；关闭后完全不产生计数 I/O
+      enabled: ${ARCHIVE_GUARD_ENABLED:true}
+      # 阈值 N（超过即告警；≤0 视为未配置，守卫按未启用处理）
+      threshold: ${ARCHIVE_GUARD_THRESHOLD:50}
+      # 滑动窗口长度（分钟，非自然小时；≤0 或 >1440 回落默认 60）
+      window-minutes: ${ARCHIVE_GUARD_WINDOW_MINUTES:60}
+      # 监控角色码（逗号分隔）。ASSESSOR / ORG_ADMIN 为护理相关角色，默认不纳入；
+      # 若 PM 后续要求纳入，只需改此配置，无需改码。
+      monitored-roles: ${ARCHIVE_GUARD_MONITORED_ROLES:ELDER,FAMILY,SUPERVISOR}
+      # 告警推送实现：logging=结构化日志（默认）；接入站内信/短信/告警平台时改为 remote 并注册新实现
+      notifier: ${ARCHIVE_GUARD_NOTIFIER:logging}
     # 第三方平台登录（B2 / rpW1xZ）：app-id / app-secret 齐备才视为该渠道可用
     third-party:
       wechat:

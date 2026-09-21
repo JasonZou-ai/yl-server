@@ -25,6 +25,9 @@ import org.springframework.web.context.request.ServletRequestAttributes;
  *
  * <p>若所需权限码中存在 {@code need_second_verify=1} 的敏感点（见 {@link SensitivePermissions}），进一步校验一次性二次
  * 验证凭据（{@value SecondVerifyGuard#HEADER}），未通过抛 SECOND_VERIFY_REQUIRED——即设计 §3「敏感点在第二闸通过后转第四闸」。
+ *
+ * <p>授权通过后另委派 {@link ArchiveAccessRateGuard} 做<b>档案类读操作的行为异常检测</b>（CR-M2-001 §2.5）：该守卫只告警、不拦截，
+ * 且失败开放，切面此处仅保留一行委派，鉴权链路的判定语义不变。
  */
 @Aspect
 @Component
@@ -32,6 +35,8 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 public class PermissionAspect {
 
     private final SecondVerifyGuard secondVerifyGuard;
+
+    private final ArchiveAccessRateGuard archiveAccessRateGuard;
 
     @Before("@annotation(requiresPermission)")
     public void checkPermission(RequiresPermission requiresPermission) {
@@ -51,6 +56,8 @@ public class PermissionAspect {
         if (Arrays.stream(needed).anyMatch(SensitivePermissions::isSensitive)) {
             assertSecondVerified(loginUser);
         }
+        // CR-M2-001 §2.5 旁路监控：档案类读操作的行为异常检测（只告警、不拦截、失败开放）
+        archiveAccessRateGuard.onPermissionGranted(loginUser, needed);
     }
 
     /** 第四闸：敏感操作须持有一次性二次验证凭据。 */
