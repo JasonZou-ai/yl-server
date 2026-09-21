@@ -1,10 +1,11 @@
 -- =============================================================================
 -- ER-14 DDL 补丁提案 · 第三方账号绑定表
---   ⚠ 状态：**提案，未应用**。须 ER 三方面对《ER-14 提案》§五 五项裁决一致后，
---            方可并入 docker/mysql/init/02_schema.sql，并同步：
---              · scripts/verify-schema.sh  断言 +7 项（绝对计数见合并口径表）
---              · SysUserThirdParty 实体 + Mapper
---              · ThirdPartyBindingResolver 增「按摘要查绑定表」实现
+--   ✅ 状态：**已应用（2026-09-21）**。ER 三方面通过后正文已并入
+--            docker/mysql/init/02_schema.sql（域 8 治理域），并同步：
+--              · scripts/verify-schema.sh  ER-14 断言 6 项转真 + 计数改值（表 39 / active_uk 5 / retain_until 5）
+--              · SysUserThirdParty 实体 + Mapper（后续模块实现）
+--              · ThirdPartyBindingResolver 增「按摘要查绑定表」实现（后续模块实现）
+--   ⚠ 本文件保留为变更留痕，**请勿重复执行**（CREATE TABLE IF NOT EXISTS，重复执行无害）。
 --
 -- 依据：docs/reviews/ER-14-third-party-binding-proposal.md
 -- 口径：ADR-0003（应用层主键 / DATETIME / 无外键 / deleted + active_uk）

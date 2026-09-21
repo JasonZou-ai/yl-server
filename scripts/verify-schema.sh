@@ -3,18 +3,19 @@
 # DDL 落地验证：真实 MySQL 执行 + 结构断言 + 关键约束行为验证
 #
 # 关联任务：B1-4 数据库 ER 设计（任务 r4UcEv）
-# 依据：docker/mysql/init/*.sql（01 建库 + 国标规则版本表；02 核心域 36 张表，
-#        含 ER 评审补丁 3 表；03 RBAC 种子 = 五角色 / 22 权限点 / 40 授权）
+# 依据：docker/mysql/init/*.sql（01 建库 + 国标规则版本表；02 核心域 38 张表，
+#        含 ER 评审补丁 3 表 + 治理域 2 表；03 RBAC 种子 = 五角色 / 22 权限点 / 40 授权）
 #      docs/ADR/0003-id-timezone-fk-softdelete.md（ER-09 主键 / ER-12 时区 / ER-13 外键与软删除）
 #      docs/design/B2-account-rbac-design.md（B2 权限矩阵落库口径）
 #
 # 用途：在真实 MySQL 8 上执行初始化脚本并断言"结构真实落地 + 关键约束真实生效"，
 #       避免"DDL 只存在于文件、从未被执行过"这类交付风险。
-#       断言总数 60 项（= 已生效 52 项 + 待批准补丁守卫 8 项）：
-#         · 已生效 52 项（含 ADR-0003 全库口径 5 项 + B2 RBAC 种子/红线 16 项，
-#           其中 CR-M2-001 新增 8 条红线已于 2026-09-21 随 CCB 会签转为真实断言）；
-#         · 待批准补丁守卫 8 项（ER-11 ×2 / ER-14 ×6）——
-#           守卫未满足记 PENDING（不计失败），补丁上库后自动转为真实断言。
+#       断言总数 60 项（**全部为已生效断言，无待批准守卫**）：
+#         · ADR-0003 全库口径 5 项 + 敏感字段密文/摘要 7 项 + 国标规则域 4 项
+#           + ER 评审补丁 6 项 + B2 RBAC 种子/红线 16 项（含 CR-M2-001 新增 8 条）
+#           + ER-11 埋点字典 2 项 + ER-14 第三方绑定 6 项 + 关键表白名单 1 项 + 行为验证等；
+#         · 原「待批准补丁守卫」已于 2026-09-21 获 CCB 会签 + ER 三方面通过后全部转为真实断言
+#           （守卫机制保留，供后续提案式补丁复用，见 §[8/8]）。
 #       口径与盲区核查：docs/quality/verify-schema-assertion-reconciliation.md
 #
 # 用法：
@@ -173,11 +174,28 @@ for f in "$SCHEMA_DIR"/*.sql; do
 done
 echo ""
 
-# ---------- 2) 表数量 ----------
-echo "[2/7] 结构断言：表数量"
+# ---------- 2) 表存在性（R1 修复） ----------
+echo "[2/7] 结构断言：关键表白名单存在性"
+# R1 修复（2026-09-21，见 docs/quality/verify-schema-assertion-reconciliation.md §七）：
+#   原断言「表总数 = DDL 文件 CREATE TABLE 数」属**自证式**——DDL 文件与库内表同源，
+#   「设计文档有表、但 DDL 从未写入」时静默通过（track_event_dict 即为此情形，已定位）。
+#   现改为**逐表白名单存在性**：新增表必须显式登记，漏登或表缺失即失败。
+KEY_TABLES="org org_bed staff sys_user sys_role sys_permission sys_user_role sys_role_permission sys_org_member login_log elder elder_family_bind elder_authorization eval_task eval_order eval_item eval_item_option eval_answer eval_evidence eval_review_log gb_dimension gb_grade_threshold gb_rule gb_rule_mapping eval_report report_dimension_score care_template care_plan care_task care_task_log export_task supervise_report audit_log consent_record idempotent_record track_event track_event_dict sys_user_third_party gb_rule_version"
+KEY_TABLE_COUNT=0
+KEY_TABLE_FOUND=0
+KEY_TABLE_MISSING=""
+for t in $KEY_TABLES; do
+    KEY_TABLE_COUNT=$((KEY_TABLE_COUNT + 1))
+    if [ "$(sql "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='$DB_NAME' AND table_name='$t' AND table_type='BASE TABLE';")" = "1" ]; then
+        KEY_TABLE_FOUND=$((KEY_TABLE_FOUND + 1))
+    else
+        KEY_TABLE_MISSING="$KEY_TABLE_MISSING $t"
+    fi
+done
+check "关键表白名单存在性（逐表校验，新增表须显式登记）" "$KEY_TABLE_FOUND" "$KEY_TABLE_COUNT"
+[ -z "$KEY_TABLE_MISSING" ] || echo "        缺失表：$KEY_TABLE_MISSING"
 TOTAL_TABLES=$(sql "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='$DB_NAME' AND table_type='BASE TABLE';")
-EXPECTED_TABLES=$(grep -h -cE '^CREATE TABLE' "$SCHEMA_DIR"/*.sql | awk '{s+=$1} END {print s}')
-check "表总数（与 DDL 定义数一致）" "$TOTAL_TABLES" "$EXPECTED_TABLES"
+echo "      库内表总数：$TOTAL_TABLES（信息展示，不作断言 —— R1：原自证式断言已移除）"
 echo "      分域明细："
 sql "SELECT CONCAT('        ', IFNULL(NULLIF(t.table_comment,''), '(无注释)'), ' × ', COUNT(*))
      FROM information_schema.tables t
@@ -188,7 +206,7 @@ echo ""
 # ---------- 3) 生成列：软删除 × 唯一键共存 ----------
 echo "[3/7] 结构断言：生成列 active_uk（软删除与唯一键共存方案）"
 GEN_COLS=$(sql "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='$DB_NAME' AND column_name='active_uk' AND generation_expression IS NOT NULL;")
-check "生成列 active_uk 数量" "$GEN_COLS" "3"
+check "生成列 active_uk 数量" "$GEN_COLS" "5"
 echo "      明细："
 sql "SELECT CONCAT('        ', table_name, ' → ', generation_expression)
      FROM information_schema.columns
@@ -239,7 +257,7 @@ check_ge "审计留痕表 audit_log" "$(sql "SELECT COUNT(*) FROM information_sc
 
 # ---- ER 三方评审补丁断言（2026-09-18 裁决：ER-03/04/05/06/07/08）----
 echo "      ER 三方评审补丁（ER-03/04/05/06/07/08）："
-check "ER-03 保留期列 retain_until（4 表）" "$(sql "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='$DB_NAME' AND column_name='retain_until';")" "4"
+check "ER-03/ER-14 保留期列 retain_until（精确值）" "$(sql "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='$DB_NAME' AND column_name='retain_until';")" "5"
 check_ge "ER-05 乐观锁列 row_version" "$(sql "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='$DB_NAME' AND column_name='row_version';")" "2"
 check "ER-06 作答三语义列（answer_state + is_required）" "$(sql "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='$DB_NAME' AND column_name IN ('answer_state','is_required');")" "2"
 check "ER-07 长期授权列 is_permanent" "$(sql "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='$DB_NAME' AND table_name='elder_authorization' AND column_name='is_permanent';")" "1"
@@ -259,7 +277,7 @@ check_ge "ER-12 DATETIME 列（统一时间列类型）" "$DT_COLS" "60"
 FK_COUNT=$(sql "SELECT COUNT(*) FROM information_schema.table_constraints WHERE table_schema='$DB_NAME' AND constraint_type='FOREIGN KEY';")
 check "ER-13 外键约束（全库禁用，引用完整性由应用层保证）" "$FK_COUNT" "0"
 DEL_COLS=$(sql "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='$DB_NAME' AND column_name='deleted';")
-check_ge "ER-13 软删除列 deleted" "$DEL_COLS" "19"
+check "ER-13 软删除列 deleted（精确值；R2 修复：原下界 ≥19 对新增表不敏感）" "$DEL_COLS" "21"
 echo ""
 
 # ---- B2 RBAC 种子断言（PRD v1.1 §2.1 五角色 / §2.2 权限矩阵）----
@@ -269,7 +287,7 @@ echo "      B2 RBAC 种子（PRD §2.1 / §2.2）："
 check "五角色 sys_role" "$(sql "SELECT COUNT(*) FROM $DB_NAME.sys_role WHERE deleted=0;")" "5"
 check "权限点 sys_permission" "$(sql "SELECT COUNT(*) FROM $DB_NAME.sys_permission WHERE deleted=0;")" "22"
 check "角色-权限授权 sys_role_permission" "$(sql "SELECT COUNT(*) FROM $DB_NAME.sys_role_permission;")" "40"
-check_ge "敏感操作权限点 need_second_verify=1" "$(sql "SELECT COUNT(*) FROM $DB_NAME.sys_permission WHERE need_second_verify=1;")" "2"
+check "敏感操作权限点 need_second_verify=1（精确值；R2 修复：原下界 ≥2 不敏感）" "$(sql "SELECT COUNT(*) FROM $DB_NAME.sys_permission WHERE need_second_verify=1;")" "4"
 RBAC_JOIN="FROM $DB_NAME.sys_role_permission rp JOIN $DB_NAME.sys_role r ON r.id=rp.role_id JOIN $DB_NAME.sys_permission p ON p.id=rp.perm_id WHERE"
 check "矩阵红线：评估员(ASSESSOR)不得持复核权限" "$(sql "SELECT COUNT(*) $RBAC_JOIN r.role_code='ASSESSOR' AND p.perm_code='evaluation:order:review';")" "0"
 check "矩阵红线：老人(ELDER)不得持录入权限" "$(sql "SELECT COUNT(*) $RBAC_JOIN r.role_code='ELDER' AND p.perm_code='evaluation:item:input';")" "0"
@@ -319,12 +337,13 @@ check "同键历史记录并存条数（1 条已删除 + 1 条生效）" "$ROW_C
 sql "${BASE_SQL} DELETE FROM elder_family_bind WHERE id BETWEEN 9001 AND 9003;"
 echo ""
 
-# ---------- 8) 待批准补丁守卫（Pending-Patch Guard） ----------
-# 背景（2026-09-21 实测）：ER-11 埋点字典表 / ER-14 第三方绑定表 / CR-M2-001 权限红线
-#   尚未获批准上库。实测把两份 DDL 补丁放进 docker/mysql/init/ 后，若不同步断言，
-#   本脚本会因「active_uk 期望 3 实际 5」「retain_until 期望 4 实际 5」直接失败 2 项。
-#   故本节把新断言写成"守卫式"：守卫未满足记 PENDING（不失败），守卫满足即转为真实断言。
-echo "[8/8] 待批准补丁守卫：ER-11 埋点字典 / ER-14 第三方绑定 / CR-M2-001 权限红线"
+# ---------- 8) 补丁断言（原「待批准守卫」已全部转真） ----------
+# 背景（2026-09-21）：ER-11 埋点字典表 / ER-14 第三方绑定表 / CR-M2-001 权限红线
+#   在获批前曾以「守卫式」存在（守卫未满足记 PENDING、不计失败），以避免未批准补丁把门禁误红。
+#   2026-09-21 三条增量均已获批上库（CCB 会签 + ER 三方面通过），守卫条件全部满足
+#   → 本节断言已**全部转为真实断言**（PENDING 应为 0）。
+#   守卫机制（check_pending / check_pending_if）保留，供后续提案式补丁复用。
+echo "[8/8] 补丁断言：ER-11 埋点字典 / ER-14 第三方绑定 / CR-M2-001 权限红线（守卫已全部转真）"
 echo "      语义：守卫未满足记 PENDING（不计失败）；补丁上库后自动转为真实断言。"
 echo "      口径：docs/quality/verify-schema-assertion-reconciliation.md"
 echo ""
@@ -343,7 +362,7 @@ if table_exists "track_event_dict"; then
     sql "SELECT CONCAT('        ', sensitivity, ' × ', COUNT(*)) FROM $DB_NAME.track_event_dict WHERE deleted=0 GROUP BY sensitivity ORDER BY sensitivity;"
 fi
 
-# —— ER-14 第三方账号绑定表（PM 五项裁决已填，待研发/合规附议）——
+# —— ER-14 第三方账号绑定表（PM 五项裁决已填 + ER 三方面通过，已上库）——
 echo "      ER-14 第三方账号绑定表："
 check_pending "ER-14 表 sys_user_third_party 存在" "sys_user_third_party" \
     "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='$DB_NAME' AND table_name='sys_user_third_party' AND table_type='BASE TABLE';" "1"

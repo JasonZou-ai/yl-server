@@ -16,6 +16,10 @@
 --      ER-07 长期授权 elder_authorization.is_permanent
 --      ER-08 告知同意留痕 consent_record
 --      表总数 34 → 37（基线 33 + 01_init 1 + 本次新增 3）
+--   5) 【治理域补丁 2026-09-21】依据 ER 通过结论内联（CCB 会签 + ER 三方面通过）：
+--      ER-11 埋点事件字典 track_event_dict（30 事件 + s0/s1/s2 三级敏感 + 180 天留存 + 30 条种子）
+--      ER-14 第三方账号绑定 sys_user_third_party（仅 HMAC 摘要 + 双 active_uk + retain_until）
+--      表总数 37 → 39（域 8 治理域）
 -- =============================================================================
 
 USE `yl_evaluation`;
@@ -717,3 +721,106 @@ INSERT INTO `gb_rule` (`id`, `rule_version_id`, `rule_code`, `rule_type`, `expre
  (2, 1, 'RULE_GRADE_MAP',  'GRADE', '按 gb_grade_threshold 区间映射等级',                        'GB/T 42195-2022 §7', 1),
  (3, 1, 'RULE_UPGRADE',    'UPGRADE', '确诊痴呆(F00-F03)/精神行为障碍(F04-F99)/近30天≥2次照护风险事件 → 原等级上调一级', 'GB/T 42195-2022 §7.2', 1)
 ON DUPLICATE KEY UPDATE `expression` = VALUES(`expression`);
+
+-- =============================================================================
+-- 域 8｜治理域（governance）：ER-11 埋点事件字典 / ER-14 第三方账号绑定
+-- 依据：ER-11 埋点事件名字典合并定稿 v1.1（30 事件 / s0:4 s1:14 s2:12）——2026-09-21 ER 通过
+--       ER-14 第三方账号绑定提案（PM 五项裁决已填：留存 30 天物理删 / 禁明文 / 双 active_uk /
+--            注销物理删 / 换绑首短信后人脸）——2026-09-21 ER 三方面通过
+-- 口径：ADR-0003（应用层主键 / DATETIME / 无外键 / deleted + active_uk）
+-- 表总数 37 → 39（+track_event_dict、+sys_user_third_party）
+-- =============================================================================
+
+-- -----------------------------------------------------------------------------
+-- 埋点事件元数据字典：上报白名单 + 敏感分级 + 留存治理
+--   · 与代码枚举 EventCode 一一对应；枚举为真源，本表为运行时投影（ER-11 §10 决议 D4）
+--   · 上报 event_code 不在本表（且 status=1）→ 网关拒绝写入并告警（ER-11 §7 校验规则）
+--   · 应用层主键、UNIQUE 带 active_uk、DATETIME、无外键 —— 严格遵循 ADR-0003
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `track_event_dict` (
+    `id`           BIGINT       NOT NULL COMMENT '主键（应用层生成，ADR-0003）',
+    `event_code`   VARCHAR(64)  NOT NULL COMMENT '事件编码（与代码枚举 EventCode 一一对应）',
+    `event_name`   VARCHAR(128) NOT NULL COMMENT '中文名',
+    `module`       VARCHAR(64)  NULL     COMMENT '归属模块',
+    `page`         VARCHAR(128) NULL     COMMENT '归属页面（白名单）',
+    `param_schema` JSON         NULL     COMMENT '参数结构（schema）',
+    `sensitivity`  ENUM('s0','s1','s2') NOT NULL DEFAULT 's0'
+                   COMMENT '敏感级别（s0 不含个人信息 / s1 可识别需脱敏 / s2 敏感个人信息禁采原文）',
+    `retain_days`  INT          NOT NULL DEFAULT 180 COMMENT '留存天数（对齐 PRD §9 / M1 §5）',
+    `status`       TINYINT      NOT NULL DEFAULT 1    COMMENT '0-停用 1-启用',
+    `deleted`      TINYINT      NOT NULL DEFAULT 0,
+    `active_uk`    TINYINT GENERATED ALWAYS AS (IF(`deleted` = 0, 1, NULL)) STORED,
+    `created_at`   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at`   DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_event_code` (`event_code`, `active_uk`),
+    KEY `idx_module_page` (`module`, `page`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='埋点事件元数据字典（ER-11）';
+
+-- -----------------------------------------------------------------------------
+-- 字典种子：30 条（ER-11 §2 定稿；敏感分布 s0=4 / s1=14 / s2=12）
+--   留存一律 180 天（对齐 ER-03 / PRD §9）；status 全为 1（启用）
+--   ⚠ 未采集 device_id（DPO-1 决议）、user_id 一律 HMAC 摘要
+-- -----------------------------------------------------------------------------
+INSERT INTO `track_event_dict`
+    (`id`, `event_code`, `event_name`, `module`, `sensitivity`, `retain_days`, `status`)
+VALUES
+    (1101, 'auth_login_start',          '发起登录',       'auth',       's0', 180, 1),
+    (1102, 'auth_login_result',         '登录结果',       'auth',       's1', 180, 1),
+    (1103, 'auth_logout',               '退出登录',       'auth',       's0', 180, 1),
+    (1104, 'elder_create_submit',       '提交建档',       'elder',      's1', 180, 1),
+    (1105, 'elder_create_result',       '建档结果',       'elder',      's1', 180, 1),
+    (1106, 'elder_info_edit',           '编辑档案',       'elder',      's1', 180, 1),
+    (1107, 'elder_search',              '检索老人',       'elder',      's2', 180, 1),
+    (1108, 'assessment_create',         '新建评估单',     'assessment', 's2', 180, 1),
+    (1109, 'assessment_item_answer',    '单项作答',       'assessment', 's2', 180, 1),
+    (1110, 'assessment_submit',         '提交评估',       'assessment', 's2', 180, 1),
+    (1111, 'assessment_draft_save',     '暂存草稿',       'assessment', 's0', 180, 1),
+    (1112, 'grade_auto_result',         '分级完成',       'grade',      's1', 180, 1),
+    (1113, 'grade_upgrade_reason',      '上调原因',       'grade',      's2', 180, 1),
+    (1114, 'report_generate',           '生成报告',       'report',     's1', 180, 1),
+    (1115, 'report_view',               '查看报告',       'report',     's2', 180, 1),
+    (1116, 'report_share',              '分享报告',       'report',     's1', 180, 1),
+    (1117, 'report_export',             '导出报告',       'report',     's2', 180, 1),
+    (1118, 'care_plan_generate',        '生成照护计划',   'care',       's1', 180, 1),
+    (1119, 'care_plan_edit',            '编辑照护计划',   'care',       's1', 180, 1),
+    (1120, 'care_plan_confirm',         '确认照护计划',   'care',       's1', 180, 1),
+    (1121, 'care_task_complete',        '任务完成',       'care',       's0', 180, 1),
+    (1122, 'archive_elder_view',        '查看档案',       'archive',    's1', 180, 1),
+    (1123, 'archive_plaintext_view',    '查看明文敏感字段','archive',   's2', 180, 1),
+    (1124, 'archive_download',          '档案下载',       'archive',    's2', 180, 1),
+    (1125, 'archive_access_log_query',  '调阅访问记录',   'archive',    's1', 180, 1),
+    (1126, 'bind_relative',             '亲情绑定',       'bind',       's2', 180, 1),
+    (1127, 'consent_record',            '同意留痕',       'consent',    's1', 180, 1),
+    (1128, 'offline_sync',              '离线同步',       'sync',       's2', 180, 1),
+    (1129, 'page_stay',                 '页面停留',       'page',       's2', 180, 1),
+    (1130, 'error_occur',               '异常发生',       'error',      's1', 180, 1)
+ON DUPLICATE KEY UPDATE `event_name` = VALUES(`event_name`), `sensitivity` = VALUES(`sensitivity`);
+
+-- -----------------------------------------------------------------------------
+-- 第三方账号绑定：平台身份 ↔ 本服务账号（ER-14）
+--   · 只存 HMAC-SHA256 摘要，不存 openid/unionid 明文（PM 硬否决明文方案，对齐 ER-11 与既有承诺）
+--   · 双唯一键均带 active_uk：软删后自动释放，支持解绑后重新绑定
+--   · retain_until：账号注销后保留 30 天的物理删除时点（PM 裁决 §5.1-A，与 ER-03 机制同构）
+-- -----------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS `sys_user_third_party` (
+    `id`            BIGINT       NOT NULL COMMENT '主键（应用层生成，ADR-0003）',
+    `user_id`       BIGINT       NOT NULL COMMENT 'sys_user.id',
+    `platform`      VARCHAR(16)  NOT NULL COMMENT '平台：WECHAT/DOUYIN/APPLE',
+    `open_id_hash`  CHAR(64)     NOT NULL COMMENT '平台用户标识 HMAC-SHA256（等值检索，不存明文）',
+    `union_id_hash` CHAR(64)     NULL COMMENT '开放平台账号标识 HMAC-SHA256（可空）',
+    `phone_hash`    CHAR(64)     NULL COMMENT '绑定时手机号 HMAC-SHA256（与 sys_user.phone_hash 同算法）',
+    `bound_at`      DATETIME     NOT NULL COMMENT '首次绑定时间',
+    `last_login_at` DATETIME     NULL COMMENT '本渠道最近登录时间',
+    `deleted`       TINYINT      NOT NULL DEFAULT 0,
+    `active_uk`     TINYINT GENERATED ALWAYS AS (IF(`deleted` = 0, 1, NULL)) STORED,
+    `retain_until`  DATETIME     NULL COMMENT '物理删除时间 = 账号注销时间 + 30 天（PM 裁决 2026-09-21）',
+    `created_at`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `updated_at`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uk_platform_openid` (`platform`, `open_id_hash`, `active_uk`),
+    UNIQUE KEY `uk_user_platform`   (`user_id`, `platform`, `active_uk`),
+    KEY `idx_union_id` (`platform`, `union_id_hash`),
+    KEY `idx_phone_hash` (`phone_hash`),
+    KEY `idx_retain_until` (`retain_until`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='第三方账号绑定（ER-14）';
