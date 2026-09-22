@@ -105,6 +105,18 @@ yl:
     # 单次导出上限（超出走异步任务落地 COS），PRD「1 万条导出预留」
     max-sync-rows: 5000
     async-threshold-rows: 10000
+  # 留存到期清理（ER-14 retain_until）：账号注销后三方绑定行保留 30 天，到期物理删除
+  retention:
+    third-party:
+      # 总开关；关闭后不再注册清理任务 bean
+      enabled: ${THIRD_PARTY_PURGE_ENABLED:true}
+      # 触发 cron（Spring 6 位：秒 分 时 日 月 周），默认每天 03:15
+      cron: ${THIRD_PARTY_PURGE_CRON:0 15 3 * * *}
+      # 单批最大删除行数；单次触发最多 max-rounds 批（兜底防死循环）
+      batch-size: ${THIRD_PARTY_PURGE_BATCH:500}
+      max-rounds: ${THIRD_PARTY_PURGE_MAX_ROUNDS:20}
+      # 干跑：只统计不删除（上线前核对影响面），不写审计
+      dry-run: ${THIRD_PARTY_PURGE_DRY_RUN:false}
 
 management:
   endpoints:
