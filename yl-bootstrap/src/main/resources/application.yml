@@ -44,6 +44,35 @@ xxl:
 
 # 银龄守护业务配置
 yl:
+  # 短信核身通道（P2-8-A）：A 段仅 dev 日志桩（provider=log），真实通道（tencent/aliyun）为 fail-closed。
+  sms:
+    # 应急停发开关（合规清单 F4）：false 时 SMS-02 直接 fail-closed，绝不静默成功
+    enabled: true
+    # log（缺省）| tencent | aliyun。A 段仅 log 可用；tencent/aliyun 装配 UnavailableSmsSender
+    provider: log
+    # ★ 是否在日志打印验证码明文：仅 application-dev.yml 置 true；生产必须为 false（门禁断言）
+    dev-log-code: false
+    code: { ttl-seconds: 300, length: 6 }
+    ticket: { ttl-seconds: 300 }
+    captcha: { ttl-seconds: 120, length: 4 }
+    # 频控 / 锁定 / 图形验证触发阈值（设计 §4.3）
+    limits:
+      phone-60s: 1
+      phone-1h: 5
+      phone-1d: 10
+      ip-1h: 30
+      device-1d: 20
+      captcha-phone-1h: 3
+      captcha-ip-1h: 10
+      err-lock: 5
+      err-lock-ttl-seconds: 900
+  # 开发期渠道降级（CR-M2-004）：平台授权渠道（WECHAT/DOUYIN）适配器未接入，端侧无法登录。
+  #   开启后：上述渠道**携带口令**时改走账密校验通道（**仍强制 BCrypt 比对，绝不是免密**），并在响应回 channelDowngrade=true。
+  #   口径：默认 false；**仅 application-dev.yml 覆盖为 true**；生产必须保持 false（上线前复核 dev 覆盖是否已移除）。
+  #   未携口令的请求不触发降级，仍走原路径「渠道未配置 → 明确拒绝」，故不存在"报渠道名即放行"的绕过面。
+  auth:
+    channel-downgrade:
+      enabled: ${AUTH_CHANNEL_DOWNGRADE:false}
   security:
     jwt:
       issuer: yl-server
@@ -101,22 +130,77 @@ yl:
       secret-key: ${COS_SECRET_KEY:}
       # 评估报告 / 导出文件目录前缀
       prefix: yl/
+  # 评估报告 PDF（PRD P02 下载 PDF；渲染选型见 ADR-0006）
+  report:
+    pdf:
+      # 落盘目录（MVP 本地存储；后续接 COS 时键名 report/<reportNo>.pdf 不变，仅替换写入实现）
+      # 留空回退 ${java.io.tmpdir}/yl-reports
+      dir: ${REPORT_PDF_DIR:}
+      # 中文字体文件（PDF 内置字体无中文字形，必须嵌入 TTF/TTC）
+      # 留空时按系统常见字体探测；探测失败则降级渲染（中文缺字形），不阻断业务
+      font-path: ${REPORT_PDF_FONT:}
+    # 二维码验真基址（扫码落到此地址，携带报告编号与内容摘要）
+    qr-base-url: ${REPORT_QR_BASE_URL:https://yl.example.com/verify}
   export:
     # 单次导出上限（超出走异步任务落地 COS），PRD「1 万条导出预留」
     max-sync-rows: 5000
     async-threshold-rows: 10000
-  # 留存到期清理（ER-14 retain_until）：账号注销后三方绑定行保留 30 天，到期物理删除
+    # D-3 B9：导出落盘目录（MVP 本地存储；后续接 COS 时键名 export/<taskNo>.csv 不变，仅替换写入实现）
+    # 留空回退 ${java.io.tmpdir}/yl-exports
+    dir: ${EXPORT_DIR:}
+    # D-3 B9：expire_at = now + N 天（只写值；清理语义整体排 P2-7，不新增 @Scheduled）
+    expire-days: ${EXPORT_EXPIRE_DAYS:7}
+  # 保留期清理链路（ADR-0004 唯一触发壳）：一次调度做五件事——ER-14 三方绑定到期物理删除 + ER-03 超期评估单归档封存
+  #   + ER-03 超期监管上报只读封存（D5-D1）+ D4-R1 到期亲情绑定状态流转（D5-D3）+ P2-7 孤儿文件回收（D1-B 到期导出任务标记）
   retention:
+    # 链路壳（yl-bootstrap RetentionChainScheduler）：四个动作分属 account / evaluation / supervise / archive 平级模块，壳只能在启动模块
+    chain:
+      enabled: ${RETENTION_CHAIN_ENABLED:true}
+    # 链路触发 cron（Spring 6 位：秒 分 时 日 月 周），默认每天 03:15
+    chain-cron: ${RETENTION_CHAIN_CRON:0 15 3 * * *}
     third-party:
       # 总开关；关闭后不再注册清理任务 bean
       enabled: ${THIRD_PARTY_PURGE_ENABLED:true}
-      # 触发 cron（Spring 6 位：秒 分 时 日 月 周），默认每天 03:15
-      cron: ${THIRD_PARTY_PURGE_CRON:0 15 3 * * *}
       # 单批最大删除行数；单次触发最多 max-rounds 批（兜底防死循环）
       batch-size: ${THIRD_PARTY_PURGE_BATCH:500}
       max-rounds: ${THIRD_PARTY_PURGE_MAX_ROUNDS:20}
       # 干跑：只统计不删除（上线前核对影响面），不写审计
       dry-run: ${THIRD_PARTY_PURGE_DRY_RUN:false}
+    # 评估单超保留期归档（ER-03：评估记录/报告 5 年）：publish 时写 retain_until，到期转 ARCHIVED 只读封存
+    eval-archive:
+      enabled: ${RETENTION_EVAL_ARCHIVE_ENABLED:true}
+      batch-size: ${RETENTION_EVAL_ARCHIVE_BATCH:500}
+      max-rounds: ${RETENTION_EVAL_ARCHIVE_MAX_ROUNDS:20}
+      # 干跑：只统计不归档（上线前核对影响面）
+      dry-run: ${RETENTION_EVAL_ARCHIVE_DRY_RUN:false}
+    # 监管上报记录超保留期归档（ER-03：监管上报 5 年）：B10 写 retain_until，到期写 archived_at 只读封存（D-5 裁决 D5-D1）
+    supervise-archive:
+      enabled: ${RETENTION_SUPERVISE_ARCHIVE_ENABLED:true}
+      batch-size: ${RETENTION_SUPERVISE_ARCHIVE_BATCH:500}
+      max-rounds: ${RETENTION_SUPERVISE_ARCHIVE_MAX_ROUNDS:20}
+      # 干跑：只统计不归档（上线前核对影响面）
+      dry-run: ${RETENTION_SUPERVISE_ARCHIVE_DRY_RUN:false}
+    # 亲情绑定授权到期流转（D4-R1）：auth_end_at 到期 status 2 → 4（只改状态、不碰 deleted；D-5 裁决 D5-D3）
+    family-bind-expire:
+      enabled: ${RETENTION_FAMILY_BIND_EXPIRE_ENABLED:true}
+      batch-size: ${RETENTION_FAMILY_BIND_EXPIRE_BATCH:500}
+      max-rounds: ${RETENTION_FAMILY_BIND_EXPIRE_MAX_ROUNDS:20}
+      # 干跑：只统计不流转（上线前核对影响面）
+      dry-run: ${RETENTION_FAMILY_BIND_EXPIRE_DRY_RUN:false}
+    # 孤儿文件回收（P2-7）：保留期链路第 5 个动作。把存储根内已无 DB 引用的文件移入隔离目录 .trash（不 rm、可还原）。
+    #   存储根**复用** yl.report.pdf.dir / yl.export.dir（不新增第二套根配置，防"扫的根 ≠ 写的根"漂移）。
+    orphan-file:
+      enabled: ${RETENTION_ORPHAN_FILE_ENABLED:true}
+      # 每轮每根最多回收文件数 + 单次触发最大轮次（兜底防死循环）
+      batch-size: ${RETENTION_ORPHAN_FILE_BATCH:500}
+      max-rounds: ${RETENTION_ORPHAN_FILE_MAX_ROUNDS:20}
+      # 干跑：只统计不回收（零移动；上线前核对影响面）
+      dry-run: ${RETENTION_ORPHAN_FILE_DRY_RUN:false}
+      # 隔离子目录名（相对各存储根）
+      trash-subdir: ${RETENTION_ORPHAN_FILE_TRASH:.trash}
+      # 导出任务到期标记（D1-B）：true 时才把 expire_at < now 的行置 status=4
+      export-expire-mark: ${RETENTION_ORPHAN_FILE_EXPORT_MARK:true}
+
 
 management:
   endpoints:

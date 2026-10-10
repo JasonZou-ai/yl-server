@@ -51,3 +51,13 @@ yl:
   storage:
     cos:
       enabled: false
+  # 短信核身通道（P2-8-A）：**仅本地联调**在日志打印验证码明文，便于跑通 SMS-03/04。
+  #   ⚠️ 该开关不得出现在 application-prod.yml / 生产环境变量中（application.yml 中必须保持 false）。
+  sms:
+    dev-log-code: true
+  # 开发期渠道降级（CR-M2-004）：**仅本地联调**开启，用于在微信/抖音平台授权渠道接入前跑通端侧主链。
+  #   开启后 WECHAT/DOUYIN 携口令可走账密通道（服务端仍强制 BCrypt 比对），响应回 channelDowngrade=true。
+  #   ⚠️ 该开关不得出现在 application-prod.yml / 生产环境变量中。
+  auth:
+    channel-downgrade:
+      enabled: ${AUTH_CHANNEL_DOWNGRADE:true}
