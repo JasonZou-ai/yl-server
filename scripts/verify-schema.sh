@@ -4,17 +4,23 @@
 #
 # 关联任务：B1-4 数据库 ER 设计（任务 r4UcEv）
 # 依据：docker/mysql/init/*.sql（01 建库 + 国标规则版本表；02 核心域 38 张表，
-#        含 ER 评审补丁 3 表 + 治理域 2 表；03 RBAC 种子 = 五角色 / 22 权限点 / 40 授权）
+#        含 ER 评审补丁 3 表 + 治理域 2 表；03 RBAC 种子 = 五角色 / 22 权限点 / 40 授权；
+#        04 联调账号 + 联调机构/成员种子 **仅 dev/演示**，上线须移除或改用独立迁移通道）
 #      docs/ADR/0003-id-timezone-fk-softdelete.md（ER-09 主键 / ER-12 时区 / ER-13 外键与软删除）
 #      docs/design/B2-account-rbac-design.md（B2 权限矩阵落库口径）
 #
 # 用途：在真实 MySQL 8 上执行初始化脚本并断言"结构真实落地 + 关键约束真实生效"，
 #       避免"DDL 只存在于文件、从未被执行过"这类交付风险。
-#       断言总数 63 项（**全部为已生效断言，无待批准守卫**）：
+#       断言总数 86 项（**全部为已生效断言，无待批准守卫**）：
 #         · ADR-0003 全库口径 5 项 + 敏感字段密文/摘要 7 项 + 国标规则域 4 项
-#           + ER 评审补丁 6 项 + B2 RBAC 种子/红线 16 项（含 CR-M2-001 新增 8 条）
+#           + ER 评审补丁 6 项 + C3 报告侧规则绑定 6 项 + C3 照护建议模板 2 项
+#           + B2 RBAC 种子/红线 16 项（含 CR-M2-001 新增 8 条）
 #           + ER-11 埋点字典 5 项（含 R3 闭合：禁采 8 事件原名 / 敏感分布 / 180 天留存）
-#           + ER-14 第三方绑定 6 项 + 关键表白名单 1 项 + 行为验证等；
+#           + ER-14 第三方绑定 6 项 + 联调账号/机构种子 5 项 + 关键表白名单 1 项 + 保留字列金丝雀 1 项 + 行为验证等；
+#           + D-2 档案自见锚列 elder.user_id 1 项（裁决二·方案 A）
+#           + D-3 导出归属机构列 export_task.org_id 1 项（裁决 1-A）
+#           + D-5 监管上报归档列 supervise_report.archived_at 1 项（裁决 D5-D1；只读封存）
+#           + P2-7 引用源列（*cos_key）登记 2 项（计数 + 登记集逐列一致；新增引用源列须同步登记）
 #         · 原「待批准补丁守卫」已于 2026-09-21 获 CCB 会签 + ER 三方面通过后全部转为真实断言
 #           （守卫机制保留，供后续提案式补丁复用，见 §[8/8]）。
 #       口径与盲区核查：docs/quality/verify-schema-assertion-reconciliation.md
@@ -230,6 +236,18 @@ check "明文身份证/人脸特征列（全库，必须为 0）" "$PLAIN_ID_FAC
 #        注：机构公开信息（如 org.address 机构地址）不属于个人敏感信息，不在本断言范围
 PLAIN_PERSONAL=$(sql "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='$DB_NAME' AND table_name IN ('elder','staff','sys_user','elder_family_bind','elder_authorization') AND column_name IN ('real_name','name','phone','mobile','address','health_history','medication','id_card');")
 check "个人信息表明文敏感列（必须为 0）" "$PLAIN_PERSONAL" "0"
+# 档案锚列 elder.user_id（D-2 裁决二·方案 A：ELDER 自见锚；契约 by-role.ELDER=self 落地依据）
+check "档案自见锚列 elder.user_id（bigint，可空）" "$(sql "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='$DB_NAME' AND table_name='elder' AND column_name='user_id' AND data_type='bigint';")" "1"
+# 导出归属机构列 export_task.org_id（D-3 裁决 1-A：机构级导出任务可见性锚列；NULL 行在 scope=2 下自然不可见）
+check "导出归属机构列 export_task.org_id（bigint，可空）" "$(sql "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='$DB_NAME' AND table_name='export_task' AND column_name='org_id' AND data_type='bigint';")" "1"
+# 引用源列登记（P2-7 孤儿文件回收）：全库 `*cos_key` 列必须与登记集逐列一致。
+#   设计意图：清扫器把「未在引用集合中的文件」视为孤儿 ⇒ 若将来接了 COS/补了写入实现，却漏登记引用源列，
+#   这些键指向的文件会被**误删**（与数据域治理同构的"无归属列 ⇒ 静默放行"暗区）。故新增引用源列必须同步登记，
+#   否则本门禁变红。登记集见 docs/design/P2-7-orphan-file-sweep-design.md §2 / docs/reviews/P2-7-foundation-check.md §3.1。
+COS_KEY_COUNT=$(sql "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='$DB_NAME' AND column_name LIKE '%cos_key';")
+check "引用源列（*cos_key）登记数（P2-7：全库 6 个）" "$COS_KEY_COUNT" "6"
+COS_KEY_SET=$(sql "SELECT GROUP_CONCAT(CONCAT(table_name,'.',column_name) ORDER BY table_name, column_name SEPARATOR ',') FROM information_schema.columns WHERE table_schema='$DB_NAME' AND column_name LIKE '%cos_key';")
+check "引用源列登记集（与 P2-7 设计 §2 逐列一致）" "$COS_KEY_SET" "elder.photo_cos_key,elder_family_bind.proof_cos_key,eval_evidence.cos_key,eval_report.pdf_cos_key,export_task.file_cos_key,sys_user.avatar_cos_key"
 echo ""
 
 # ---------- 5) 国标规则域播种 ----------
@@ -255,15 +273,37 @@ STATUS_COL=$(sql "SELECT COUNT(*) FROM information_schema.columns WHERE table_sc
 check "评估单状态机 + 录入/复核互斥 + 规则版本锁定字段" "$STATUS_COL" "4"
 check_ge "埋点留存控制列 expire_at（PRD §9 保留≤180 天）" "$(sql "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='$DB_NAME' AND table_name='track_event' AND column_name='expire_at';")" "1"
 check_ge "审计留痕表 audit_log" "$(sql "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='$DB_NAME' AND table_name='audit_log';")" "1"
+# 保留字列金丝雀（CR-M2-003）：DDL 侧一律反引号无碍，但**实体侧**若不显式反引号映射，生成的 INSERT 会在真实库报语法错误
+#   （编译过、单测过、库上静默 0 行）。audit_log.sensitive 即由此导致审计留痕长期 0 行（SENSITIVE 属 MySQL 8 保留字，共 262 个）。
+#   本断言把"命中数"钉住：新增命中列时门禁变红，强制核对实体映射并同步 ReservedWordColumnMappingTest。
+check "列名与 MySQL 保留字冲突数（命中列须反引号映射）" "$(sql "SELECT COUNT(*) FROM information_schema.columns c JOIN information_schema.KEYWORDS k ON UPPER(c.column_name)=k.WORD AND k.RESERVED=1 WHERE c.table_schema='$DB_NAME';")" "1"
 
 # ---- ER 三方评审补丁断言（2026-09-18 裁决：ER-03/04/05/06/07/08）----
 echo "      ER 三方评审补丁（ER-03/04/05/06/07/08）："
 check "ER-03/ER-14 保留期列 retain_until（精确值）" "$(sql "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='$DB_NAME' AND column_name='retain_until';")" "5"
+# D-5 裁决 D5-D1：supervise_report 到期只读封存承载列（加列，不销毁；非保留字，不触发金丝雀）
+check "D-5 监管上报归档列 supervise_report.archived_at（datetime，只读封存）" "$(sql "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='$DB_NAME' AND table_name='supervise_report' AND column_name='archived_at' AND data_type='datetime';")" "1"
 check_ge "ER-05 乐观锁列 row_version" "$(sql "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='$DB_NAME' AND column_name='row_version';")" "2"
 check "ER-06 作答三语义列（answer_state + is_required）" "$(sql "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='$DB_NAME' AND column_name IN ('answer_state','is_required');")" "2"
 check "ER-07 长期授权列 is_permanent" "$(sql "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='$DB_NAME' AND table_name='elder_authorization' AND column_name='is_permanent';")" "1"
 check "ER-08 告知同意留痕表 consent_record" "$(sql "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='$DB_NAME' AND table_name='consent_record';")" "1"
 check "ER-04 照护任务表（care_task + care_task_log）" "$(sql "SELECT COUNT(*) FROM information_schema.tables WHERE table_schema='$DB_NAME' AND table_name IN ('care_task','care_task_log');")" "2"
+
+# ---- C3 报告/评估单规则绑定列（PRD §1.4：初判 + 终判 + 变化原因 + 规则版本事后复算）----
+echo "      C3 报告侧规则绑定（PRD §1.4）："
+check "C3 评估单初判等级列 preliminary_grade_code" "$(sql "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='$DB_NAME' AND table_name='eval_order' AND column_name='preliminary_grade_code';")" "1"
+check "C3 评估单终判等级列 final_level_code" "$(sql "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='$DB_NAME' AND table_name='eval_order' AND column_name='final_level_code';")" "1"
+check "C3 评估单等级变化原因列 grade_change_reason" "$(sql "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='$DB_NAME' AND table_name='eval_order' AND column_name='grade_change_reason';")" "1"
+check "C3 评估单规则指纹列 rule_sha（CHAR(64)）" "$(sql "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='$DB_NAME' AND table_name='eval_order' AND column_name='rule_sha' AND data_type='char' AND character_maximum_length=64;")" "1"
+check "C3 报告规则版本列 eval_report.rule_version_id" "$(sql "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='$DB_NAME' AND table_name='eval_report' AND column_name='rule_version_id';")" "1"
+check "C3 报告规则指纹列 eval_report.rule_sha（CHAR(64)）" "$(sql "SELECT COUNT(*) FROM information_schema.columns WHERE table_schema='$DB_NAME' AND table_name='eval_report' AND column_name='rule_sha' AND data_type='char' AND character_maximum_length=64;")" "1"
+
+# ---- C3 照护建议模板播种（PRD P02「照护建议｜按等级匹配的模板建议」）----
+# 设计意图：模板库是照护方案的唯一数据源；等级覆盖不全即意味着某些等级会静默降级为通用建议，
+#         故按「覆盖等级数 = 5」精确断言（新增等级必须同步补模板）。
+echo "      C3 照护建议模板（PRD P02）："
+check "照护模板覆盖 5 个能力等级（缺级即静默降级，必须阻断）" "$(sql "SELECT COUNT(DISTINCT grade_code) FROM $DB_NAME.care_template WHERE deleted=0;")" "5"
+check_ge "照护模板启用条目数" "$(sql "SELECT COUNT(*) FROM $DB_NAME.care_template WHERE deleted=0 AND status=1;")" "15"
 
 # ---- ADR-0003 全库口径断言（ER-09 主键 / ER-12 时区 / ER-13 外键与软删除）----
 # 见 docs/ADR/0003-id-timezone-fk-softdelete.md
@@ -294,6 +334,39 @@ check "矩阵红线：评估员(ASSESSOR)不得持复核权限" "$(sql "SELECT C
 check "矩阵红线：老人(ELDER)不得持录入权限" "$(sql "SELECT COUNT(*) $RBAC_JOIN r.role_code='ELDER' AND p.perm_code='evaluation:item:input';")" "0"
 check "矩阵红线：监管(SUPERVISOR)不得持复核写权限" "$(sql "SELECT COUNT(*) $RBAC_JOIN r.role_code='SUPERVISOR' AND p.perm_code='evaluation:order:review';")" "0"
 check "矩阵红线：家属(FAMILY)不得持录入权限" "$(sql "SELECT COUNT(*) $RBAC_JOIN r.role_code='FAMILY' AND p.perm_code='evaluation:item:input';")" "0"
+# D-1 裁决 2：家属由 1-本人 改为 5-关系级。口径见 docs/change/D1-openapi-contract-delta.md §5.1
+#   为什么必须钉住：家属若是 1-本人，elder/eval_report 等在 scope=1 下恒假 → 家属端接口全部实现后仍查不到任何数据；
+#   若是 3-全量（或 5 被第三闸的数值比较误判为不限），则跨机构泄露。两者都属"静默失效"，必须由门禁守。
+check "家属(FAMILY) 数据域 = 5-关系级（D-1 裁决 2）" "$(sql "SELECT data_scope FROM $DB_NAME.sys_role WHERE role_code='FAMILY' AND deleted=0;")" "5"
+echo ""
+
+# ---- 契约 ↔ 库 一致性（D-1 契约冻结）----
+# 设计意图：契约是四端与后端的共同真源，若它声明了库里没有的权限码，端上按契约开发就会撞 403 且原因难查；
+#   反向（库里有码但契约未登记）由 verify-openapi.sh 的漂移断言兜。两者合起来覆盖"契约 ↔ 实现 ↔ 库"闭环。
+echo "      契约 ↔ 库 一致性（openapi/yl-api.yaml）："
+CONTRACT_CODES=$(grep -E '^[[:space:]]+x-required-permission:' openapi/yl-api.yaml | sed 's/.*x-required-permission:[[:space:]]*//' | tr '|' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | grep -v '^none$' | grep -v '^$' | sort -u)
+CONTRACT_CODES_COUNT=$(printf '%s\n' "$CONTRACT_CODES" | grep -c . || true)
+check_ge "契约声明的权限码条数（防提取失效导致下条空过）" "$CONTRACT_CODES_COUNT" "20"
+CONTRACT_CODES_MISSING=""
+for c in $CONTRACT_CODES; do
+    [ "$(sql "SELECT COUNT(*) FROM $DB_NAME.sys_permission WHERE perm_code='$c' AND deleted=0;")" = "1" ] || CONTRACT_CODES_MISSING="$CONTRACT_CODES_MISSING $c"
+done
+check "契约权限码不在 sys_permission 中的条数（禁止私造码）" "$(printf '%s' "$CONTRACT_CODES_MISSING" | wc -w | tr -d ' ')" "0"
+[ -z "$CONTRACT_CODES_MISSING" ] || echo "        未登记：$CONTRACT_CODES_MISSING"
+echo ""
+
+# ---- 联调账号种子断言（04_seed_dev_accounts.sql，**仅 dev/演示**）----
+# 设计意图：账号域 MVP 只落地账密渠道（短信 R-1 未备案、平台授权渠道未接入），
+#   没有可用账号 → 四端打真实接口全 401 → 「解除 Mock」验收无法进行。
+#   本断言保证账号与其角色绑定不会在后续改动中静默丢失（丢了就直接卡死联调）。
+echo "      联调账号种子（dev/演示环境）："
+check "联调账号 sys_user（评估员 + 机构管理员）" "$(sql "SELECT COUNT(*) FROM $DB_NAME.sys_user WHERE deleted=0 AND username IN ('assessor_dev','orgadmin_dev');")" "2"
+check "联调账号口令散列齐备（BCrypt，长度 60）" "$(sql "SELECT COUNT(*) FROM $DB_NAME.sys_user WHERE deleted=0 AND username IN ('assessor_dev','orgadmin_dev') AND CHAR_LENGTH(password_hash)=60;")" "2"
+check "联调账号角色绑定 sys_user_role（ASSESSOR + ORG_ADMIN）" "$(sql "SELECT COUNT(*) FROM $DB_NAME.sys_user_role ur JOIN $DB_NAME.sys_role r ON r.id=ur.role_id WHERE ur.user_id IN (900000000000000001,900000000000000002) AND r.role_code IN ('ASSESSOR','ORG_ADMIN');")" "2"
+# dataScope 生效后（CR-M2-002）评估员/机构管理员的 orgIds 取自 sys_org_member；
+# 成员关系缺失 → orgIds 为空 → 机构数据域恒假（评估员"什么都看不到"、UPDATE 静默影响 0 行）。
+check "联调机构 org 播种（dataScope=2 的归属对象）" "$(sql "SELECT COUNT(*) FROM $DB_NAME.org WHERE deleted=0 AND id=1;")" "1"
+check "联调账号机构成员 sys_org_member（含默认机构 is_default=1）" "$(sql "SELECT COUNT(*) FROM $DB_NAME.sys_org_member WHERE deleted=0 AND status=1 AND is_default=1 AND org_id=1 AND user_id IN (900000000000000001,900000000000000002);")" "2"
 echo ""
 
 # ---------- 7) 行为验证：软删除 × 唯一键 ----------
@@ -411,7 +484,17 @@ echo ""
 # ---------- 汇总 ----------
 TOTAL_ASSERTIONS=$((PASS + FAIL + PENDING))
 # 60 → 63：R3 闭合新增 3 条 ER-11 埋点断言（禁采 8 事件原名 / 敏感分级分布 / 180 天留存）
-EXPECTED_TOTAL_ASSERTIONS=63
+# 63 → 69：C3 新增 6 条报告侧规则绑定断言（初判 / 终判 / 变化原因 / 规则指纹 / 报告规则版本与指纹）
+# 69 → 71：C3 照护建议模板播种 2 条（5 等级覆盖 + 启用条目数，缺级即静默降级须阻断）
+# 69 → 71：C3 照护建议模板播种 2 条（5 等级覆盖 + 启用条目数，缺级即静默降级须阻断）
+# 71 → 75：联调账号种子 3 条（账号数 / BCrypt 散列 / 角色绑定；账号域 MVP 仅账密渠道，无账号则联调 401）
+#          + 初始化脚本加载计数 1 条（04_seed_dev_accounts.sql 新增一个文件）
+# 78 → 81：D-1 契约冻结 3 条（家属 data_scope=5 精确值 / 契约权限码条数下界 / 契约码必须存在于 sys_permission）
+# 81 → 82：D-2 新增档案自见锚列 assert 1 条（elder.user_id bigint；裁决二·方案 A）
+# 82 → 83：D-3 新增导出归属机构列 assert 1 条（export_task.org_id bigint；裁决 1-A）
+# 83 → 84：D-5 新增监管上报归档列 assert 1 条（supervise_report.archived_at datetime；裁决 D5-D1）
+# 84 → 86：P2-7 新增引用源列登记 assert 2 条（*cos_key 计数 + 登记集逐列一致；新增引用源列须同步登记）
+EXPECTED_TOTAL_ASSERTIONS=86
 echo "=============================================================="
 echo " 结果：通过 $PASS 项，失败 $FAIL 项，待批准守卫 $PENDING 项（合计 $TOTAL_ASSERTIONS 项）"
 echo "=============================================================="
