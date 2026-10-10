@@ -8,10 +8,20 @@ LABEL maintainer="yl-team" \
       description="yl-server - 老年人能力评估四端系统后端（GB/T 42195-2022）"
 
 ENV TZ=Asia/Shanghai \
-    JAVA_OPTS="-Xms512m -Xmx1024m -XX:+UseG1GC -Dfile.encoding=UTF-8"
+    JAVA_OPTS="-Xms512m -Xmx1024m -XX:+UseG1GC -Dfile.encoding=UTF-8" \
+    REPORT_PDF_FONT=/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc
 
 WORKDIR /app
 COPY yl-bootstrap/target/yl-bootstrap*.jar /app/app.jar
+
+# 中文字体（部署前置项）：PDFBox 内置字体（Helvetica 等）**不含 CJK 字形**，
+#   字体缺失时报告中文会被降级为占位文本并置 chineseEmbedded=false——不报错，但线上报告不可用。
+#   fonts-noto-cjk 在 jammy 落到 /usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc，
+#   与 ReportPdfService 候选路径一致；同时以 REPORT_PDF_FONT 显式指定，不依赖系统探测。
+#   自检：启动后 GET /api/v1/system/health 的 reportFont 字段应为 ready（见 HealthController）。
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends fonts-noto-cjk \
+    && rm -rf /var/lib/apt/lists/*
 
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone \
     && useradd -r -u 10001 yl && chown -R yl:yl /app

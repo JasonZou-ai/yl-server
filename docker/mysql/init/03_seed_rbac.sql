@@ -6,7 +6,9 @@
 -- 前置：必须先执行 01_init.sql、02_schema.sql（本文件只 INSERT，不建表）
 --
 -- 口径约定：
---   sys_role.data_scope  : 1-本人 2-本机构 3-全量 4-只读全局
+--   sys_role.data_scope  : 1-本人 2-本机构 3-全量 4-只读全局 5-关系级（家属：仅经 elder_family_bind 生效绑定可达的老人）
+--                          ★ 注意：5 的可见范围**窄于** 2-本机构，数值序不代表宽严序；第三闸按枚举逐值分支判定
+--                          （见 cn.yl.modules.account.security.DataScopePermissionHandler 与 D-1 裁决 2）
 --   sys_permission.need_second_verify : 1 表示该权限点为敏感操作，须二次验证并留痕
 --                                        （对应 audit_log.sensitive / second_verify）
 --   权限码命名          : <module>:<resource>:<action>[:受限后缀]
@@ -20,12 +22,18 @@
 USE `yl_evaluation`;
 
 -- ---------- 1) 五角色（PRD §2.1） ----------
+-- data_scope：ELDER=1（老人本人）｜ASSESSOR=2｜FAMILY=5（**关系级**，D-1 裁决 2）｜ORG_ADMIN=2｜SUPERVISOR=4
+--   家属原为 1-本人：而 elder/eval_report 等在 scope=1 下无"本人"列可表达 → 一律恒假（失败即拒）→
+--   家属端接口全部实现后仍查不到任何数据（D-1 §5.1 阻断面）。改为 5-关系级后按 elder_family_bind 生效绑定收口，零 DDL。
 INSERT IGNORE INTO `sys_role` (`id`, `role_code`, `role_name`, `data_scope`, `deleted`, `created_at`) VALUES
   (1001, 'ELDER',      '老人/被评估人', 1, 0, CURRENT_TIMESTAMP),
   (1002, 'ASSESSOR',   '评估员',       2, 0, CURRENT_TIMESTAMP),
-  (1003, 'FAMILY',     '家属',         1, 0, CURRENT_TIMESTAMP),
+  (1003, 'FAMILY',     '家属',         5, 0, CURRENT_TIMESTAMP),
   (1004, 'ORG_ADMIN',  '机构管理员',   2, 0, CURRENT_TIMESTAMP),
   (1005, 'SUPERVISOR', '监管',         4, 0, CURRENT_TIMESTAMP);
+
+-- 存量库幂等修正：INSERT IGNORE 不会更新已存在行，故显式回填家属数据域（仅当仍是旧值 1 时才改，不覆盖人工调整）
+UPDATE `sys_role` SET `data_scope` = 5 WHERE `role_code` = 'FAMILY' AND `data_scope` = 1;
 
 -- ---------- 2) 权限点（PRD §2.2 矩阵 9 行展开为 14 个原子权限 + 2 个敏感操作权限点 = 16） ----------
 INSERT IGNORE INTO `sys_permission` (`id`, `perm_code`, `perm_name`, `module`, `need_second_verify`, `deleted`) VALUES

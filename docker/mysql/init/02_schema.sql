@@ -112,7 +112,7 @@ CREATE TABLE IF NOT EXISTS `sys_role` (
     `id`         BIGINT      NOT NULL,
     `role_code`  VARCHAR(32) NOT NULL COMMENT 'ELDER/ASSESSOR/FAMILY/ORG_ADMIN/SUPERVISOR',
     `role_name`  VARCHAR(64) NOT NULL COMMENT '角色名',
-    `data_scope` TINYINT     NOT NULL DEFAULT 1 COMMENT '1-本人 2-本机构 3-全量 4-只读全局',
+    `data_scope` TINYINT     NOT NULL DEFAULT 1 COMMENT '1-本人 2-本机构 3-全量 4-只读全局 5-关系级（家属：仅绑定可达的老人；可见范围窄于2）',
     `deleted`    TINYINT     NOT NULL DEFAULT 0,
     `created_at` DATETIME    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
@@ -166,7 +166,7 @@ CREATE TABLE IF NOT EXISTS `login_log` (
     `id`          BIGINT       NOT NULL,
     `user_id`     BIGINT       NULL,
     `username`    VARCHAR(64)  NULL,
-    `login_type`  VARCHAR(16)  NOT NULL COMMENT 'WECHAT/DOUYIN/APPLE/PWD/FACE',
+    `login_type`  VARCHAR(16)  NOT NULL COMMENT 'WECHAT/DOUYIN/APPLE/PWD/FACE/SMS',
     `device_type` VARCHAR(16)  NULL COMMENT 'WXMP/DYMP/IOS/ANDROID/WEB',
     `ip`          VARCHAR(45)  NULL,
     `ua`          VARCHAR(255) NULL,
@@ -199,6 +199,10 @@ CREATE TABLE IF NOT EXISTS `elder` (
     `health_history_enc` TEXT    NULL COMMENT '健康史（密文）',
     `medication_enc`     TEXT    NULL COMMENT '用药记录（密文）',
     `org_id`        BIGINT       NULL COMMENT '所属机构',
+    -- D-2 裁决二·方案 A：ELDER(scope=1) 自见锚列（契约 by-role:{ELDER:self} 的落地依据）。
+    -- user_id 非 MySQL 保留字（库内 login_log/sys_user_role/idempotent_record/track_event 等已有多列同名列，
+    -- 保留字金丝雀恒为 1 即为证据），故不触发金丝雀断言。见 docs/reviews/D2-archive-DDL-Patch-Proposal.sql。
+    `user_id`       BIGINT       NULL COMMENT '本人登录账号（sys_user.id，应用层引用；可空）',
     `photo_cos_key` VARCHAR(255) NULL COMMENT '照片对象键',
     `status`        TINYINT      NOT NULL DEFAULT 1 COMMENT '0-迁出/死亡 1-在册 2-归档',
     `deleted`       TINYINT      NOT NULL DEFAULT 0,
@@ -208,6 +212,7 @@ CREATE TABLE IF NOT EXISTS `elder` (
     `updated_at`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_elder_no` (`elder_no`),
+    UNIQUE KEY `uk_elder_user` (`user_id`),
     KEY `idx_id_card_hash` (`id_card_hash`),
     KEY `idx_org_status` (`org_id`, `status`),
     KEY `idx_name_hash` (`name_hash`)
@@ -294,6 +299,13 @@ CREATE TABLE IF NOT EXISTS `eval_order` (
     `grade_code`      VARCHAR(16) NULL COMMENT 'GRADE_INTACT/MILD/MODERATE/SEVERE/TOTAL',
     `grade_upgraded`  TINYINT     NOT NULL DEFAULT 0 COMMENT '是否触发等级上调规则',
     `upgrade_reason`  VARCHAR(255) NULL COMMENT '上调依据（痴呆/精神行为障碍/照护风险事件）',
+    -- C3（PRD §1.4）：报告须同时展示初判等级 + 终判等级 + 等级变化原因，并绑定规则版本支持事后复算
+    `preliminary_grade_code` VARCHAR(16)  NULL COMMENT '初判等级码（引擎 preliminaryLevelCode，L0~L4）',
+    `preliminary_level_name` VARCHAR(64)  NULL COMMENT '初判等级名称（如 能力完好）',
+    `final_level_code`       VARCHAR(16)  NULL COMMENT '终判等级码（引擎 levelCode，L0~L4）',
+    `final_level_name`       VARCHAR(64)  NULL COMMENT '终判等级名称',
+    `grade_change_reason`    VARCHAR(255) NULL COMMENT '等级变化原因（初判→终判，特殊规则触发依据）',
+    `rule_sha`               CHAR(64)     NULL COMMENT '判定所用规则集内容指纹 SHA-256（事后复算锚点）',
     `status`          VARCHAR(16) NOT NULL DEFAULT 'DRAFT'
                       COMMENT 'DRAFT/SUBMITTED/PUBLISHED/REJECTED/VOID/ARCHIVED',
     `refuse_count`    SMALLINT    NOT NULL DEFAULT 0 COMMENT '拒绝回答项数（不计分、触发人工复核）',
@@ -465,6 +477,14 @@ CREATE TABLE IF NOT EXISTS `eval_report` (
     `org_id`        BIGINT       NOT NULL,
     `grade_code`    VARCHAR(16)  NOT NULL,
     `total_score`   DECIMAL(6,2) NOT NULL,
+    -- C3（PRD §1.4）：报告绑定判定所用规则版本 + 初判/终判/变化原因，支持事后复算与审计追溯
+    `rule_version_id`        BIGINT      NULL COMMENT '判定所用国标规则版本（gb_rule_version.id）',
+    `rule_sha`               CHAR(64)    NULL COMMENT '判定所用规则集内容指纹 SHA-256',
+    `preliminary_grade_code` VARCHAR(16) NULL COMMENT '初判等级码（L0~L4）',
+    `preliminary_level_name` VARCHAR(64) NULL COMMENT '初判等级名称',
+    `final_level_code`       VARCHAR(16) NULL COMMENT '终判等级码（L0~L4）',
+    `final_level_name`       VARCHAR(64) NULL COMMENT '终判等级名称',
+    `level_change_reason`    VARCHAR(255) NULL COMMENT '等级变化原因（初判→终判）',
     `pdf_cos_key`   VARCHAR(255) NULL COMMENT 'PDF 对象键',
     `qr_content`    VARCHAR(255) NULL COMMENT '验真二维码内容',
     `verify_hash`   CHAR(64)     NOT NULL COMMENT '报告内容摘要（防篡改验真）',
@@ -588,6 +608,9 @@ CREATE TABLE IF NOT EXISTS `export_task` (
     `status`        TINYINT      NOT NULL DEFAULT 0 COMMENT '0-排队 1-生成中 2-完成 3-失败 4-已过期',
     `file_cos_key`  VARCHAR(255) NULL,
     `operator_id`   BIGINT       NOT NULL COMMENT '导出人（PRD §9 必留痕）',
+    -- D-3 裁决 1-A：归属机构锚列（可空）。NULL 行在 scope=2 下因 IN 不匹配自然不可见（"NULL 失败即拒"）。
+    -- 与 operator_id（SELF_COLUMN）并列共存，同 eval_task 范式；ADR-0003 全库 0 物理外键，仅逻辑引用。
+    `org_id`        BIGINT       NULL COMMENT '归属机构（D-3 裁决 1-A：导出范围不得超过登录态数据域；可空）',
     `started_at`    DATETIME     NULL,
     `finished_at`   DATETIME     NULL,
     `expire_at`     DATETIME     NULL COMMENT '文件过期清理时间',
@@ -595,6 +618,7 @@ CREATE TABLE IF NOT EXISTS `export_task` (
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_export_no` (`task_no`),
     KEY `idx_operator_time` (`operator_id`, `created_at`),
+    KEY `idx_org_time` (`org_id`, `created_at`),
     KEY `idx_status` (`status`, `created_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='导出任务（异步大导出）';
 
@@ -610,6 +634,7 @@ CREATE TABLE IF NOT EXISTS `supervise_report` (
     `idempotent_key` VARCHAR(64) NOT NULL COMMENT '上报幂等键（PRD 功能18）',
     `sent_at`       DATETIME     NULL,
     `retain_until`  DATETIME     NULL COMMENT '保留至（监管报表 5 年，ER-03）',
+    `archived_at`   DATETIME     NULL COMMENT '归档时间（ER-03 到期只读封存，非物理删除）',
     `created_at`    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (`id`),
     UNIQUE KEY `uk_month_org` (`report_month`, `org_id`),
@@ -697,8 +722,10 @@ CREATE TABLE IF NOT EXISTS `track_event` (
 -- 26 项二级指标（eval_item）与规则条目（gb_rule）由 C2-1 规则条目化建模导入
 -- =============================================================================
 
+-- C1/C2 对齐：规则版本号采用权威规则集口径（rules/gbt42195-ruleset.json 的 ruleVersion=1.0.0）
+-- 原 'v1' 为占位值，与引擎判定源不一致，已统一为 '1.0.0'；仍保持单行（verify-schema 断言 COUNT=1）
 INSERT INTO `gb_rule_version` (`id`, `standard_code`, `version`, `status`, `effective_at`, `remark`)
-VALUES (1, 'GB/T 42195-2022', 'v1', 1, NOW(), '国标基线版本：4 一级指标/26 二级指标/总分制/5 等级')
+VALUES (1, 'GB/T 42195-2022', '1.0.0', 1, NOW(), '国标基线版本：4 一级指标/26 二级指标/总分 90/5 等级（与引擎 RuleSet 同源）')
 ON DUPLICATE KEY UPDATE `updated_at` = CURRENT_TIMESTAMP;
 
 INSERT INTO `gb_dimension` (`id`, `rule_version_id`, `dimension_code`, `dimension_name`, `clause_no`, `order_no`) VALUES
@@ -721,6 +748,65 @@ INSERT INTO `gb_rule` (`id`, `rule_version_id`, `rule_code`, `rule_type`, `expre
  (2, 1, 'RULE_GRADE_MAP',  'GRADE', '按 gb_grade_threshold 区间映射等级',                        'GB/T 42195-2022 §7', 1),
  (3, 1, 'RULE_UPGRADE',    'UPGRADE', '确诊痴呆(F00-F03)/精神行为障碍(F04-F99)/近30天≥2次照护风险事件 → 原等级上调一级', 'GB/T 42195-2022 §7.2', 1)
 ON DUPLICATE KEY UPDATE `expression` = VALUES(`expression`);
+
+-- C1 评估中心：26 项二级指标题库播种（来源＝权威规则集 rules/gbt42195-ruleset.json）
+--   id 直接采用引擎指标 id（101~405），使 eval_answer.item_id 与引擎 indicatorId 天然对齐，免去二次映射
+--   score_max 合计 = 32+15+28+15 = 90（＝规则集 fullScore，注意 gb_grade_threshold 的 100 上限为冗余余量）
+INSERT INTO `eval_item`
+    (`id`, `rule_version_id`, `dimension_code`, `item_code`, `item_name`, `score_min`, `score_max`, `weight`, `need_evidence`, `is_required`, `order_no`, `deleted`) VALUES
+ (101, 1, 1, '101', '进食',               0, 4, 1.00, 0, 1,  1, 0),
+ (102, 1, 1, '102', '修饰',               0, 4, 1.00, 0, 1,  2, 0),
+ (103, 1, 1, '103', '洗澡',               0, 4, 1.00, 0, 1,  3, 0),
+ (104, 1, 1, '104', '穿/脱上衣',          0, 4, 1.00, 0, 1,  4, 0),
+ (105, 1, 1, '105', '穿/脱裤子和鞋袜',     0, 4, 1.00, 0, 1,  5, 0),
+ (106, 1, 1, '106', '小便控制',           0, 4, 1.00, 0, 1,  6, 0),
+ (107, 1, 1, '107', '大便控制',           0, 4, 1.00, 0, 1,  7, 0),
+ (108, 1, 1, '108', '如厕',               0, 4, 1.00, 0, 1,  8, 0),
+ (201, 1, 2, '201', '床上体位转移',       0, 4, 1.00, 0, 1,  9, 0),
+ (202, 1, 2, '202', '床椅转移',           0, 4, 1.00, 0, 1, 10, 0),
+ (203, 1, 2, '203', '平地行走',           0, 4, 1.00, 0, 1, 11, 0),
+ (204, 1, 2, '204', '上下楼梯',           0, 3, 1.00, 0, 1, 12, 0),
+ (301, 1, 3, '301', '时间定向',           0, 4, 1.00, 0, 1, 13, 0),
+ (302, 1, 3, '302', '空间定向',           0, 4, 1.00, 0, 1, 14, 0),
+ (303, 1, 3, '303', '人物定向',           0, 4, 1.00, 0, 1, 15, 0),
+ (304, 1, 3, '304', '记忆',               0, 4, 1.00, 0, 1, 16, 0),
+ (305, 1, 3, '305', '理解能力',           0, 4, 1.00, 0, 1, 17, 0),
+ (306, 1, 3, '306', '表达能力',           0, 4, 1.00, 0, 1, 18, 0),
+ (307, 1, 3, '307', '攻击行为',           0, 1, 1.00, 0, 1, 19, 0),
+ (308, 1, 3, '308', '抑郁症状',           0, 1, 1.00, 0, 1, 20, 0),
+ (309, 1, 3, '309', '意识水平',           0, 2, 1.00, 0, 1, 21, 0),
+ (401, 1, 4, '401', '视力',               0, 2, 1.00, 0, 1, 22, 0),
+ (402, 1, 4, '402', '听力',               0, 2, 1.00, 0, 1, 23, 0),
+ (403, 1, 4, '403', '执行日常事务',       0, 4, 1.00, 0, 1, 24, 0),
+ (404, 1, 4, '404', '使用交通工具外出',   0, 3, 1.00, 0, 1, 25, 0),
+ (405, 1, 4, '405', '社会交往能力',       0, 4, 1.00, 0, 1, 26, 0)
+ON DUPLICATE KEY UPDATE `item_name` = VALUES(`item_name`), `score_max` = VALUES(`score_max`);
+
+-- C3 报告域：照护建议模板库播种（PRD P02「照护建议｜按等级匹配的模板建议」）
+--   匹配口径：care_template.grade_code = eval_report.grade_code（GRADE_*），按 sort_no 升序展示
+--   无匹配时由应用层降级为通用建议（PRD P02 异常/边界），故模板只需覆盖 5 个等级
+INSERT INTO `care_template`
+    (`id`, `grade_code`, `scene`, `title`, `content`, `sort_no`, `status`, `deleted`) VALUES
+ (1,  'GRADE_INTACT',   NULL, '健康维护',   '保持规律作息与适度运动（散步、太极拳等），每年至少一次健康体检，慢病指标定期监测。', 1, 1, 0),
+ (2,  'GRADE_INTACT',   NULL, '社会参与',   '鼓励参加社区活动与兴趣小组，维持社会交往与角色认同，预防社会隔离。', 2, 1, 0),
+ (3,  'GRADE_INTACT',   NULL, '预防宣教',   '居家防跌倒宣教（防滑、照明、扶手），合理膳食与戒烟限酒，保持认知活动。', 3, 1, 0),
+ (4,  'GRADE_MILD',     NULL, '生活协助',   '复杂家务（采购、做饭、洗衣）给予协助，保留并鼓励其自主完成力所能及的活动。', 1, 1, 0),
+ (5,  'GRADE_MILD',     NULL, '运动康复',   '每周 3 次平衡与下肢肌力训练（坐站转移、直线行走），降低跌倒风险。', 2, 1, 0),
+ (6,  'GRADE_MILD',     NULL, '用药管理',   '设置用药提醒与分药盒，定期核对药物清单，避免重复用药与漏服。', 3, 1, 0),
+ (7,  'GRADE_MILD',     NULL, '环境改造',   '卫生间加装扶手与防滑垫，清除地面绊脚物，夜间保留通道照明。', 4, 1, 0),
+ (8,  'GRADE_MODERATE', NULL, '生活照料',   '协助进食、洗澡、穿衣等日常活动，保留残余功能训练，避免过度替代。', 1, 1, 0),
+ (9,  'GRADE_MODERATE', NULL, '防跌倒防走失', '室内无障碍改造，外出有人陪同，佩戴联系标识或定位设备，门窗加装防护。', 2, 1, 0),
+ (10, 'GRADE_MODERATE', NULL, '认知训练',   '每日进行时间/空间定向与记忆训练，规律作息、白天充分光照，减少日落综合征。', 3, 1, 0),
+ (11, 'GRADE_MODERATE', NULL, '照护者支持', '培训转移与体位变换技巧，安排喘息服务，关注照护者身心状态。', 4, 1, 0),
+ (12, 'GRADE_SEVERE',   NULL, '全程陪护',   '日常生活全面协助，每 2 小时翻身拍背一次，使用减压垫预防压疮。', 1, 1, 0),
+ (13, 'GRADE_SEVERE',   NULL, '营养与吞咽', '软食或糊状饮食，小口慢咽、进食后保持坐位 30 分钟，防噎食与误吸。', 2, 1, 0),
+ (14, 'GRADE_SEVERE',   NULL, '并发症预防', '每日被动关节活动，做好口腔与皮肤护理，监测体温、呼吸等感染征象。', 3, 1, 0),
+ (15, 'GRADE_SEVERE',   NULL, '就医通道',   '建立急症就医与定期随访机制，随备既往病史与用药摘要。', 4, 1, 0),
+ (16, 'GRADE_TOTAL',    NULL, '24 小时照护', '全天候专人照护，气垫床配合每 2 小时翻身，骨突处重点防护。', 1, 1, 0),
+ (17, 'GRADE_TOTAL',    NULL, '营养支持',   '按医嘱鼻饲或流质饮食，记录出入量，抬高床头 30° 防反流误吸。', 2, 1, 0),
+ (18, 'GRADE_TOTAL',    NULL, '并发症防控', '口腔护理每日 2 次，尿管/胃管按规范护理，定期评估感染与深静脉血栓风险。', 3, 1, 0),
+ (19, 'GRADE_TOTAL',    NULL, '安宁疗护',   '疼痛与舒适照护为主，加强家属沟通与心理支持，尊重其意愿与尊严。', 4, 1, 0)
+ON DUPLICATE KEY UPDATE `content` = VALUES(`content`), `sort_no` = VALUES(`sort_no`);
 
 -- =============================================================================
 -- 域 8｜治理域（governance）：ER-11 埋点事件字典 / ER-14 第三方账号绑定
