@@ -32,6 +32,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * 报告 PDF 渲染测试（PRD P02 下载 PDF / ADR-0006）。
@@ -43,6 +45,8 @@ import org.mockito.quality.Strictness;
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
 class ReportPdfServiceTest {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(ReportPdfServiceTest.class);
 
     @TempDir Path tempDir;
 
@@ -138,6 +142,11 @@ class ReportPdfServiceTest {
         Path file = tempDir.resolve("report").resolve("RP-TEST-0001.pdf");
 
         Map<String, Object> probe = new PdfFontLocator("").probe();
+        if (!"ready".equals(probe.get("status"))) {
+            // 静默跳过口子显式化（R15 同源口径）：runner 字体丢失时本断言会「消失」而非「变红」，
+            // 跳过必须打 WARNING 让它在日志里可见，否则环境退化被假绿掩盖（SMOKE-R1「被跳过却不告警」同类）
+            LOGGER.warn("环境无可渲染中文字体（probe={}），中文字形抽取断言被跳过——这是 SKIP 不是 PASS，请核查 runner 字体安装", probe);
+        }
         assumeTrue("ready".equals(probe.get("status")), "无可渲染中文字体的环境跳过（降级渲染无中文字形可断言）");
 
         try (PDDocument doc = PDDocument.load(file.toFile())) {

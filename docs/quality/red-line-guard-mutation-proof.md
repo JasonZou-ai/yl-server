@@ -1,6 +1,6 @@
 # 合规红线守卫 · 突变反证门禁规矩（v1.0）
 
-> 文档编号 **YL-M2-QG-REDLINE-MUTATION**｜定稿 2026-10-10｜**v1.1 修订 2026-10-10（补第 4 种盲区形态：环节缺失）**｜**v1.2 修订 2026-10-10（补第 5 种盲区形态：本机门禁 ≠ CI 门禁）**｜**v1.3 修订 2026-10-10 晚（第 5 盲区收口补强：验证同源化 + 假 ready 真实化）**｜状态：**✅ 生效**
+> 文档编号 **YL-M2-QG-REDLINE-MUTATION**｜定稿 2026-10-10｜**v1.1 修订 2026-10-10（补第 4 种盲区形态：环节缺失）**｜**v1.2 修订 2026-10-10（补第 5 种盲区形态：本机门禁 ≠ CI 门禁）**｜**v1.3 修订 2026-10-10 晚（第 5 盲区收口补强：验证同源化 + 假 ready 真实化）**｜**v1.4 修订 2026-10-10 深夜（R15：探针结论必须有门禁消费）**｜状态：**✅ 生效**
 > 触发：**同一类缺陷已五次复发**（D5-R1 → P2-7-R6 → P2-8 M3/M4/M13 → **P2-8-R14** → **CI commit-lint/SpotBugs 红**），用户 2026-10-10 指令「第 3 步」＋ 同日指出 CI 缺「部署验证」环节，同日晚实测 main 上 CI 连续 failure 而本机四门禁全绿。
 > 关联：`scripts/verify-schema.sh`｜`scripts/verify-retention-chain.sh`｜`scripts/dev/*mutation*.py`｜`docs/quality/verify-schema-assertion-reconciliation.md`｜`.githooks/commit-msg`（与 CI 复用同一脚本）｜`scripts/verify-like-ci.sh`（本机验证同源化）
 
@@ -213,3 +213,25 @@ bash scripts/verify-like-ci.sh full     # build-and-test 作业同款：verify�
 | M2：TTC 分支短路（退化回直接 `PDType0Font.load(doc, File)`） | `realFontReportedReadyWithExactPath` 红 | ✅ 红（simsun.ttc 悄然落到 simhei.ttf——CI 38047512446 的事故形态） |
 
 **★ 附带新口径（v1.3）**：**凡健康探针/自检宣称「就绪」，其判定必须与被宣称的能力同级**——「文件在」≠「能用」，探针必须真实行使一次被宣称的能力（加载/调用/执行），失败即如实报未就绪。同批补 `ReportPdfServiceTest` 中文文本抽取断言（PDFTextStripper 抽出文本须含标题），把「能加载」升级为「能正确渲染」。基线 341/0/0（+Skipped 1），净升 3。
+
+### 6.3 探针结论必须有门禁消费（v1.4，2026-10-10 深夜，R15）
+
+> 背景：v1.3 把 probe 修诚实之后，用户核实顺着 probe 查到下游——**全仓没有任何门禁消费 `reportFont.status`**：`verify-image-boot.sh` 拿到健康响应后专门写了 `head -1` 防贪婪、注释里明确知道该字段存在，却只用来「避开」没用来「验证」；`Dockerfile:22` 的「自检：reportFont 应为 ready」只是注释。⇒ **第 6 种盲区形态：检测器修好了，但没接进决策链**。前两轮同构：probe 说谎（v1.3 前的假 ready）→ probe 诚实但没人看（本轮）。若不补：字体包名变更/落点漂移/`REPORT_PDF_FONT` 指错 ⇒ 镜像照常启动、`data.status=UP`、CI 六作业全绿、线上报告中文全是豆腐块。
+
+**修法**（2026-10-10）：`verify-image-boot.sh` 新增第 4 项断言——从健康响应两段式精确提取 `reportFont.status`（先截 `reportFont` 对象、再从对象内取 `status`，避免 data.status 次序陷阱；字段缺失走 fail 分支）并要求 `== ready`；`ReportPdfServiceTest` 的 `assumeTrue` 跳过口子显式化（跳过前打 WARNING 日志——环境退化时断言会「消失」而非「变红」，必须让它在日志里可见，SMOKE-R1 同源）。
+
+**突变反证 ×3 + 正向对照**（本机 docker 实跑，非 jar 等价）：
+
+| 突变 | 场景 | 预期 | 实测 |
+|---|---|---|---|
+| M0（正向） | 真实镜像（wqy-zenhei 在位） | 6 项全过含 `reportFont.status=ready` | ✅ EXIT=0，6/6 |
+| M1 | **镜像内删字体文件**（包名/落点漂移的事故形态：镜像照常构建启动，data.status=UP） | 唯一红点必须是 reportFont 断言 | ✅ 200/code=0/UP 三项绿、`reportFont.status=missing` 红，EXIT=1 |
+| M2 | 断言期望值改错（去空性：证明断言非恒假绿） | 健康系统（reportFont=ready）必须红 | ✅ 红，EXIT=1 |
+| M3 | **Dockerfile 字体包名改错**（供应链侧事故形态） | docker build 红即 EXIT=1 | ✅ 红（build 失败分支），EXIT=1 |
+
+**★ v1.4 补全口径**：v1.3 的「探针判定必须与被宣称能力同级」**再加半句——探针的结论必须有门禁消费，否则等于没有探针**。检测器诚实 + 无人消费 = 故障可见性依然是 0。
+
+**★ 附带本机实证的三个 Windows Docker 坑**（`verify-image-boot.sh` 此前 CI-only、从未在本机跑过 ⇒ 本机门禁 ≠ CI 门禁的新形态——CI 绿的脚本本机根本跑不起来）：
+1. **MSYS 路径转换吃掉 `docker ps -f "name=^/xxx$"` 锚点过滤器**（恒 0 匹配 ⇒ 误判「容器未能创建」、探活 0 秒即放弃）⇒ 脚本内 `export MSYS_NO_PATHCONV=1`（与 verify-like-ci.sh 的 `-v` 挂载同源坑，新证据：`docker ps -f` 参数同样中招）。
+2. **Windows Docker Desktop 的 `--network host` 不把容器端口发布到宿主 loopback**（CI Linux 无此问题）⇒ 容器内 127.0.0.1 连不上宿主 MySQL（`CONTAINER_DB_HOST=host.docker.internal` 覆盖）+ 宿主侧 curl 不到 8080（`BOOT_NETWORK=bridge` 覆盖，默认 host 保持 CI 判据不变）。
+3. 探活跑法（本机复刻，CI 不需要）：临时探针账号 + 一次性空库（`yl_prodshape`，规避 DevCredentialStartupGuard 对历史 dev 账号的**设计意图拒绝**），**用后即删零残留**。

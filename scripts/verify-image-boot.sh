@@ -12,9 +12,14 @@
 #
 # 判据（写断言前必读）
 #   **不覆盖 profile** 把容器以镜像默认 ENTRYPOINT 启起来（即走 Dockerfile 默认的 `prod`），
-#   探 `GET /api/v1/system/health` —— HTTP 200 且 `R.code=0` 且 `data.status=UP` 才算通过。
+#   探 `GET /api/v1/system/health` —— HTTP 200 且 `R.code=0` 且 `data.status=UP`
+#   且 `reportFont.status=ready` 才算通过。
 #   ★ 刻意不传 `-e SPRING_PROFILES_ACTIVE`：要测的正是「**默认值能不能用**」。
 #     传了就等于把 Dockerfile 的默认值从被测范围里摘出去，缺陷会再次溜过去。
+#   ★ reportFont.status 必须断言（R15，2026-10-10）：探针（PdfFontLocator.probe）已改为真实
+#     可渲染性判定，但此前本脚本拿到健康响应后刻意绕开该字段——「探针诚实但没人看」：
+#     字体包名变更/落点漂移/REPORT_PDF_FONT 指错时镜像照常 UP、CI 全绿，线上报告中文全是
+#     豆腐块。探针的结论必须有门禁消费，否则等于没有探针。
 #
 # 库的形状：**生产形状** = 01/02/03（建库 + 结构 + RBAC），**不含 04_seed_dev_accounts.sql**。
 #   原因：`DevCredentialStartupGuard`（P2-8-R12）在非 dev profile 下发现 `*_dev` 账号会
@@ -30,10 +35,26 @@
 #                   生成密钥而不是写死测试值，是为了让本脚本自身**不承载任何密钥**。
 #   MYSQL_BIN（默认 mysql）· DB_HOST（默认 127.0.0.1）· DB_PORT（3306）· DB_USERNAME（root）
 #   DB_NAME（yl_evaluation）· REDIS_HOST（127.0.0.1）· REDIS_PORT（6379）
+#   CONTAINER_DB_HOST / CONTAINER_REDIS_HOST
+#                —— 可选；容器内访问 DB/Redis 的主机名，默认与 DB_HOST/REDIS_HOST 相同。
+#                   本机（Windows Docker Desktop）专用：--network host 的容器里 127.0.0.1 是
+#                   容器自身 loopback 而非 Windows 宿主（CI 是 Linux 无此问题），本机跑时设
+#                   CONTAINER_DB_HOST=host.docker.internal 即可，宿主侧初始化仍走 DB_HOST。
+#   BOOT_NETWORK（默认 host）
+#                —— 本机（Windows Docker Desktop）专用：其 `--network host` 不会把容器端口
+#                   发布到宿主 loopback（CI 是 Linux，host 模式即宿主网络，无此问题），宿主侧
+#                   curl 探不到 8080。本机跑设 BOOT_NETWORK=bridge（脚本自动补 -p 8080:8080）。
+#                   默认值保持 host，CI 判据不变。
 #   IMAGE_TAG（yl-server:ci-boot）· BOOT_TIMEOUT_SECONDS（180）
 # =============================================================================
 
 set -u
+
+# ★ Git Bash/MSYS 会把含 `/` 的参数当 Unix 路径转换成 Windows 路径——本脚本受影响的至少有
+#   `docker ps -f "name=^/<容器名>$"`（锚点过滤器恒 0 匹配 ⇒ 误判「容器未能创建」、探活 0 秒即放弃，
+#   本机 2026-10-10 实证）与 `docker run -v` 挂载（同源坑，见 verify-like-ci.sh）。
+#   该变量对 Linux/CI 无副作用，因此直接在脚本内导出，而不是要求调用方记得设置。
+export MSYS_NO_PATHCONV=1
 
 cd "$(dirname "$0")/.." || exit 1
 
@@ -44,6 +65,9 @@ DB_USERNAME=${DB_USERNAME:-root}
 DB_NAME=${DB_NAME:-yl_evaluation}
 REDIS_HOST=${REDIS_HOST:-127.0.0.1}
 REDIS_PORT=${REDIS_PORT:-6379}
+# 容器内视角的 DB/Redis 主机名：默认与宿主侧一致（CI 即此形态）；本机 Windows 可覆盖
+CONTAINER_DB_HOST=${CONTAINER_DB_HOST:-$DB_HOST}
+CONTAINER_REDIS_HOST=${CONTAINER_REDIS_HOST:-$REDIS_HOST}
 IMAGE_TAG=${IMAGE_TAG:-yl-server:ci-boot}
 BOOT_TIMEOUT_SECONDS=${BOOT_TIMEOUT_SECONDS:-180}
 CONTAINER_NAME=yl-boot-smoke
@@ -124,10 +148,16 @@ fi
 echo ""
 echo "== [3/4] 以镜像默认 ENTRYPOINT 启动容器（★ 不覆盖 profile）=="
 docker rm -f "$CONTAINER_NAME" >/dev/null 2>&1
-docker run -d --name "$CONTAINER_NAME" --network host \
-    -e DB_HOST="$DB_HOST" -e DB_PORT="$DB_PORT" -e DB_USERNAME="$DB_USERNAME" \
+BOOT_NETWORK=${BOOT_NETWORK:-host}
+NET_ARGS="--network $BOOT_NETWORK"
+if [ "$BOOT_NETWORK" != "host" ]; then
+    # 非 host 网络必须显式发布端口，宿主侧探活才可达（本机 Windows 场景）
+    NET_ARGS="$NET_ARGS -p 8080:8080"
+fi
+docker run -d --name "$CONTAINER_NAME" $NET_ARGS \
+    -e DB_HOST="$CONTAINER_DB_HOST" -e DB_PORT="$DB_PORT" -e DB_USERNAME="$DB_USERNAME" \
     -e DB_PASSWORD="$DB_PASSWORD" -e DB_NAME="$DB_NAME" \
-    -e REDIS_HOST="$REDIS_HOST" -e REDIS_PORT="$REDIS_PORT" \
+    -e REDIS_HOST="$CONTAINER_REDIS_HOST" -e REDIS_PORT="$REDIS_PORT" \
     -e JWT_SECRET="$JWT_SECRET" \
     -e SENSITIVE_FIELD_KEY="$SENSITIVE_FIELD_KEY" \
     -e SENSITIVE_FIELD_HASH_KEY="$SENSITIVE_FIELD_HASH_KEY" \
@@ -177,6 +207,20 @@ if [ "$STATUS" = "UP" ]; then
     pass "健康端点 data.status=UP"
 else
     fail "健康端点 data.status=${STATUS:-（缺字段）}"
+fi
+
+# ★ reportFont.status 断言（R15，2026-10-10）——探针结论必须有门禁消费。
+#   提取两段式：先截取 reportFont 对象（对象内无嵌套花括号，[^}]* 安全），再从对象内取
+#   status——不能直接对全文取第二个 "status"（次序/数量都是隐含假设），也不能沿用上面
+#   head -1 的写法（那取的是 data.status，正是 R15 指认的「绕开」写法）。
+#   reportFont 缺失时提取结果为空 → 走 fail 分支（fail-closed，不静默放行）。
+REPORT_FONT_OBJ=$(printf '%s' "$BODY" | grep -o '"reportFont"[[:space:]]*:[[:space:]]*{[^}]*}' | head -1)
+REPORT_FONT_STATUS=$(printf '%s' "$REPORT_FONT_OBJ" | grep -o '"status"[[:space:]]*:[[:space:]]*"[A-Za-z]*"' | head -1 \
+    | sed 's/.*:[[:space:]]*"//; s/"$//')
+if [ "$REPORT_FONT_STATUS" = "ready" ]; then
+    pass "健康端点 reportFont.status=ready（PDF 中文字体真实可渲染）"
+else
+    fail "健康端点 reportFont.status=${REPORT_FONT_STATUS:-（缺字段）}——线上 PDF 中文将静默降级为豆腐块（R15）"
 fi
 
 # ---- 清理（无论成败都要清，避免污染下一次运行 —— 见 SMOKE-R1 的教训） ----
