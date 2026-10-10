@@ -20,6 +20,8 @@ COPY yl-bootstrap/target/yl-bootstrap*.jar /app/app.jar
 #   have a glyf table），故改用 fonts-wqy-zenhei（ttc 容器内为 TrueType outline），落点
 #   /usr/share/fonts/truetype/wqy/wqy-zenhei.ttc 与 PdfFontLocator 候选一致；REPORT_PDF_FONT 显式指定。
 #   自检：启动后 GET /api/v1/system/health 的 reportFont 字段应为 ready（见 HealthController）。
+#     该字段已由 scripts/verify-image-boot.sh 强制断言 == ready（R15：探针的结论必须有门禁
+#     消费，否则等于没有探针）——字体缺失/不可渲染时镜像探活直接红，不再依赖人工看注释。
 RUN apt-get update \
     && apt-get install -y --no-install-recommends fonts-wqy-zenhei \
     && rm -rf /var/lib/apt/lists/*
