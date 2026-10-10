@@ -54,7 +54,14 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 class AuthServiceChannelDowngradeTest {
 
     private static final String USERNAME = "assessor_dev";
-    private static final String RAW_PASSWORD = "YlDev@2026";
+
+    /**
+     * ★ 本用例的口令是<b>自证式夹具</b>（先 {@code encoder.encode(RAW_PASSWORD)} 再用同一串登录）， 与真实 dev
+     * 口令无关，故此处用非敏感占位值。
+     *
+     * <p>2026-10-10（P2-8-R12）：原先此处写的是真实 dev 明文口令，已随公开历史永久泄露； 现统一改为占位值 —— <b>测试代码不得承载任何真实凭据</b>。
+     */
+    private static final String RAW_PASSWORD = "test-fixture-not-a-real-credential";
 
     @Test
     @DisplayName("格1 开关关闭：WECHAT 携口令仍被拒（走原路径『渠道未配置』，行为与改造前一致）")
