@@ -217,7 +217,7 @@
 | 2 | `proof_cos_key` | **只存键不落盘**（全仓无 COS 实现）；**D-4 内不写任何文件删除逻辑**（生命周期归 P2-7）；本地落盘若需要，复用 D-3 导出目录范式（由实现期定，须与 P2-7 口径一致） |
 | 3 | 不新增 `@Scheduled` | `auth_end_at` 到期后 `status` **不流转**（ADR-0004：全仓唯一调度仍在 `RetentionChainScheduler`）；**安全性不依赖**（第三闸 `MY_ELDER_SUBQUERY` 已含 `auth_end_at IS NULL OR > NOW()` → fail-closed）；登记残留 **D4-R1** |
 | 4 | ORG_ADMIN 是否可代解绑 | **默认允许**（线下核验 + 代操作口径；机构需处理"家属失联"场景）；由 `ORG_VIA_PARENT` 限制在**本机构老人**范围内 |
-| 5 | dev 种子账号 | **补 `elder_dev`(ELDER) + `family_dev`(FAMILY)**，口令 `YlDev@2026`，同"上线前必须移除"红线；`elder_dev` 经 `POST /elders/{elderId}/user-binding` 或种子回填绑定到某 `elder.user_id` |
+| 5 | dev 种子账号 | **补 `elder_dev`(ELDER) + `family_dev`(FAMILY)**，口令经环境变量 `DEV_LOGIN_PASSWORD` 注入（**2026-10-10 轮换**，原固定口令已泄露，见 `P2-8-R12`）；`elder_dev` 经 `POST /elders/{elderId}/user-binding` 或种子回填绑定到某 `elder.user_id` |
 | 6 | 家属域模块归属 | **`yl-module-archive`**（D-2 已建 `elder` + `SensitiveFieldSupport` + 分页基建；`elder_family_bind` 是档案的关联关系） |
 | 7 | `ACTIVE` 时全名下发 | 契约 `FamilyBindingView.elderName` **脱敏**（`x-sensitive-fields` 含 `elderName`）；本卡**不新增"生效后下发全名"通道**（端侧 `shownNameOf` 的"全名"退化为脱敏名 → 页面展示脱敏名，界面文案须同步，登记于端侧专章） |
 
@@ -911,7 +911,7 @@ private Expression selfViaParentCondition(Table table, RelationAnchor via, long 
 
 ### T07（P1）dev 种子账号
 - **Source Files**：`docker/mysql/init/04_seed_dev_accounts.sql`（改）
-- **要点**：+`elder_dev`（id `…003`，角色 ELDER/1001，`sys_org_member` role 1001）+ `family_dev`（id `…004`，角色 FAMILY/1003，role 1003）；口令 `YlDev@2026`；`elder_dev` 绑定到某 `elder.user_id`（种子 UPDATE 或经 `user-binding` 端点）；同"上线前必须移除"红线。
+- **要点**：+`elder_dev`（id `…003`，角色 ELDER/1001，`sys_org_member` role 1001）+ `family_dev`（id `…004`，角色 FAMILY/1003，role 1003）；口令经环境变量 `DEV_LOGIN_PASSWORD` 注入（**2026-10-10 轮换**，各账号散列互不相同）；`elder_dev` 绑定到某 `elder.user_id`（种子 UPDATE 或经 `user-binding` 端点）。
 - **Dependencies**：T06（`user-binding` 端点已存在，用于 E2E 绑定）
 - **Priority**：P1
 
