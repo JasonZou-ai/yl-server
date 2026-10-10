@@ -1,10 +1,10 @@
 package cn.yl.modules.account.security;
 
 import cn.yl.api.security.LoginUser;
+import cn.yl.api.security.PermissionCode;
 import cn.yl.common.exception.BizException;
 import cn.yl.common.exception.ErrorCode;
 import cn.yl.common.ratelimit.SlidingWindowCounter;
-import cn.yl.modules.account.domain.PermissionCode;
 import cn.yl.modules.account.service.AuditService;
 import java.time.LocalDateTime;
 import java.util.Arrays;

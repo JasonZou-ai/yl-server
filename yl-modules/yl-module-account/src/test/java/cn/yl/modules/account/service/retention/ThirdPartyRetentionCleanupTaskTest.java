@@ -13,7 +13,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import cn.yl.modules.account.domain.thirdparty.ExpiredBindingPurger;
+import cn.yl.modules.account.domain.retention.ExpiredBindingPurger;
 import cn.yl.modules.account.service.AuditService;
 import java.time.LocalDateTime;
 import java.util.ArrayDeque;

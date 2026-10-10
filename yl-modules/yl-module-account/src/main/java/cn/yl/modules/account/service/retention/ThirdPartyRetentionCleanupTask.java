@@ -1,12 +1,11 @@
 package cn.yl.modules.account.service.retention;
 
-import cn.yl.modules.account.domain.thirdparty.ExpiredBindingPurger;
+import cn.yl.modules.account.domain.retention.ExpiredBindingPurger;
 import cn.yl.modules.account.service.AuditService;
 import java.time.LocalDateTime;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
-import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 /**
@@ -77,12 +76,15 @@ public class ThirdPartyRetentionCleanupTask {
     }
 
     /**
-     * 清理已过保留期的三方绑定行。默认每天凌晨 03:15 触发。
+     * 清理已过保留期的三方绑定行。
      *
-     * <p>本方法即「触发壳」；迁移到 XXL-Job 时只需把注解替换为 {@code @XxlJob}，方法体不动。
+     * <p>本方法即<b>业务动作</b>（无 {@code @Scheduled}）：触发壳已上移到 {@code yl-bootstrap} 的 {@code
+     * RetentionChainScheduler}——ER-14 清理与评估单归档分属 account / evaluation 两个平级兄弟模块，任一模块都无法编排
+     * 对方，故由唯一能同时看见两者的启动模块提供「一个调度链路、一次做两件事」的壳（ADR-0004「迁移边界」：迁 XXL-Job 时只替换链路壳上的注解，本方法体不动）。
+     *
+     * @return 实际删除行数（0 表示本轮无到期数据；异常时返回 0，等待下个周期重试）
      */
-    @Scheduled(cron = "${yl.retention.third-party.cron:0 15 3 * * *}")
-    public void purgeExpiredBindings() {
+    public int purgeExpiredBindings() {
         LocalDateTime cutoff = LocalDateTime.now();
         try {
             if (dryRun) {
@@ -91,7 +93,7 @@ public class ThirdPartyRetentionCleanupTask {
                         LOG_PREFIX,
                         purger.countExpired(cutoff),
                         cutoff);
-                return;
+                return 0;
             }
             int total = 0;
             int rounds = 0;
@@ -105,12 +107,14 @@ public class ThirdPartyRetentionCleanupTask {
             }
             if (total == 0) {
                 log.info("{} 无到期数据，本轮未删除（cutoff={}）", LOG_PREFIX, cutoff);
-                return;
+                return 0;
             }
             recordAudit(total, cutoff);
             log.info("{} 清理完成：删除 {} 条，批次 {}，cutoff={}", LOG_PREFIX, total, rounds, cutoff);
+            return total;
         } catch (RuntimeException ex) {
             log.error("{} 清理失败，本轮放弃并等待下个周期重试（cutoff={}）", LOG_PREFIX, cutoff, ex);
+            return 0;
         }
     }
 

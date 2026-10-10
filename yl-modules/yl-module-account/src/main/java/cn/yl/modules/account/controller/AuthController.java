@@ -1,12 +1,14 @@
 package cn.yl.modules.account.controller;
 
-import cn.yl.api.security.LoginUser;
+import cn.yl.api.security.SecurityUtils;
 import cn.yl.common.api.R;
 import cn.yl.common.exception.BizException;
 import cn.yl.common.exception.ErrorCode;
 import cn.yl.modules.account.domain.LoginChannel;
+import cn.yl.modules.account.dto.LoginByTicketRequest;
 import cn.yl.modules.account.dto.LoginRequest;
 import cn.yl.modules.account.dto.LoginResponse;
+import cn.yl.modules.account.dto.LogoutRequest;
 import cn.yl.modules.account.dto.RefreshRequest;
 import cn.yl.modules.account.dto.SecondVerifyRequest;
 import cn.yl.modules.account.dto.SecondVerifyResponse;
@@ -16,8 +18,7 @@ import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.Authentication;
-import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.http.HttpHeaders;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -27,7 +28,8 @@ import org.springframework.web.bind.annotation.RestController;
 /**
  * 认证接口（B2 / rpW1xZ，设计 §6）。四端统一入口，统一换发本服务双令牌。
  *
- * <p>{@code /login/**} 与 {@code /refresh} 放行（见 SecurityConfig）；{@code /second-verify} 需已登录。
+ * <p>{@code /login/**} 与 {@code /refresh} 放行（见 SecurityConfig）；{@code /second-verify} 与 {@code
+ * /logout} 需已登录。
  */
 @RestController
 @RequestMapping("/api/v1/auth")
@@ -37,6 +39,8 @@ import org.springframework.web.bind.annotation.RestController;
                         value = "EI_EXPOSE_REP2",
                         justification = "AuthService 是 Spring 容器管理的无状态单例 Bean，构造器注入是标准 DI 用法"))
 public class AuthController {
+
+    private static final String BEARER_PREFIX = "Bearer ";
 
     private final AuthService authService;
 
@@ -55,6 +59,27 @@ public class AuthController {
                         httpRequest.getHeader("User-Agent")));
     }
 
+    /**
+     * SMS-04：以短信核身 ticket 兑换登录态（P2-8-A）。
+     *
+     * <p>ticket 一次性消费（GETDEL）；未命中用户返回 {@code 20009}（<b>不自动建号</b>），凭据无效返回 {@code 20008}。未登录前置端点，安全边界
+     * = ticket 本身。业务失败一律 HTTP 200 + {@code R.code}。
+     */
+    @PostMapping("/login-by-ticket")
+    public R<LoginResponse> loginByTicket(
+            @RequestBody(required = false) LoginByTicketRequest request,
+            HttpServletRequest httpRequest) {
+        if (request == null) {
+            throw new BizException(ErrorCode.PARAM_INVALID, "缺少请求体");
+        }
+        return R.ok(
+                authService.loginByTicket(
+                        request.getTicket(),
+                        request.getScene(),
+                        clientIp(httpRequest),
+                        httpRequest.getHeader("User-Agent")));
+    }
+
     /** 刷新 access 令牌。 */
     @PostMapping("/refresh")
     public R<LoginResponse> refresh(@Valid @RequestBody RefreshRequest request) {
@@ -64,19 +89,35 @@ public class AuthController {
     /** 获取二次验证一次性凭据（需已登录）。 */
     @PostMapping("/second-verify")
     public R<SecondVerifyResponse> secondVerify(@Valid @RequestBody SecondVerifyRequest request) {
-        long userId = currentUserId();
+        long userId = SecurityUtils.requireUserId();
         String token =
                 authService.issueSecondVerifyToken(
                         userId, request.getMethod(), request.getCredential());
         return R.ok(new SecondVerifyResponse(token, SecondVerifyGuard.TTL_SECONDS));
     }
 
-    private long currentUserId() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        if (authentication != null && authentication.getPrincipal() instanceof LoginUser user) {
-            return user.userId();
+    /**
+     * 退出登录（D-4，会话出口；<b>无权限码</b>）。
+     *
+     * <p>把当前 access 令牌记入黑名单（TTL = 令牌剩余有效期），并在请求体携带 {@code refreshToken} 时同时吊销该 refresh（双令牌同时失效）。
+     * 安全边界 = 登录态本身（{@code SecurityConfig} 走 {@code anyRequest().authenticated()}），不依赖权限矩阵某一格。
+     */
+    @PostMapping("/logout")
+    public R<Void> logout(
+            HttpServletRequest httpRequest, @RequestBody(required = false) LogoutRequest request) {
+        long userId = SecurityUtils.requireUserId();
+        String refreshToken = request == null ? null : request.getRefreshToken();
+        authService.logout(bearerToken(httpRequest), refreshToken, userId);
+        return R.ok();
+    }
+
+    /** 从 {@code Authorization: Bearer <token>} 取原 access 令牌（缺头/非 Bearer → {@code null}）。 */
+    private String bearerToken(HttpServletRequest request) {
+        String header = request.getHeader(HttpHeaders.AUTHORIZATION);
+        if (header == null || !header.startsWith(BEARER_PREFIX)) {
+            return null;
         }
-        throw new BizException(ErrorCode.UNAUTHORIZED);
+        return header.substring(BEARER_PREFIX.length()).trim();
     }
 
     private String clientIp(HttpServletRequest request) {

@@ -1,5 +1,6 @@
 package cn.yl.modules.account.domain;
 
+import cn.yl.api.security.PermissionCode;
 import java.util.Set;
 
 /**

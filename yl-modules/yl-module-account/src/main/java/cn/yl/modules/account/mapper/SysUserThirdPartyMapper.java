@@ -1,7 +1,7 @@
 package cn.yl.modules.account.mapper;
 
 import cn.yl.modules.account.domain.entity.SysUserThirdParty;
-import cn.yl.modules.account.domain.thirdparty.ExpiredBindingPurger;
+import cn.yl.modules.account.domain.retention.ExpiredBindingPurger;
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import java.time.LocalDateTime;
 import org.apache.ibatis.annotations.Delete;

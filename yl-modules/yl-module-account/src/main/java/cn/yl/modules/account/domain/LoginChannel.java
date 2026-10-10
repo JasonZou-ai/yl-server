@@ -9,13 +9,18 @@ import java.util.Locale;
  *
  * <p>各渠道适配平台身份后，统一换发本服务双令牌，并写 {@code login_log}（login_type/device_type 取值对齐 schema 注释）。 MVP
  * 仅落账密渠道（IOS/ANDROID）；微信（WECHAT）/抖音（DOUYIN）平台授权与 FACE 人脸渠道预留。
+ *
+ * <p>{@link #SMS}（P2-8-A）：短信核身渠道，登录态由 {@code /api/v1/auth/login-by-ticket} 的 ticket 兑换签发， 不经 {@code
+ * /auth/login/{channel}} 路径（该渠道不参与账密比对）。{@code device_type} 由 ticket 内 scene 决定， 此处的 {@code WEB}
+ * 仅为缺省兜底。
  */
 public enum LoginChannel {
     WECHAT("WECHAT", "WXMP", false),
     DOUYIN("DOUYIN", "DYMP", false),
     IOS("PWD", "IOS", true),
     ANDROID("PWD", "ANDROID", true),
-    FACE("FACE", "IOS", false);
+    FACE("FACE", "IOS", false),
+    SMS("SMS", "WEB", false);
 
     private final String loginType;
     private final String deviceType;
