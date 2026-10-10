@@ -68,7 +68,12 @@ if ! command -v docker >/dev/null 2>&1; then
     exit 1
 fi
 
-MYSQL_CONN="-h${DB_HOST} -P${DB_PORT} -u${DB_USERNAME} -p${DB_PASSWORD}"
+# 空密码不能传裸 -p（会被解析成交互式密码提示，CI 无 stdin 直接失败）——CI 2026-10-10 实证
+if [ -n "$DB_PASSWORD" ]; then
+    MYSQL_CONN="-h${DB_HOST} -P${DB_PORT} -u${DB_USERNAME} -p${DB_PASSWORD}"
+else
+    MYSQL_CONN="-h${DB_HOST} -P${DB_PORT} -u${DB_USERNAME}"
+fi
 
 # ---- 密钥：未提供则现场生成（仅本次验证；不写死、不落盘） ----
 gen_key() { head -c "$1" /dev/urandom | base64 | tr -d '\n'; }
@@ -90,6 +95,9 @@ for f in docker/mysql/init/*.sql; do
     else
         INIT_OK=0
         echo "  ✗ 执行失败：$f"
+        echo "  ---- mysql 报错（重放一次，带 stderr）----"
+        sed "s/\`yl_evaluation\`/\`${DB_NAME}\`/g" "$f" | "$MYSQL_BIN" $MYSQL_CONN 2>&1 | head -5
+        echo "  ---- 重放结束 ----"
         break
     fi
 done

@@ -229,6 +229,10 @@ jobs:
           java-version: '17'
           cache: maven
 
+      # 本作业的 verify 会真实执行全部测试 ⇒ 与 build-and-test 同样需要中文字体（口径见该作业注释）
+      - name: 安装 PDF 中文字体（fonts-wqy-zenhei，与容器口径一致）
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends fonts-wqy-zenhei
+
       - name: SonarQube 扫描
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
