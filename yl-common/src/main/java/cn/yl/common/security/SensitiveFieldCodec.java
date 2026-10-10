@@ -44,6 +44,18 @@ public final class SensitiveFieldCodec {
     public SensitiveFieldCodec(String base64MasterKey, String base64HashKey) {
         byte[] masterKey = requireKey(base64MasterKey, "SENSITIVE_FIELD_KEY");
         byte[] hashKey = requireKey(base64HashKey, "SENSITIVE_FIELD_HASH_KEY");
+        // ★ fail-fast（P2-8-R13）：AES-256 只接受**恰好** 32 字节。仅校验「≥32」会让更长的主密钥
+        //   通过构造期校验、却在**首次加解密时**才抛异常（fail-late）—— 配置错误要到运行期才暴露，
+        //   且症状是"所有加密端点报错"，排查成本极高。故在构造期拒绝。
+        //   摘要密钥走 HMAC-SHA256，无长度上限问题，保持「≥32 字节」即可。
+        if (masterKey.length != AES_KEY_BITS / 8) {
+            throw new IllegalStateException(
+                    "SENSITIVE_FIELD_KEY 长度非法：AES-256 要求恰好 "
+                            + (AES_KEY_BITS / 8)
+                            + " 字节，当前 "
+                            + masterKey.length
+                            + " 字节（更长不会被截断，只会在首次加解密时失败）");
+        }
         this.aesKey = new SecretKeySpec(masterKey, "AES");
         this.hmacKey = new SecretKeySpec(hashKey, HMAC_SHA256);
     }
