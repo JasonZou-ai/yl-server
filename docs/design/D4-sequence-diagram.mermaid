@@ -1,0 +1,255 @@
+%% D-4 家属端 + 端侧切真 · 时序图（对应 docs/design/D4-family-domain-design.md §5）
+%% 断言口径：业务失败恒 HTTP 200 + R.code；未认证 HTTP 401 + code=10002；缺二次验证 200 + 10008
+%% 7 条链：5.1 申请(含F2核验) / 5.2 机构审核 / 5.3 老人拒绝 / 5.4 解绑(④闸) / 5.5 家属读 / 5.6 elder↔user / 5.7 logout + 拒绝链路
+
+%% ==================== 5.1 申请绑定（含 ★F2 核验） ====================
+sequenceDiagram
+    autonumber
+    participant C as 客户端(家属)
+    participant F as JwtAuthFilter
+    participant A as PermissionAspect(第二闸)
+    participant Id as IdempotentAspect
+    participant Ctrl as FamilyBindingController
+    participant S as FamilyBindingService
+    participant Sup as SensitiveFieldSupport
+    participant Codec as SensitiveFieldCodec
+    participant VM as FamilyBindingVerifyMapper
+    participant M as ElderFamilyBindMapper
+    participant Ad as AuditLogAspect
+
+    C->>F: POST /api/v1/family/bindings + Bearer + Idempotency-Key
+    F->>A: 装配 LoginUser(perms/orgIds/dataScope=5)
+    A->>A: 校验 account:family:bind（非敏感，无第四闸）
+    A->>Id: 通过
+    Id->>Ctrl: create(FamilyBindingCreateRequest)
+    Ctrl->>S: apply(req, operator)
+    S->>S: ① 频控 yl:fam:verify:{userId} INCR>10 → 10429
+    S->>Sup: ② isAvailable()?
+    alt 密钥未装配（dev 无密钥）
+        Sup-->>S: false
+        S-->>Ctrl: BizException(40001) —— 宁可拒绝，不可假核验；不落任何绑定行
+        Ctrl-->>C: 200 + R{code=40001}
+    else 已装配
+        Sup->>Codec: ③ hashForSearch(elderName) / hashForSearch(idCardNo)
+        Codec-->>Sup: name_hash / id_card_hash
+        S->>VM: countExactMatch(elderId, nameHash, idCardHash)
+        VM-->>S: count（只返布尔语义，绝不返老人字段）
+        alt count == 0（不存在 或 不匹配 → 同码防枚举）
+            S-->>Ctrl: BizException(10004)
+            Ctrl-->>C: 200 + R{code=10004}
+        else count == 1
+            S->>VM: hasLoginAccount(elderId)（★C2：只返 boolean）
+            VM-->>S: true → 落 0 ／ false → 落 1（§3.3 判定规则）
+            S->>M: 查重(elder_id+family_user_id+deleted=0)
+            alt 已存在有效申请
+                S-->>Ctrl: BizException(10005)
+            else 可创建
+                S->>M: insert(status=0/1, familyUserId=登录用户, verifyMethod, proofCosKey)
+                M-->>S: ASSIGN_ID 主键
+                S-->>Ctrl: FamilyBindingView(status=0/1)
+                Ctrl-->>C: 200 + R{FamilyBindingView}
+                Ad->>Ad: 写 audit_log(FAMILY_BIND_APPLY, ELDER_FAMILY_BIND)
+            end
+        end
+    end
+
+%% ==================== 5.2 机构审核 ====================
+sequenceDiagram
+    autonumber
+    participant C as 客户端(ORG_ADMIN)
+    participant A as PermissionAspect(第二闸)
+    participant Id as IdempotentAspect
+    participant Ctrl as FamilyBindingController
+    participant S as FamilyBindingService
+    participant DS as DataScopePermissionHandler(第三闸)
+    participant M as ElderFamilyBindMapper
+
+    C->>A: POST /family/bindings/{id}/approve + Bearer + Idempotency-Key
+    A->>A: 校验 account:org:manage（★C1：ORG_ADMIN 独占；FAMILY 无码 → 20003）
+    A->>Id: 通过
+    Id->>Ctrl: approve(id)
+    Ctrl->>S: approve(id, operator)
+    S->>M: selectById(id)
+    M->>DS: SQL 改写：scope=2
+    Note over DS: elder_family_bind.elder_id IN<br/>(SELECT p.id FROM elder p WHERE p.org_id IN (myOrgs))
+    alt 跨机构 / 不存在
+        M-->>S: 0 行
+        S-->>Ctrl: BizException(10004)（同码，不泄露存在性）
+        Ctrl-->>C: 200 + R{code=10004}
+    else 命中且 status ∈ {0,1}
+        S->>M: update status=2, auth_start_at=NOW()
+        S-->>Ctrl: FamilyBindingView(status=2)
+        Ctrl-->>C: 200 + R{FamilyBindingView}
+        Note over S: @Audit(FAMILY_BIND_APPROVE)
+    end
+
+%% ==================== 5.3 老人拒绝（★F1 死路修复） ====================
+sequenceDiagram
+    autonumber
+    participant C as 客户端(ELDER)
+    participant A as PermissionAspect(第二闸)
+    participant Ctrl as FamilyBindingController
+    participant S as FamilyBindingService
+    participant DS as DataScopePermissionHandler(第三闸)
+    participant M as ElderFamilyBindMapper
+
+    C->>A: POST /family/bindings/{id}/reject + {reason} + Idempotency-Key
+    A->>A: 校验 account:family:bind:reject（仅 ELDER 持码）
+    A->>Ctrl: reject(id, req)
+    Ctrl->>S: reject(id, reason, operator)
+    S->>M: selectById(id)
+    M->>DS: SQL 改写：scope=1（★F1 修复）
+    Note over DS: elder_family_bind.elder_id IN<br/>(SELECT p.id FROM elder p WHERE p.user_id = 登录用户)
+    alt 非本人老人 / 不存在
+        M-->>S: 0 行
+        S-->>Ctrl: BizException(10004)
+    else 命中
+        S->>M: update status=3, reject_reason=reason
+        Ctrl-->>C: 200 + R{FamilyBindingView(status=3)}
+        Note over S: @Audit(FAMILY_BIND_REJECT)
+    end
+
+%% ==================== 5.4 解绑（④闸：OR 语义强制二次验证） ====================
+sequenceDiagram
+    autonumber
+    participant C as 客户端(FAMILY/ORG_ADMIN)
+    participant SVc as AuthController(/auth/second-verify)
+    participant A as PermissionAspect(第二/四闸)
+    participant SVG as SecondVerifyGuard
+    participant Ctrl as FamilyBindingController
+    participant S as FamilyBindingService
+    participant DS as DataScopePermissionHandler(第三闸)
+    participant M as ElderFamilyBindMapper
+
+    Note over C: 前置：POST /api/v1/auth/second-verify 换取一次性凭据
+    C->>SVc: {method, credential}
+    SVc->>SVG: issue(userId)（TTL 300s）
+    SVG-->>C: X-Second-Verify-Token
+    C->>A: POST /family/bindings/{id}/unbind + Bearer + X-Second-Verify-Token
+    A->>A: logical=OR：{account:family:bind OR account:family:unbind}
+    Note over A: 注解含敏感码 account:family:unbind<br/>→ 无论靠哪个码进入，一律强制第四闸
+    A->>SVG: verify(token, userId)（原子消费）
+    alt 凭据缺失/失效/复用
+        SVG-->>A: false
+        A-->>C: 200 + R{code=10008}
+    else 凭据有效
+        SVG-->>A: true
+        A->>Ctrl: unbind(id)
+        Ctrl->>S: unbind(id, operator)
+        S->>M: selectById(id)
+        M->>DS: scope=5 → family_user_id=me ／ scope=2 → 经 elder.org_id
+        alt 越权 / 不存在
+            S-->>Ctrl: BizException(10004)
+        else 命中
+            S->>M: update status=4（deleted 保持 0，保留历史）
+            Ctrl-->>C: 200 + R{code=0}
+            Note over S: @Audit(FAMILY_BIND_UNBIND, sensitive=1)
+        end
+    end
+
+%% ==================== 5.5 家属读报告/详情/趋势/照护 ====================
+sequenceDiagram
+    autonumber
+    participant C as 客户端(家属)
+    participant A as PermissionAspect(第二闸)
+    participant Ctrl as FamilyBindingController
+    participant Q as FamilyReportQueryService
+    participant BM as ElderFamilyBindMapper
+    participant RS as FamilyReportSourceMapper
+    participant CS as FamilyCarePlanSourceMapper
+    participant DS as DataScopePermissionHandler(第三闸)
+
+    C->>A: GET /family/bindings/{relationId}/reports|reports/{reportId}|trend|care-plan
+    A->>A: 校验 report:view（五角色）
+    A->>Ctrl: 读 handler
+    Ctrl->>Q: 委派
+    Q->>BM: selectById(relationId)
+    BM->>DS: scope=5 → elder_family_bind.family_user_id = me
+    alt relationId 非本人 / 未生效(status!=2) / 已过期
+        BM-->>Q: 0 行
+        Q-->>Ctrl: BizException(10004)（同码）
+        Ctrl-->>C: 200 + R{code=10004}
+    else 命中生效绑定
+        Q->>RS: selectPublishedPage(Page, binding.elderId) ／ selectReportById(reportId)
+        RS->>DS: eval_report.elder_id IN (我生效绑定的 elder_id)；status=1 由服务层收口
+        Q->>CS: selectConfirmedPlan(binding.elderId)（status=1 已确认）
+        CS->>DS: care_plan.elder_id IN (我生效绑定的 elder_id)
+        Note over Q: detail 额外校验 report.elder_id == binding.elder_id
+        Q-->>Ctrl: 视图（脱敏；items_json→字符串列表，空态不造数）
+        Ctrl-->>C: 200 + R{数据}（code=0）
+    end
+
+%% ==================== 5.6 elder↔user 绑定 ====================
+sequenceDiagram
+    autonumber
+    participant C as 客户端(ORG_ADMIN)
+    participant A as PermissionAspect(第二闸)
+    participant Id as IdempotentAspect
+    participant Ctrl as ElderController
+    participant S as ElderUserBindingService
+    participant OM as SysOrgMemberMapper
+    participant EM as ElderMapper
+    participant DS as DataScopePermissionHandler(第三闸)
+
+    C->>A: POST /api/v1/elders/{elderId}/user-binding + {userId} + Idempotency-Key
+    A->>A: 校验 account:org:manage
+    A->>Id: 通过
+    Id->>Ctrl: bindUser(elderId, req)
+    Ctrl->>S: bind(elderId, userId, authEndAt, operator)
+    S->>OM: 查 sys_org_member（userId 是否 ∈ 本机构，status=1）
+    alt 目标账号非本机构
+        S-->>Ctrl: BizException(20003)
+    else 合法
+        S->>EM: selectById(elderId)
+        EM->>DS: scope=2 → elder.org_id IN (myOrgs)
+        alt 越界 / 不存在
+            S-->>Ctrl: BizException(10004)
+        else 命中且 user_id 未被他人占用
+            S->>EM: update user_id=userId, auth_end_at=authEndAt
+            Note over S: uk_elder_user 冲突 → DuplicateKeyException → 10005（不 500）
+            Ctrl-->>C: 200 + R{UserBindingView}
+            Note over S: @Audit(ELDER_USER_BIND)
+        end
+    end
+
+%% ==================== 5.7 logout 黑名单 + 拒绝链路 ====================
+sequenceDiagram
+    autonumber
+    participant C as 客户端
+    participant F as JwtAuthFilter
+    participant AS as AuthService
+    participant BL as TokenBlacklistStore
+    participant RT as RefreshTokenStore
+    participant EP as RestAuthenticationEntryPoint
+    participant PA as PermissionAspect(第二闸)
+    participant GE as GlobalExceptionHandler
+
+    Note over C,GE: 链路① logout 双令牌失效
+    C->>F: POST /auth/logout + Bearer A + {refreshToken:R}
+    F->>F: parse(A) 成功；查黑名单（未命中）
+    F->>AS: logout(A, R, userId)
+    AS->>BL: add(sha256(A), userId, 剩余有效期秒)
+    AS->>RT: revoke(R)（删 yl:rt:R）
+    AS-->>C: 200 + R{code=0}
+    Note over C: 旧 access A 已入黑名单；旧 refresh R 已 revoke
+
+    Note over C,GE: 链路② 旧 access 令牌 → 401 + 10002（黑名单命中）
+    C->>F: GET /api/v1/elders + Bearer A（已登出）
+    F->>F: parse(A) 成功 → 查黑名单 命中 → writeUnauthorized
+    F-->>C: HTTP 401 + R{code=10002}
+
+    Note over C,GE: 链路③ 旧 refresh 令牌 → 换发失败
+    C->>AS: POST /auth/refresh {refreshToken:R}
+    AS->>RT: findUserId(R) → null（已 revoke）
+    AS-->>C: HTTP 200 + R{code=10002}
+
+    Note over C,GE: 链路④ 未认证（无 Authorization）
+    C->>F: 请求受保护端点（无 Bearer）
+    F->>F: 无头 → 直接放行（不置身份）
+    F->>EP: anyRequest().authenticated() 拒绝匿名
+    EP-->>C: HTTP 401 + R{code=10002}
+
+    Note over C,GE: 链路⑤ 已认证但无权码（第二闸）
+    C->>PA: Bearer 有效，但 perms 不含所需码
+    PA-->>GE: BizException(ROLE_NOT_PERMITTED=20003)
+    GE-->>C: HTTP 200 + R{code=20003}

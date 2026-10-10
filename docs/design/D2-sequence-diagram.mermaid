@@ -1,0 +1,102 @@
+%% D-2 档案域后端 · 关键链路时序图（建档 / reveal / 拒绝）
+%% 判定口径：业务失败 = HTTP 200 + R.code；仅传输层/框架层改 HTTP 状态码
+
+%% ============ 5.1 建档链路（加密 + 摘要 + 脱敏） ============
+sequenceDiagram
+    autonumber
+    participant C as 客户端
+    participant F as JwtAuthFilter
+    participant A as PermissionAspect(第二闸)
+    participant Id as IdempotentAspect
+    participant Ctrl as ElderController
+    participant S as ElderArchiveService
+    participant Sup as SensitiveFieldSupport
+    participant Codec as SensitiveFieldCodec
+    participant M as ElderMapper
+
+    C->>F: POST /api/v1/elders + Bearer + Idempotency-Key
+    F->>A: 装配 LoginUser(perms/orgIds/dataScope)
+    A->>A: 校验 elder:archive:create（非敏感，无第四闸）
+    A->>Id: 通过
+    Id->>Id: 幂等键占用 + 请求体摘要
+    Id->>Ctrl: create(req)
+    Ctrl->>Ctrl: orgId 缺省取登录态，非空须 ∈ orgIds 否则 20003
+    Ctrl->>S: create(req, operator)
+    S->>Sup: isAvailable()?
+    alt 密钥未装配（dev）
+        Sup-->>S: false
+        S-->>Ctrl: BizException(40001) 禁止明文落库，也不启动失败
+    else 已装配
+        Sup->>Codec: encrypt(name/idCard/phone/address)
+        Codec-->>Sup: 密文
+        Sup->>Codec: hashForSearch(idCardNo)
+        Codec-->>Sup: HMAC 摘要
+        S->>S: idCardMask = maskIdCard(); elderNo = next()
+        S->>M: insert(Elder)（*_enc / *_hash / *_mask）
+        M-->>S: ASSIGN_ID 主键
+        S-->>Ctrl: ElderView(脱敏)
+    end
+    Ctrl-->>C: 200 + R{ElderView, code=0}
+
+%% ============ 5.2 reveal 链路（二次验证 + audit_log 留痕） ============
+sequenceDiagram
+    autonumber
+    participant C as 客户端
+    participant A as PermissionAspect(第二/四闸)
+    participant SV as SecondVerifyGuard
+    participant Ctrl as DataRevealController
+    participant S as DataRevealService
+    participant M as ElderMapper
+    participant Sup as SensitiveFieldSupport
+    participant Ad as AuditLogAspect
+    participant Au as AuditService
+
+    Note over C: 前置：POST /api/v1/auth/second-verify 换取一次性凭据
+    C->>A: POST /api/v1/security/reveal + X-Second-Verify-Token + Idempotency-Key
+    A->>A: 校验 data:reveal（敏感点）
+    A->>SV: verify(token, userId) 原子消费 TTL=300s
+    alt 凭据缺失/失效
+        SV-->>A: false
+        A-->>C: 200 + R{code=10008}
+    else 凭据有效
+        SV-->>A: true
+        A->>Ctrl: reveal(req)
+        Ctrl->>S: reveal(req, operatorId)
+        S->>M: selectById(bizId) 第三闸追加 elder.org_id IN (orgIds)
+        alt 越界/不存在
+            M-->>S: 0 行
+            S-->>Ctrl: BizException(10004) 不泄露存在性
+            Ctrl-->>C: 200 + R{code=10004}
+        else 命中
+            S->>S: 字段白名单校验
+            S->>Sup: decrypt(*_enc)
+            Sup-->>S: 明文
+            S-->>Ctrl: DataRevealResponse
+            Ctrl-->>C: 200 + R{明文, code=0}
+            Ad->>Au: record(DATA_REVEAL, ELDER, sensitive=true)
+            Au->>Au: audit_log(sensitive=1, second_verify=1, retain_until=+3y)
+        end
+    end
+
+%% ============ 5.3 拒绝链路（未认证 / 越权） ============
+sequenceDiagram
+    autonumber
+    participant C as 客户端
+    participant J as JwtAuthFilter
+    participant EP as RestAuthenticationEntryPoint
+    participant PA as PermissionAspect(第二闸)
+    participant GE as GlobalExceptionHandler
+
+    Note over C,EP: 链路① 未认证：无 Authorization 头
+    C->>J: 请求受保护端点（无 Bearer）
+    J->>J: 无头 → 直接放行（不置身份）
+    J->>EP: anyRequest().authenticated() 拒绝匿名
+    EP-->>C: HTTP 401 + R{code=10002}
+
+    Note over C,GE: 链路② 已认证但越权：令牌有效但缺权限码
+    C->>J: 请求（Bearer 有效）
+    J->>J: 装配 LoginUser
+    J->>PA: 进入方法层
+    PA->>PA: perms 不含所需码
+    PA-->>GE: BizException(ROLE_NOT_PERMITTED=20003)
+    GE-->>C: HTTP 200 + R{code=20003}

@@ -1,0 +1,155 @@
+%% =====================================================================
+%% D-3 报表与监管域 · 时序图（3 条主链：B9 CSV 导出 / B8 验真 / B10 上报）
+%% 判定口径（务必遵守）：业务失败一律 HTTP 200 + R.code；未认证 = HTTP 401 + R.code=10002。
+%% 二进制/文件端点额外验"魔数"（CSV: UTF-8 BOM \uFEFF + 首行表头）。
+%% =====================================================================
+
+%% ---------------- 5.1 B9 CSV 导出全链（第二/四闸 + 第三闸 + 落盘 + 留痕） ----------------
+sequenceDiagram
+    autonumber
+    participant C as 客户端(机构管理员)
+    participant J as JwtAuthFilter
+    participant PA as PermissionAspect(第二/四闸)
+    participant SV as SecondVerifyGuard
+    participant Id as IdempotentAspect
+    participant Ctrl as SuperviseExportController
+    participant S as SuperviseExportService
+    participant SM as ExportSourceMapper(跨域只读投影)
+    participant DS as DataScopePermissionHandler(第三闸)
+    participant W as ExportCsvWriter
+    participant TM as ExportTaskMapper
+    participant Ad as AuditLogAspect
+
+    Note over C: 前置：POST /api/v1/auth/second-verify 换取一次性凭据
+    C->>J: POST /api/v1/supervise/exports + Bearer + X-Second-Verify-Token + Idempotency-Key
+    J->>PA: 装配 LoginUser(perms/orgIds/dataScope)
+    PA->>PA: 校验 data:export（敏感点）
+    PA->>SV: verify(token, userId)（原子消费，TTL）
+    alt 凭据缺失/失效
+        SV-->>PA: false
+        PA-->>C: 200 + R{code=10008}（业务失败，HTTP 200）
+    else 凭据有效
+        SV-->>PA: true
+        PA->>Id: 通过
+        Id->>Id: 幂等键占用 + 请求体摘要（缺失键 → 10007）
+        Id->>Ctrl: create(req)
+        Ctrl->>S: create(req, operator=LoginUser)
+        S->>S: 校验 exportType/format（XLSX/PDF → 10001；仅 CSV）
+        S->>S: exportType=EVAL_LIST（REPORT/STAT → 10001，残留）
+        S->>SM: selectEvalList(orgIds, maxSyncRows)
+        SM->>DS: (MyBatis 拦截器) 逐表追加行级条件
+        alt scope=2 机构管理员
+            DS-->>SM: eval_order/eval_report/elder 追加 org_id IN (orgIds)
+        else scope=4 监管
+            DS-->>SM: 不加限（只读全局）
+        end
+        SM-->>S: List<ExportSourceRow>
+        alt rowCount > maxSyncRows(5000)
+            S-->>Ctrl: BizException(EXPORT_TASK_TOO_LARGE=60001)
+            Ctrl-->>C: 200 + R{code=60001}
+        else 正常
+            S->>W: writeCsv(headers, rows)
+            W->>W: 表头 + UTF-8 BOM + 公式注入转义（= + - @ TAB CR 前缀加 '）
+            W-->>S: byte[]（BOM 开头）
+            S->>S: key = export/<taskNo>.csv ; 写本地目录(yl.export.dir)
+            S->>TM: insert(ExportTask{orgId, operatorId, expireAt=now+N d, status=2, fileCosKey=key, rowCount})
+            TM-->>S: ASSIGN_ID 主键
+            S-->>Ctrl: ExportTaskView
+            Ctrl-->>C: 200 + R{taskNo, status} (code=0)
+            Ad->>Ad: 写 audit_log(action=EXPORT, biz_type=EXPORT_TASK, sensitive=1, second_verify=1)
+        end
+    end
+    Note over S,TM: expire_at 只写值；文件清理/回收排 P2-7（D-3 不实现删除逻辑）
+
+%% ---------------- 5.2 B8 验真（public 端点：无登录态 + 最小返回面） ----------------
+sequenceDiagram
+    autonumber
+    participant C as 扫码客户端(匿名)
+    participant RL as RateLimitInterceptor
+    participant Ctrl as ReportVerifyController
+    participant S as ReportVerifyService
+    participant RM as EvalReportMapper
+    participant OM as EvalOrderMapper
+
+    C->>RL: GET /api/v1/reports/verify?code=RPxxx（无 Bearer）
+    Note over RL: SecurityConfig 已 permitAll（L81）；RateLimitInterceptor 匿名 30/60s per IP
+    alt 超限
+        RL-->>C: 200 + R{code=10429}
+    else 通过
+        RL->>Ctrl: verify(code)
+        Ctrl->>S: verify(code)
+        S->>S: 归一化 code（去 ?no= / &hash= 前缀，白名单 [A-Za-z0-9_-]）否则 10001
+        S->>RM: selectOne(report_no = reportNo)（public，无登录态 → 第三闸不加限）
+        alt 报告不存在
+            RM-->>S: null
+            S-->>Ctrl: ReportVerifyResponse{valid=false}（不泄露存在性）
+        else 命中
+            RM-->>S: EvalReport(verify_hash, status, grade_code, published_at, order_id)
+            S->>OM: selectById(report.order_id)
+            OM-->>S: EvalOrder
+            S->>S: 重算 sha256(canonicalContent(order)) 与 report.verify_hash 比对
+            S->>S: valid = (status==1 且 摘要一致)
+            S-->>Ctrl: ReportVerifyResponse{valid, gradeCode, publishedAt}
+        end
+        Ctrl-->>C: 200 + R{valid, gradeCode, publishedAt}（**绝不含**姓名/身份证/手机号）
+    end
+
+%% ---------------- 5.3 B10 监管上报（跨域聚合 + 幂等 + 只写 retain_until） ----------------
+sequenceDiagram
+    autonumber
+    participant C as 客户端(机构管理员/监管)
+    participant PA as PermissionAspect(第二闸)
+    participant Id as IdempotentAspect
+    participant Ctrl as SuperviseReportController
+    participant S as SuperviseReportService
+    participant AM as SuperviseAggregateMapper(跨域只读投影)
+    participant DS as DataScopePermissionHandler(第三闸)
+    participant RM as SuperviseReportMapper
+
+    C->>PA: POST /api/v1/supervise/report + Bearer + Idempotency-Key
+    PA->>PA: 校验 supervise:report:submit（非敏感，第四闸不介入）
+    PA->>Id: 通过
+    Id->>Ctrl: submit()
+    Ctrl->>S: submit(orgId=LoginUser.requireOrgId(), idempotentKey)
+    S->>S: report_month = 当前自然月(YYYY-MM)（契约未定义输入，见待明确#1）
+    S->>AM: aggregate(orgId, month)
+    AM->>DS: (MyBatis 拦截器) eval_order/eval_report 追加 org_id IN (orgIds)
+    DS-->>AM: 行级收口
+    AM-->>S: SuperviseAggregateRow
+    S->>S: payload = JSON(聚合结果)（服务端生成，非请求体）
+    S->>RM: insert 或 on-duplicate-update（uk_idem / uk_month_org）
+    alt uk_idem 已存在（重复上报）
+        RM-->>S: DuplicateKey
+        S-->>Ctrl: BizException(IDEMPOTENT_REPLAY=10006) 或回放既有行
+    else 首次
+        RM-->>S: 主键
+        S->>S: status=1(成功), sent_at=now, retain_until=now+5y（**只写值**）
+        S->>RM: update(retain_until/sent_at/status)
+        S-->>Ctrl: SuperviseReportView
+        Ctrl-->>C: 200 + R{reportMonth, status} (code=0)
+    end
+    Note over S,RM: retain_until 清理未被 RetentionChainScheduler/ExpiredOrderArchiver 覆盖<br/>→ D-3 只写值 + 登记残留，不扩 D-5 调度边界
+
+%% ---------------- 5.4 拒绝链路（未认证 401 / 第二闸 200 / public 放行） ----------------
+sequenceDiagram
+    autonumber
+    participant C as 客户端
+    participant J as JwtAuthFilter
+    participant EP as RestAuthenticationEntryPoint
+    participant PA as PermissionAspect
+    participant GE as GlobalExceptionHandler
+
+    Note over C,EP: 链路① 未认证（CR-M2-007）：无 Authorization
+    C->>J: GET /api/v1/supervise/exports（无 Bearer）
+    J->>EP: anyRequest().authenticated() 拒绝匿名
+    EP-->>C: HTTP 401 + R{code=10002}
+
+    Note over C,GE: 链路② 已认证但缺权限码（第二闸）
+    C->>J: POST /supervise/exports（Bearer 有效但无 data:export）
+    J->>PA: 进入方法层
+    PA-->>GE: BizException(ROLE_NOT_PERMITTED=20003)
+    GE-->>C: HTTP 200 + R{code=20003}
+
+    Note over C,GE: 链路③ public 端点放行（B8）：/api/v1/reports/verify 不装第二闸
+    C->>J: GET /api/v1/reports/verify?code=xxx（无 Bearer）
+    J->>J: permitAll → 直接进入控制器（data-scope 只返最小面，不含个人信息）

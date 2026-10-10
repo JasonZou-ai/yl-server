@@ -1,0 +1,247 @@
+%% D-4 家属端 + 端侧切真 · 类图（对应 docs/design/D4-family-domain-design.md §2/§3）
+%% 命名沿用本仓 docs/design/ 惯例（D4- 前缀）
+classDiagram
+    direction LR
+
+    %% ---------------- 控制器 ----------------
+    class FamilyBindingController {
+        -FamilyBindingService bindingService
+        -FamilyReportQueryService reportService
+        +list(FamilyBindingQuery) R~PageResult~FamilyBindingView~~
+        +create(FamilyBindingCreateRequest) R~FamilyBindingView~
+        +approve(Long) R~FamilyBindingView~
+        +reject(Long, FamilyBindingRejectRequest) R~FamilyBindingView~
+        +unbind(Long) R~Void~
+        +reports(Long, FamilyBindingQuery) R~PageResult~FamilyReportView~~
+        +reportDetail(Long, Long) R~FamilyReportDetailView~
+        +trend(Long) R~List~FamilyTrendPointView~~
+        +carePlan(Long) R~FamilyCarePlanView~
+    }
+
+    class ElderController {
+        +create(ElderCreateRequest) R~ElderView~
+        +list(ElderQuery) R~PageResult~ElderView~~
+        +detail(Long) R~ElderView~
+        +bindUser(Long, UserBindingRequest) R~UserBindingView~
+    }
+
+    class AuthController {
+        +login(String, LoginRequest, HttpServletRequest) R~LoginResponse~
+        +refresh(RefreshRequest) R~LoginResponse~
+        +secondVerify(SecondVerifyRequest) R~SecondVerifyResponse~
+        +logout(HttpServletRequest, LogoutRequest) R~Void~
+    }
+
+    %% ---------------- 服务 ----------------
+    class FamilyBindingService {
+        -ElderFamilyBindMapper bindMapper
+        -FamilyBindingVerifyMapper verifyMapper
+        -SensitiveFieldSupport support
+        -ElderMapper elderMapper
+        -StringRedisTemplate redisTemplate
+        +apply(FamilyBindingCreateRequest, LoginUser) FamilyBindingView
+        +approve(Long, LoginUser) FamilyBindingView
+        +reject(Long, String, LoginUser) FamilyBindingView
+        +unbind(Long, LoginUser) void
+        -rateLimit(long) void
+        -verifyElder(Long, String, String) void
+    }
+
+    class FamilyReportQueryService {
+        -ElderFamilyBindMapper bindMapper
+        -FamilyReportSourceMapper reportSource
+        -FamilyCarePlanSourceMapper careSource
+        +reports(Long, FamilyBindingQuery) PageResult~FamilyReportView~
+        +detail(Long, Long) FamilyReportDetailView
+        +trend(Long) List~FamilyTrendPointView~
+        +carePlan(Long) FamilyCarePlanView
+        -requireMyActiveBinding(Long) ElderFamilyBind
+    }
+
+    class ElderUserBindingService {
+        -ElderMapper elderMapper
+        -SysOrgMemberMapper orgMemberMapper
+        +bind(Long, Long, LocalDateTime, LoginUser) UserBindingView
+    }
+
+    class AuthService {
+        -TokenBlacklistStore blacklistStore
+        -RefreshTokenStore refreshTokenStore
+        -JwtTokenProvider tokenProvider
+        +login(...) LoginResponse
+        +refresh(String) LoginResponse
+        +issueSecondVerifyToken(long, String, String) String
+        +logout(String, String, long) void
+    }
+
+    %% ---------------- 跨域只读投影 Mapper ----------------
+    class ElderFamilyBindMapper {
+        <<BaseMapper~ElderFamilyBind~>>
+    }
+    class FamilyBindingVerifyMapper {
+        <<Mapper 只读投影>>
+        +countExactMatch(Long, String, String) int
+        +hasLoginAccount(Long) boolean
+    }
+    class FamilyReportSourceMapper {
+        <<Mapper 只读投影>>
+        +selectPublishedPage(Page, Long) IPage~ReportSourceRow~
+        +selectReportById(Long) ReportSourceRow
+        +selectDimensionScores(Long) List~DimensionScoreRow~
+    }
+    class FamilyCarePlanSourceMapper {
+        <<Mapper 只读投影>>
+        +selectConfirmedPlan(Long) CarePlanRow
+    }
+    class ElderMapper {
+        <<BaseMapper~Elder~>>
+    }
+
+    %% ---------------- 安全基建 ----------------
+    class DataScopePermissionHandler {
+        -ORG_COLUMN Map
+        -SELF_COLUMN Map
+        -SELF_DENY_TABLES Set
+        -RELATION_ELDER_COLUMN Map
+        -RELATION_VIA_PARENT Map
+        -ORG_VIA_PARENT Map
+        -SELF_VIA_PARENT Map
+        +getSqlSegment(Table, Expression, String) Expression
+        -orgViaParentCondition(Table, RelationAnchor, List) Expression
+        -selfViaParentCondition(Table, RelationAnchor, long) Expression
+    }
+    class JwtAuthFilter {
+        -JwtTokenProvider tokenProvider
+        -TokenBlacklistStore blacklistStore
+        +doFilterInternal(...) void
+    }
+    class TokenBlacklistStore {
+        <<interface (yl-common)>>
+        +add(String, long, long) void
+        +isBlacklisted(String) boolean
+    }
+    class RedisTokenBlacklistStore {
+        <<Component (yl-infrastructure)>>
+        -StringRedisTemplate redisTemplate
+        +add(String, long, long) void
+        +isBlacklisted(String) boolean
+    }
+    class RefreshTokenStore {
+        <<interface (yl-common)>>
+        +save(String, long, long) void
+        +findUserId(String) Long
+        +revoke(String) void
+    }
+
+    %% ---------------- 实体 / DTO ----------------
+    class ElderFamilyBind {
+        +Long id
+        +Long elderId
+        +Long familyUserId
+        +String relation
+        +String verifyMethod
+        +String proofCosKey
+        +LocalDateTime authStartAt
+        +LocalDateTime authEndAt
+        +Integer status
+        +String rejectReason
+        +Integer deleted
+        +LocalDateTime createdAt
+        +LocalDateTime updatedAt
+        <<不映射生成列 active_uk>>
+        <<elder_family_bind 有 deleted 列(正常映射)>>
+        <<无 org_id 列：机构经 elder.org_id 反查>>
+    }
+    class Elder {
+        +Long id
+        +String elderNo
+        +String nameEnc
+        +String nameHash
+        +String idCardEnc
+        +String idCardHash
+        +String idCardMask
+        +Long orgId
+        +Long userId
+        +Integer status
+        +Integer deleted
+    }
+    class FamilyBindingCreateRequest {
+        +Long elderId
+        +String relation
+        +String verifyMethod
+        +String proofCosKey
+        +String elderName
+        +String idCardNo
+    }
+    class FamilyBindingView {
+        +Long id
+        +Long elderId
+        +String elderName
+        +String relation
+        +Integer status
+        +LocalDateTime authStartAt
+        +LocalDateTime authEndAt
+        +String rejectReason
+    }
+    class UserBindingRequest {
+        +Long userId
+        +LocalDateTime authEndAt
+    }
+    class UserBindingView {
+        +Long elderId
+        +Long userId
+        +LocalDateTime boundAt
+    }
+    class ReportSourceRow {
+        +Long reportId
+        +String reportNo
+        +Long elderId
+        +Long orgId
+        +String gradeCode
+        +Double totalScore
+        +LocalDateTime publishedAt
+    }
+    class DimensionScoreRow {
+        +Integer dimensionCode
+        +String dimensionName
+        +Double rawScore
+        +Double maxScore
+    }
+    class CarePlanRow {
+        +Long id
+        +Long reportId
+        +Long elderId
+        +String gradeCode
+        +String itemsJson
+        +LocalDateTime confirmedAt
+        +Integer status
+    }
+
+    %% ---------------- 关系 ----------------
+    FamilyBindingController --> FamilyBindingService : 委托
+    FamilyBindingController --> FamilyReportQueryService : 委托
+    ElderController --> ElderUserBindingService : 委托
+    AuthController --> AuthService : 委托
+
+    FamilyBindingService --> ElderFamilyBindMapper
+    FamilyBindingService --> FamilyBindingVerifyMapper
+    FamilyBindingService --> SensitiveFieldSupport
+    FamilyReportQueryService --> ElderFamilyBindMapper
+    FamilyReportQueryService --> FamilyReportSourceMapper
+    FamilyReportQueryService --> FamilyCarePlanSourceMapper
+    ElderUserBindingService --> ElderMapper
+
+    AuthService --> TokenBlacklistStore
+    AuthService --> RefreshTokenStore
+    AuthService --> JwtTokenProvider
+    JwtAuthFilter --> JwtTokenProvider
+    JwtAuthFilter --> TokenBlacklistStore
+    RedisTokenBlacklistStore ..|> TokenBlacklistStore
+
+    ElderFamilyBindMapper --> ElderFamilyBind
+    ElderMapper --> Elder
+
+    note for FamilyBindingVerifyMapper "★ 本卡唯一绕过第三闸的读：\n只返 int(布尔语义)、同码防枚举、按 userId 频控\n(见设计 §1.1；QA 独立证伪项)"
+    note for FamilyBindingController "★C1：approve 权限码 = account:org:manage(ORG_ADMIN 独占)\n原 account:family:bind 被 FAMILY 共享 → 家属可自我放行(§1.2a)\n★C2：approve 认 {0,1}→2；create 落 0/1 按 hasLoginAccount(§3.3)"
+    note for DataScopePermissionHandler "★ 零 DDL：新增 ORG_VIA_PARENT / SELF_VIA_PARENT\nelder_family_bind 由 SELF_DENY_TABLES 迁入 SELF_VIA_PARENT\n(修 F1 老人拒绝死路 + F3 跨机构可见)"
+    note for ElderFamilyBind "elder_family_bind 有 deleted 列(正常映射)\nactive_uk 为生成列(实体不得映射)"

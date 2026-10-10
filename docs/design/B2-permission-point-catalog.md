@@ -1,9 +1,11 @@
 # 银龄守护 · 权限点清单（RBAC Permission Catalog）
 
-> 编号 **YL-M2-RBAC-CATALOG-v1.0**｜编制 2026-09-22｜产出人：研发侧｜状态：**✅ 已落地（四处对齐）**
-> 口径真源（唯一权威，按优先级）：`docker/mysql/init/03_seed_rbac.sql` → `docs/change/CR-M2-001-permission-matrix-gap.md` → PRD v1.1 §2.2
+> 编号 **YL-M2-RBAC-CATALOG-v1.1**｜编制 2026-09-22｜v1.1 更新 2026-09-24（D-1 契约冻结 + 数据域扩档）｜产出人：研发侧｜状态：**✅ 已落地（五处对齐）**
+> 口径真源（唯一权威，按优先级）：`docker/mysql/init/03_seed_rbac.sql` → `docs/change/CR-M2-001-permission-matrix-gap.md` → PRD v1.2 §2.2
 > 代码孪生：`PermissionCode`（22 常量）+ `SensitivePermissions`（4 敏感点）+ `ArchiveAccessRateGuard`（行为告警）
-> 契约孪生：`openapi/yl-api.yaml`（22 操作 `x-required-permission`，0 处 `pending-cr`）
+> 契约孪生：`openapi/yl-api.yaml` **v1.1.0**（43 操作 `x-required-permission` + `x-data-scope`，0 处 `pending-cr`）
+> **v1.1 变更（D-1）**：`FAMILY.data_scope` 1 → **5（关系级）**；契约补登 9 个已实现端点并新增扩展键；
+> 新增门禁「契约 ↔ 实现零漂移」与「全端点必挂 `@RequiresPermission`」
 
 ---
 
@@ -15,8 +17,8 @@
 | 权限点 | **22** | 16 → 22（+6，id 2017–2022） |
 | 授权（角色×权限点） | **40** | 23 → 40（+17，id 3024–3040） |
 | 敏感权限点（`need_second_verify=1`） | **4** | 3 → 4（+`data:reveal`） |
-| 契约权限点明确率 | **100%**（22/22） | 68%（15/22，7 处 `pending-cr`） |
-| 敏感数据域（`data_scope`） | 5 档：1/1/2/2/4 | 不变 |
+| 契约权限点明确率 | **100%**（43/43 操作带鉴权口径） | 68%（15/22，7 处 `pending-cr`） |
+| 敏感数据域（`data_scope`） | 5 档：1/2/**5**/2/4 | 1/2/1/2/4（FAMILY 为 1，家属恒查不到数据） |
 
 **本轮（#2 + #4 + #7）落地内容**：
 
@@ -111,15 +113,30 @@
 
 | 角色 | `data_scope` | 含义 |
 |---|---:|---|
-| ELDER | 1 | 本人 |
+| ELDER | 1 | 本人（**档案域锚列 `elder.user_id`，D-2 新增**） |
 | ASSESSOR | 2 | 本机构 |
-| FAMILY | 1 | 本人（绑定对象） |
+| FAMILY | **5** | **关系级** —— 仅经 `elder_family_bind` **生效**绑定可达的老人（含其评估单/报告/照护方案） |
 | ORG_ADMIN | 2 | 本机构 |
 | SUPERVISOR | 4 | 只读全局 |
 
+> **★ FAQ：`data_scope` 的数值大小 ≠ 可见范围大小。** `5-关系级` 比 `2-本机构`**更窄**（只到"我绑定的人"）。
+> 因此第三闸**必须按枚举逐值分支**判定，禁止写成 `scope >= ALL.code()` —— 那样会把 5 当成"不加限"，
+> 家属立刻获得全库可见性（属跨机构泄露）。回归用例见 `DataScopePermissionHandlerTest#familyScopeIsNeverTreatedAsUnlimited`。
+>
+> **`scope=1`（本人）的显式语义（D-2 裁决二钉死）**：**仅对存在「用户锚列」的表按锚过滤**；档案域内无用户锚列的表
+> （`elder_family_bind` 锚 `family_user_id`、`elder_authorization` 锚 `grantee_user_id`、`consent_record` 锚 `subject_type + subject_id`）
+> 一律**失败即拒**（`SELF_DENY_TABLES` 恒假）—— 这是**显式裁决**，不是"未登记即放行"的暗区。
+>
+> **`elder` 表原无任何账号锚列**，而 `elder:archive:read` 已授予 ELDER（种子 id 3027）→ 属「**权限已授却永久不可达**」的
+> **静默失效**（无任何门禁会报错）。D-2 补 `elder.user_id BIGINT NULL`（+ 可空唯一键 `uk_elder_user`）并登记 `elder → user_id`，
+> 使契约 `by-role: {ELDER: self}` 成为**可实现**语义。绑定写入流程本身属残留 `D-2R1`，本期只加列与登记。
+>
+> **FAMILY 为何由 1 改为 5（D-1 裁决 2）**：家属的可见范围是"经绑定可达"，既非本人也非本机构，且 `scope=1` 下无锚可表达，
+> 原实现只能"失败即拒"→ **家属端接口全部实现后仍查不到任何数据**（D-1 §5.1 阻断面）。关系级以 `elder_family_bind` 为唯一真源收口。
+>
 > ⚠ **`elder:archive:read` 五角色全授予，可见范围不靠权限点区分、由 `data_scope` 控制** —— 避免为「本人/绑定对象」再造
-> 2 个权限码，与既定「不为数据范围分裂权限点」口径一致。正因权限点层面的 ✅ 不再具备限速含义，才必须补
-> §5 的行为异常检测兜底批量拉档风险（CR-M2-001 §2.5）。
+> 2 个权限码，与既定「不为数据范围分裂权限点」口径一致（家属端读接口同理复用 `report:view`，D-1 裁决 3）。
+> 正因权限点层面的 ✅ 不再具备限速含义，才必须补 §5 的行为异常检测兜底批量拉档风险（CR-M2-001 §2.5）。
 
 ---
 

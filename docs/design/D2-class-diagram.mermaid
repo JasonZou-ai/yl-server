@@ -1,0 +1,68 @@
+classDiagram
+    class ElderController {
+        -ElderArchiveService service
+        +create(ElderCreateRequest) R~ElderView~
+        +list(ElderQuery) R~PageResult~ElderView~~
+        +detail(Long) R~ElderView~
+    }
+    class DataRevealController {
+        -DataRevealService service
+        +reveal(DataRevealRequest) R~DataRevealResponse~
+    }
+    class ElderArchiveService {
+        -ElderMapper mapper
+        -SensitiveFieldSupport support
+        -ElderNoGenerator noGen
+        +create(req, LoginUser) ElderView
+        +list(ElderQuery) PageResult~ElderView~
+        +detail(Long) ElderView
+    }
+    class DataRevealService {
+        -ElderMapper mapper
+        -SensitiveFieldSupport support
+        +reveal(req, long) DataRevealResponse
+    }
+    class SensitiveFieldSupport {
+        -ObjectProvider~SensitiveFieldCodec~ codec
+        +isAvailable() boolean
+        +encrypt(String) String
+        +hashForSearch(String) String
+    }
+    class ElderNoGenerator {
+        +next() String
+    }
+    class Elder {
+        +Long id
+        +String elderNo
+        +String nameEnc
+        +String nameHash
+        +String idCardEnc
+        +String idCardHash
+        +String idCardMask
+        +String phoneEnc
+        +String phoneHash
+        +String addressEnc
+        +Long orgId
+        +Long userId
+        +Integer status
+        +Integer deleted
+    }
+    class ElderMapper
+    class ElderCreateRequest
+    class ElderView
+    class ElderQuery
+    class DataRevealRequest
+    class DataRevealResponse
+
+    ElderController --> ElderArchiveService
+    DataRevealController --> DataRevealService
+    ElderArchiveService --> ElderMapper
+    ElderArchiveService --> SensitiveFieldSupport
+    ElderArchiveService --> ElderNoGenerator
+    DataRevealService --> ElderMapper
+    DataRevealService --> SensitiveFieldSupport
+    SensitiveFieldSupport ..> SensitiveFieldCodec : ObjectProvider(可选装配)
+    ElderMapper --> Elder
+
+    note for SensitiveFieldSupport "未装配(dev 无密钥)时 isAvailable()=false\nencrypt/hashForSearch 抛 40001（拒绝口径）"
+    note for Elder "userId 为 D-2 裁决二新增锚列(可空)"

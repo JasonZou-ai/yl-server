@@ -1,0 +1,311 @@
+classDiagram
+    %% =====================================================================
+    %% D-3 报表与监管域 · 类图（7 端点 = B6~B10 + R6-1/R6-2）
+    %% 落点：evaluation(B6/B7/B8) ｜ account(R6-1/R6-2) ｜ report(B9) ｜ supervise(B10)
+    %% 跨域取数：report/supervise 仅依赖 yl-api，用"跨域只读投影 Mapper"（自持 @Select），
+    %%           不引用兄弟模块实体（保持"兄弟模块只依赖 yl-api"不变量；ADR-0004 约束的是
+    %%           "引用兄弟模块的类/Bean"，只读 SQL 不构成模块依赖，且第三闸全局生效）。
+    %% =====================================================================
+
+    %% ---------------- evaluation 域（B6 / B7 / B8） ----------------
+    class EvalTaskController {
+        <<RestController /api/v1/evaluation/tasks>>
+        -EvalTaskQueryService service
+        +list(EvalTaskQuery) R~PageResult~EvalTaskView~~
+    }
+    class EvalTaskQueryService {
+        -EvalTaskMapper mapper
+        +list(EvalTaskQuery) PageResult~EvalTaskView~
+    }
+    class EvalTask {
+        +Long id
+        +String taskNo
+        +Long elderId
+        +Long orgId
+        +Long assessorId
+        +String scene
+        +Integer priority
+        +LocalDateTime dueAt
+        +Integer status
+        +Integer deleted
+    }
+    class EvalTaskMapper {
+        <<interface BaseMapper~EvalTask~>>
+    }
+    class EvalTaskQuery {
+        +Integer pageNum
+        +Integer pageSize
+        +Long assessorId
+        +Integer status
+    }
+    class EvalTaskView {
+        +Long id
+        +String taskNo
+        +Long elderId
+        +Long orgId
+        +Long assessorId
+        +String scene
+        +Integer status
+        +LocalDateTime dueAt
+        +LocalDateTime createdAt
+    }
+
+    class RuleMappingController {
+        <<RestController /api/v1/rule>>
+        -RuleMappingService service
+        +mapping(Long ruleVersionId) R~List~RuleMappingView~~
+    }
+    class RuleMappingService {
+        -GbRuleMappingMapper mapper
+        +mapping(Long ruleVersionId) List~RuleMappingView~
+    }
+    class GbRuleMapping {
+        +Long id
+        +Long ruleVersionId
+        +String clauseNo
+        +String clauseTitle
+        +String itemCode
+        +String ruleCode
+        +String remark
+    }
+    class GbRuleMappingMapper {
+        <<interface BaseMapper~GbRuleMapping~>>
+    }
+    class RuleMappingView {
+        +String clauseNo
+        +String clauseTitle
+        +String itemCode
+        +String ruleCode
+        +String remark
+    }
+
+    class ReportVerifyController {
+        <<RestController /api/v1/reports>>
+        -ReportVerifyService service
+        +verify(String code) R~ReportVerifyResponse~
+    }
+    class ReportVerifyService {
+        -EvalReportMapper reportMapper
+        -EvalOrderMapper orderMapper
+        +verify(String code) ReportVerifyResponse
+    }
+    class ReportVerifyResponse {
+        +boolean valid
+        +String gradeCode
+        +LocalDateTime publishedAt
+    }
+
+    EvalTaskController --> EvalTaskQueryService
+    EvalTaskQueryService --> EvalTaskMapper
+    EvalTaskMapper --> EvalTask
+    EvalTaskController ..> EvalTaskQuery
+    EvalTaskQueryService ..> EvalTaskView
+    RuleMappingController --> RuleMappingService
+    RuleMappingService --> GbRuleMappingMapper
+    GbRuleMappingMapper --> GbRuleMapping
+    RuleMappingService ..> RuleMappingView
+    ReportVerifyController --> ReportVerifyService
+    ReportVerifyService --> EvalReportMapper : 复用(C3)
+    ReportVerifyService --> EvalOrderMapper : 复用(验真重算)
+
+    %% ---------------- account 域（R6-1 / R6-2） ----------------
+    class OrgController {
+        <<RestController /api/v1/account/orgs>>
+        -OrgQueryService service
+        +list(OrgQuery) R~PageResult~OrgView~~
+        +detail(Long orgId) R~OrgView~
+    }
+    class OrgQueryService {
+        -OrgMapper mapper
+        +list(OrgQuery) PageResult~OrgView~
+        +detail(Long orgId) OrgView
+    }
+    class Org {
+        +Long id
+        +String orgCode
+        +String orgName
+        +Integer orgType
+        +String regionCode
+        +String address
+        +String contactName
+        +String contactPhoneEnc
+        +Integer status
+    }
+    class OrgMapper {
+        <<interface BaseMapper~Org~ / 新增>>
+    }
+    class OrgQuery {
+        +Integer pageNum
+        +Integer pageSize
+        +String keyword
+    }
+    class OrgView {
+        +Long id
+        +String orgCode
+        +String orgName
+        +Integer orgType
+        +String regionCode
+        +String address
+        +String contactName
+        +Integer status
+    }
+    OrgController --> OrgQueryService
+    OrgQueryService --> OrgMapper
+    OrgMapper --> Org
+    OrgController ..> OrgQuery
+    OrgQueryService ..> OrgView
+
+    %% ---------------- report 域（B9 导出） ----------------
+    class SuperviseExportController {
+        <<RestController /api/v1/supervise/exports>>
+        -SuperviseExportService service
+        +create(ExportCreateRequest) R~ExportTaskView~
+    }
+    class SuperviseExportService {
+        -ExportTaskMapper taskMapper
+        -ExportSourceMapper sourceMapper
+        -ExportCsvWriter csvWriter
+        +create(ExportCreateRequest, LoginUser) ExportTaskView
+    }
+    class ExportSourceMapper {
+        <<interface 跨域只读投影(自持 @Select)>>
+        +selectEvalList(List~Long~ orgIds, int limit) List~ExportSourceRow~
+    }
+    class ExportSourceRow {
+        +String orderNo
+        +String gradeCode
+        +String elderNameMasked
+        +String idCardMask
+        +String phoneMasked
+        +Integer status
+        +Long orgId
+        +LocalDateTime publishedAt
+    }
+    class ExportCsvWriter {
+        +writeCsv(List~String~ headers, List~ExportSourceRow~ rows) byte[]
+        +escapeCell(String) String
+    }
+    class ExportTask {
+        +Long id
+        +String taskNo
+        +String exportType
+        +String format
+        +String queryParams
+        +Integer maskLevel
+        +Integer rowCount
+        +Integer status
+        +String fileCosKey
+        +Long operatorId
+        +Long orgId
+        +LocalDateTime startedAt
+        +LocalDateTime finishedAt
+        +LocalDateTime expireAt
+        +LocalDateTime createdAt
+    }
+    class ExportTaskMapper {
+        <<interface BaseMapper~ExportTask~>>
+    }
+    class ExportCreateRequest {
+        +String exportType
+        +String format
+        +Map~String,Object~ queryParams
+    }
+    class ExportTaskView {
+        +Long id
+        +String taskNo
+        +String exportType
+        +String format
+        +Integer rowCount
+        +Integer status
+        +String fileCosKey
+    }
+    SuperviseExportController --> SuperviseExportService
+    SuperviseExportService --> ExportTaskMapper
+    SuperviseExportService --> ExportSourceMapper
+    SuperviseExportService --> ExportCsvWriter
+    ExportTaskMapper --> ExportTask
+    ExportSourceMapper ..> ExportSourceRow
+    ExportCsvWriter ..> ExportSourceRow
+    SuperviseExportController ..> ExportCreateRequest
+    SuperviseExportService ..> ExportTaskView
+
+    %% ---------------- supervise 域（B10 上报） ----------------
+    class SuperviseReportController {
+        <<RestController /api/v1/supervise/report>>
+        -SuperviseReportService service
+        +submit(LoginUser) R~SuperviseReportView~
+    }
+    class SuperviseReportService {
+        -SuperviseReportMapper reportMapper
+        -SuperviseAggregateMapper aggregateMapper
+        +submit(long orgId, String idempotentKey) SuperviseReportView
+    }
+    class SuperviseAggregateMapper {
+        <<interface 跨域只读投影(自持 @Select)>>
+        +aggregate(long orgId, String month) SuperviseAggregateRow
+    }
+    class SuperviseAggregateRow {
+        +int assessmentCount
+        +int publishedCount
+        +int gradeIntactCount
+        +int gradeSevereCount
+    }
+    class SuperviseReport {
+        +Long id
+        +String reportMonth
+        +Long orgId
+        +String payload
+        +String tsToken
+        +Integer status
+        +Integer retryCount
+        +String lastError
+        +String idempotentKey
+        +LocalDateTime sentAt
+        +LocalDateTime retainUntil
+        +LocalDateTime createdAt
+    }
+    class SuperviseReportMapper {
+        <<interface BaseMapper~SuperviseReport~>>
+    }
+    class SuperviseReportView {
+        +Long id
+        +String reportMonth
+        +Long orgId
+        +Integer status
+        +LocalDateTime sentAt
+    }
+    SuperviseReportController --> SuperviseReportService
+    SuperviseReportService --> SuperviseReportMapper
+    SuperviseReportService --> SuperviseAggregateMapper
+    SuperviseReportMapper --> SuperviseReport
+    SuperviseAggregateMapper ..> SuperviseAggregateRow
+    SuperviseReportService ..> SuperviseReportView
+
+    %% ---------------- 基础设施/公共（复用，不新增） ----------------
+    class DataScopePermissionHandler {
+        <<yl-module-account 第三闸>>
+        ORG_COLUMN +export_task_org_id
+        SELF_COLUMN export_task_operator_id
+        SELF_DENY_TABLES +supervise_report
+    }
+    class PermissionCode {
+        <<yl-api 常量>>
+        DATA_EXPORT
+        EVAL_TASK_READ
+        RULE_VIEW
+        ACCOUNT_ORG_MANAGE
+        ACCOUNT_ORG_MANAGE_READ
+        SUPERVISE_REPORT_SUBMIT
+    }
+
+    SuperviseExportController ..> PermissionCode : @RequiresPermission(DATA_EXPORT)
+    SuperviseReportController ..> PermissionCode : @RequiresPermission(SUPERVISE_REPORT_SUBMIT)
+    OrgController ..> PermissionCode : @RequiresPermission(ACCOUNT_ORG_MANAGE|:read)
+    EvalTaskController ..> PermissionCode : @RequiresPermission(EVAL_TASK_READ)
+    RuleMappingController ..> PermissionCode : @RequiresPermission(RULE_VIEW)
+
+    note for ReportVerifyController "public 端点（mode=public, perm=none, security:[]）\nSecurityConfig 已 permitAll /api/v1/reports/verify（L81，零改动）\n限频由既有 RateLimitInterceptor 覆盖（匿名 30/60s per IP）\nControllerAuthorizationCoverageTest 白名单 +第5条"
+    note for ExportTask "D-3 唯一 DDL 变更：+org_id BIGINT NULL（裁决1-A）\n实体不映射生成列（export_task 无 active_uk）"
+    note for SuperviseReport "retain_until 只写值，清理不在 D-3（P2-7 / D-5 边界）"
+    note for ExportCsvWriter "UTF-8 BOM + 公式注入转义（= + - @ \\t \\r 前缀加 '）\n键 export/<taskNo>.csv"
+    note for GbRuleMapping "字典类表：不登记任何数据域映射（与 eval_item 同口径，有意对所有账号可读）"
