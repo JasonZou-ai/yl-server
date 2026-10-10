@@ -1,0 +1,71 @@
+# =============================================================================
+# 生产环境配置（P2-8-R14 闭环）
+#
+# 为什么必须有这个文件：`Dockerfile:36` 的 ENTRYPOINT 默认 `--spring.profiles.active=prod`，
+#   而在此之前全仓只有 `application.yml` + `application-dev.yml` —— **datasource / redis 只配在
+#   dev 文件里**，于是 prod profile 下根本没有任何数据源配置，镜像**必然起不来**。
+#   而 CI 的 5 个作业没有一个启动过镜像，所以这件事一直没人发现（第四个门禁盲区：
+#   不是"断言覆盖不到"，而是"整个环节不存在"）。
+#
+# 设计口径（三条，改动前请先读）：
+#   1) **生产不提供任何明文默认值**：凡涉及密钥/口令的项一律写**裸占位** `${VAR}`（不带 `:` 默认值）。
+#      变量缺失时 Spring 抛「Could not resolve placeholder」⇒ **容器启动即失败**，
+#      而不是带着空口令 / 开发默认值静默跑起来。这正是 `application.yml` 里
+#      `yl.security.jwt.secret` 那个开发默认值不能带进生产的原因（见下）。
+#   2) **不出现任何 dev 专用开关**：`yl.sms.dev-log-code` 与 `yl.auth.channel-downgrade.enabled`
+#      由 `application.yml` 保持 false，本文件**刻意不写这两个键** —— 免得"写着写着就打开了"。
+#      校验方式：`grep -nE 'dev-log-code|channel-downgrade' application-prod.yml` 必须为 0 命中。
+#   3) 中间件地址一律来自环境变量，便于编排注入；只给端口/库名这类**非敏感**项默认值。
+# =============================================================================
+
+server:
+  port: 8080
+
+spring:
+  datasource:
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    url: jdbc:mysql://${DB_HOST}:${DB_PORT:3306}/${DB_NAME:yl_evaluation}?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=false&allowPublicKeyRetrieval=true&rewriteBatchedStatements=true
+    # 裸占位：必须由环境显式提供（空串也算「已提供」，但绝不允许"没这个变量"）
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    hikari:
+      minimum-idle: 5
+      maximum-pool-size: 20
+      connection-timeout: 30000
+      pool-name: YlHikariPool
+  data:
+    redis:
+      host: ${REDIS_HOST}
+      port: ${REDIS_PORT:6379}
+      # Redis 鉴权由部署形态决定（网络隔离下可为空），故保留 `:` 默认值；
+      # 若部署要求鉴权，请显式注入 REDIS_PASSWORD，不要依赖此默认。
+      password: ${REDIS_PASSWORD:}
+      database: ${REDIS_DATABASE:0}
+      timeout: 3s
+      lettuce:
+        pool:
+          max-active: 16
+          max-idle: 8
+          min-idle: 2
+  sql:
+    init:
+      # 生产库结构与种子由**独立迁移通道**负责，绝不由应用启动时建表
+      mode: never
+
+yl:
+  security:
+    jwt:
+      # ★ 覆盖 application.yml 的开发默认值（`yl-dev-only-secret-please-change-in-prod-…`）：
+      #   那个值已随公开仓库暴露，留在生产等于公开签名密钥（同 P2-8-R9 的教训）。
+      #   裸占位 ⇒ 未注入即启动失败；JwtTokenProvider 另要求 ≥32 字节（HS256）。
+      secret: ${JWT_SECRET}
+    # 敏感字段（手机号 / 身份证）加密密钥与检索摘要密钥，生产由 KMS 注入。
+    # 两者都非空才装配 SensitiveFieldCodec（SensitiveFieldConfig）——若不在此处要求，
+    # 生产会**静默**失去加密能力（敏感端点一律 40001），属"静默降级"，故一律裸占位。
+    sensitive-field-key: ${SENSITIVE_FIELD_KEY}
+    sensitive-field-hash-key: ${SENSITIVE_FIELD_HASH_KEY}
+
+logging:
+  level:
+    root: INFO
+    cn.yl: INFO
