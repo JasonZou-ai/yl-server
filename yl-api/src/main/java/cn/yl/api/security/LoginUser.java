@@ -31,10 +31,16 @@ public record LoginUser(
     }
 
     /**
-     * 兼容 B1-2 现有调用（JwtAuthFilter）：仅注入角色，权限/机构域留待 rwkav6 鉴权层补全。
+     * 兼容 B1-2 旧调用（仅注入角色）——<b>已弃用，禁止新增使用</b>。
      *
-     * <p>默认值采用最严格口径（data_scope=1 本人、无权限、无机构），避免未补全时越权放行。
+     * <p>默认值采用最严格口径（data_scope=1 本人、无权限、无机构），但这**不是安全，而是"假性收紧"**：权限码集合恒空会让任何
+     * {@code @RequiresPermission} 端点的调用方得到全量 403，同时数据域恒为「仅本人」使评估员/机构管理员看不到本机构数据。CR-M2-002（缺口 B）已让
+     * {@link JwtAuthFilter} 改用 6 参构造器并携带完整载荷，本构造器仅为历史调用保留，待全量核对后删除。
+     *
+     * @deprecated 请使用 {@code LoginUser(userId, orgId, roles, perms, orgIds,
+     *     dataScope)}；权限与机构域必须来自服务端聚合档案。
      */
+    @Deprecated(forRemoval = true)
     public LoginUser(long userId, Long orgId, List<String> roles) {
         this(userId, orgId, roles, List.of(), List.of(), 1);
     }
