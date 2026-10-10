@@ -146,6 +146,66 @@ jobs:
           path: '**/target/site/jacoco/**'
           if-no-files-found: ignore
 
+  # ---------- 5) 镜像启动验证（P2-8-R14：构建产物必须被真的运行起来） ----------
+  # 为什么补这一环：原 5 个作业**没有一个启动过镜像**。而 Dockerfile:36 的 ENTRYPOINT 默认
+  #   `prod`，仓库却只有 application.yml + application-dev.yml（datasource/redis 只配在 dev）
+  #   ⇒ 5/5 全绿产出的镜像**根本起不来**。这是第四个门禁盲区，且属「整个环节不存在」级别：
+  #   前三次盲区（43 项绿但新表零覆盖 / retention SQL 摘守卫仍绿 / M4–M13 摘哈希仍绿）
+  #   是断言覆盖不到，这次是**没有任何一步在做这件事**。
+  # 与 schema-verify 的关键差异：本作业初始化的是**生产形状**库（不含 04_seed_dev_accounts.sql）。
+  #   因为 DevCredentialStartupGuard（P2-8-R12）在非 dev profile 下发现 *_dev 账号会**拒绝启动**
+  #   ——那是设计意图；生产初始化本就不该播种联调账号。
+  image-smoke-boot:
+    name: 镜像启动验证
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    services:
+      mysql:
+        image: mysql:8.0.37
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: "yes"
+          MYSQL_ROOT_HOST: "%"
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -u root"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd="redis-cli ping"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=12
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 配置 JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+          cache: maven
+
+      - name: 确保 mysql 客户端可用
+        run: command -v mysql >/dev/null || { sudo apt-get update && sudo apt-get install -y mysql-client; }
+
+      # Dockerfile 直接 COPY yl-bootstrap/target/yl-bootstrap*.jar，故须先打包
+      - name: 打包（产出 Dockerfile 所需的 jar）
+        run: mvn -B -ntp -DskipTests -DskipCheckstyle=true -DskipSpotbugs=true -Dspotless.check.skip=true package
+
+      # 脚本内部：生产形状建库 → docker build → 以镜像**默认 ENTRYPOINT** 启动（不覆盖 profile）
+      # → 探 GET /api/v1/system/health，要求 HTTP 200 + R.code=0 + data.status=UP。
+      # 密钥由脚本现场生成（不写死），DB_PASSWORD 必须是"已提供"（CI 的 MySQL root 为空口令）。
+      - name: 构建镜像并以默认 profile 启动探活
+        env:
+          DB_PASSWORD: ""
+        run: bash scripts/verify-image-boot.sh
+
   # ---------- 4) SonarQube 质量门禁（需配置 SONAR_TOKEN Secret） ----------
   sonarqube:
     name: SonarQube 质量扫描
