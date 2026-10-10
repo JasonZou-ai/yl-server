@@ -303,6 +303,8 @@
                     <failOnError>true</failOnError>
                     <includeTests>false</includeTests>
                     <skip>${skipSpotbugs}</skip>
+                    <!-- 精准豁免清单：只允许「带缘由、收窄到类」的条目（见文件头注释） -->
+                    <excludeFilterFile>${maven.multiModuleProjectDirectory}/spotbugs-exclude.xml</excludeFilterFile>
                 </configuration>
                 <executions>
                     <execution>
