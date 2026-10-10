@@ -24,6 +24,10 @@ logs/
 *.log
 *.pid
 
+# ---- python 开发工具产物（scripts/dev/*.py 的字节码缓存）----
+__pycache__/
+*.pyc
+
 # ---- local secrets（禁止入库：数据库口令 / COS 密钥 / JWT 私钥）----
 **/application-local.yml
 **/bootstrap-local.yml
