@@ -9,18 +9,19 @@ LABEL maintainer="yl-team" \
 
 ENV TZ=Asia/Shanghai \
     JAVA_OPTS="-Xms512m -Xmx1024m -XX:+UseG1GC -Dfile.encoding=UTF-8" \
-    REPORT_PDF_FONT=/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc
+    REPORT_PDF_FONT=/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc
 
 WORKDIR /app
 COPY yl-bootstrap/target/yl-bootstrap*.jar /app/app.jar
 
 # 中文字体（部署前置项）：PDFBox 内置字体（Helvetica 等）**不含 CJK 字形**，
 #   字体缺失时报告中文会被降级为占位文本并置 chineseEmbedded=false——不报错，但线上报告不可用。
-#   fonts-noto-cjk 在 jammy 落到 /usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc，
-#   与 ReportPdfService 候选路径一致；同时以 REPORT_PDF_FONT 显式指定，不依赖系统探测。
+#   字体须为 TrueType(glyf) outline：Noto CJK 是 CFF(OTF)，PDFBox 子集化不支持（OTF fonts do not
+#   have a glyf table），故改用 fonts-wqy-zenhei（ttc 容器内为 TrueType outline），落点
+#   /usr/share/fonts/truetype/wqy/wqy-zenhei.ttc 与 PdfFontLocator 候选一致；REPORT_PDF_FONT 显式指定。
 #   自检：启动后 GET /api/v1/system/health 的 reportFont 字段应为 ready（见 HealthController）。
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends fonts-noto-cjk \
+    && apt-get install -y --no-install-recommends fonts-wqy-zenhei \
     && rm -rf /var/lib/apt/lists/*
 
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone \

@@ -22,11 +22,19 @@ import org.springframework.stereotype.Component;
 @Component
 public class PdfFontLocator {
 
-    /** 系统常见中文字体回退候选（配置项 {@code yl.report.pdf.font-path} 优先级最高）。 */
+    /**
+     * 系统常见中文字体回退候选（配置项 {@code yl.report.pdf.font-path} 优先级最高）。
+     *
+     * <p><b>Linux 侧首选 wqy-zenhei（2026-10-10）</b>：PDFBox 的 PDType0Font 子集化只支持 TrueType(glyf)
+     * outline；Noto CJK 是 CFF(OTF) outline（「OTF fonts do not have a glyf table」），加载后渲染仍失败 （CI
+     * 38048586455 实证）。文泉驿正黑同为 ttc 容器但内部是 TrueType outline，与 simsun 同构可用； noto
+     * 候选保留在后仅为兼容已装环境（加载失败会自动落到下一候选）。
+     */
     private static final List<String> SYSTEM_CANDIDATES =
             List.of(
                     "C:/Windows/Fonts/simhei.ttf",
                     "C:/Windows/Fonts/simsun.ttc",
+                    "/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc",
                     "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
                     "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc");
 

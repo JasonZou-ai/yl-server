@@ -127,11 +127,10 @@ jobs:
           java-version: '17'
           cache: maven
 
-      # 中文字体：ReportPdfService/PdfFontLocator 的系统候选在裸 runner 上全 miss ⇒
-      # PDF 降级用 Helvetica ⇒ ReportPdfServiceTest 渲染中文即抛 .notdef。
-      # 与 Dockerfile 容器字体口径一致（同包 fonts-noto-cjk），非绕过测试。
-      - name: 安装 PDF 中文字体（fonts-noto-cjk，与容器口径一致）
-        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends fonts-noto-cjk
+      # 中文字体：须 TrueType(glyf) outline（Noto CJK 是 CFF，PDFBox 子集化不支持），
+      # 与 Dockerfile 容器口径一致（同包 fonts-wqy-zenhei），非绕过测试。
+      - name: 安装 PDF 中文字体（fonts-wqy-zenhei，与容器口径一致）
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends fonts-wqy-zenhei
 
       - name: 编译并执行测试（含 Testcontainers 集成测试）
         run: mvn -B -ntp verify -DskipCheckstyle=true -DskipSpotbugs=true
