@@ -25,6 +25,30 @@
 **共性**：**守卫是真的，断言是空的。** 门禁对这类语义**零区分力**，而它们恰好都压在合规红线上。
 ⇒ 不立规矩，**第四次复发只是时间问题**。
 
+### ★ 立规当天就验证了自己（2026-10-10，同批补 R10）
+
+按本规矩给 `SensitiveFieldCodec`（全仓红线等级最高、此前覆盖为零的类）补专属测试时，**立刻揪出一处真实缺陷**：
+
+- `requireKey` 只校验「**≥**32 字节」，但 AES-256 只接受**恰好** 32 字节 ⇒ **超过 32 字节的主密钥能通过构造期校验，却到首次加解密才抛异常（fail-late）**。
+  症状是"所有加密端点集体报错"，而配置检查一路绿灯 —— 与"静默降级"同族。已修（fail-fast）并登记 **P2-8-R13**。
+- 更直接的证据：修完后我在**测试里**写了一个 34 字节的备用密钥，**新加的 fail-fast 当场把我自己拦下**。
+
+⇒ 这不是"规矩有用"的修辞，而是**当天可复现的收益**：一条"摘掉守卫即变红"的断言，产出比它本身的成本高得多。
+
+### ★ 同批第三次收益：突变必须「红在职责对得上」的用例上（红点归属）
+
+跑 **G6**（`encrypt` 退化为明文透传）时发现红点里混进了一个 **R2 摘要组**的用例
+`masterKeyDoesNotAffectDigest` —— 原因是它末尾夹带了一条 `assertThatCode(() -> b.decrypt(b.encrypt(PHONE))).doesNotThrowAnyException()`：
+
+- **红点错位**：一条「**加密**」突变打红了一个「**摘要**」用例 ⇒ 只看红点名会误判病因。
+- **弱否定**：`doesNotThrowAnyException` 正是 §2.2 明令禁止的**弱否定**（"没抛异常"可由任意路径满足）。
+
+修法是把该断言**移入 R1 组**并**钉死期望值**（`assertThat(other.decrypt(other.encrypt(x))).isEqualTo(x)`），
+R2 用例只留摘要断言。**复跑 G6 后红点 4 条全落在 R1 组、R2 组全绿**（14 → **15 例**）。
+
+⇒ **新增门禁自检口径：跑突变时，除了「是否变红」，还要看「红在谁身上」。**
+红点名与突变语义不同组时，说明用例职责被耦合了 —— 那是断言缺口，不是通过。
+
 ---
 
 ## 2 规则（强制）
@@ -114,7 +138,8 @@ mvn -o -pl <module> -am test -Dtest=<TestClass> \
 | R7 fail-closed | `UnavailableSmsSender` / `enabled=false` | `UnavailableSmsSenderTest` / `SmsCodeServiceTest#sendFailClosedWhenDisabled` | QA M8 | ✅ |
 | R6 留存（SQL） | 4 个 retention Mapper | `RetentionChainDbIT` T1–T9 + `verify-retention-chain.sh` | D5 M1–M5 / P2-7 M1–M7 | ✅ |
 | R5 权限判定 | `PermissionAspect` / `DataScopePermissionHandler` | `PermissionAspectTest` / `DataScopePermissionHandlerTest` / `ControllerAuthorizationCoverageTest` | D-4 M7/M10 | ✅ |
-| R2 密钥（内部） | `SensitiveFieldCodec`（AES-GCM + HMAC） | **零专属测试**（`find -name SensitiveFieldCodecTest.java` 全仓 0 命中；仅被 `SmsCodeServiceTest`/`SuperviseExportServiceTest` **间接**引用） | — | 🚫 **缺失 → 已登记 `P2-8-R10`**（补法见该行：加密输出非明文/两次不同 IV/`decrypt∘encrypt==id` + 摘要逐字节等于已知向量；突变「摘 HMAC」/「`encrypt`→`return plain`」） |
+| **R1 加密 / R2 摘要** | `SensitiveFieldCodec`（AES-GCM + HMAC） | `SensitiveFieldCodecTest`（**15 例** = R1 加密/密钥 9 + R2 哈希/摘要 6：往返 / 换主密钥各自自洽 / 密文不含明文 / 每加密新 IV / 篡改必抛 / 换密钥解不开 / 密钥缺失 fail-closed / 主密钥长度 fail-fast / 摘要钉死 HMAC 向量且 ≠ 裸 SHA-256 / 摘要随 hashKey 变 / 密钥分离 / 不做静默归一化） | **G4 / G5 / G6** | ✅（2026-10-10 立规当天补齐，闭环 **P2-8-R10**） |
+| **R1 密钥（启动 fail-closed）** | `DevCredentialStartupGuard`（泄露散列金丝雀 + 非 dev 禁用联调账号） | `DevCredentialStartupGuardTest`（6 例） | **G1 / G2 / G3** | ✅（闭环 **P2-8-R12**，修复 **P2-8-R9**） |
 
 > ★ 每次按本规矩交付后，**必须在本表追加一行**。表里没记 = 没做。
 
