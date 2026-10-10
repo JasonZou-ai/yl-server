@@ -1,8 +1,8 @@
 # 合规红线守卫 · 突变反证门禁规矩（v1.0）
 
-> 文档编号 **YL-M2-QG-REDLINE-MUTATION**｜定稿 2026-10-10｜**v1.1 修订 2026-10-10（补第 4 种盲区形态：环节缺失）**｜**v1.2 修订 2026-10-10（补第 5 种盲区形态：本机门禁 ≠ CI 门禁）**｜状态：**✅ 生效**
+> 文档编号 **YL-M2-QG-REDLINE-MUTATION**｜定稿 2026-10-10｜**v1.1 修订 2026-10-10（补第 4 种盲区形态：环节缺失）**｜**v1.2 修订 2026-10-10（补第 5 种盲区形态：本机门禁 ≠ CI 门禁）**｜**v1.3 修订 2026-10-10 晚（第 5 盲区收口补强：验证同源化 + 假 ready 真实化）**｜状态：**✅ 生效**
 > 触发：**同一类缺陷已五次复发**（D5-R1 → P2-7-R6 → P2-8 M3/M4/M13 → **P2-8-R14** → **CI commit-lint/SpotBugs 红**），用户 2026-10-10 指令「第 3 步」＋ 同日指出 CI 缺「部署验证」环节，同日晚实测 main 上 CI 连续 failure 而本机四门禁全绿。
-> 关联：`scripts/verify-schema.sh`｜`scripts/verify-retention-chain.sh`｜`scripts/dev/*mutation*.py`｜`docs/quality/verify-schema-assertion-reconciliation.md`｜`.githooks/commit-msg`（与 CI 复用同一脚本）
+> 关联：`scripts/verify-schema.sh`｜`scripts/verify-retention-chain.sh`｜`scripts/dev/*mutation*.py`｜`docs/quality/verify-schema-assertion-reconciliation.md`｜`.githooks/commit-msg`（与 CI 复用同一脚本）｜`scripts/verify-like-ci.sh`（本机验证同源化）
 
 ---
 
@@ -182,3 +182,34 @@ mvn -o -pl <module> -am test -Dtest=<TestClass> \
 | 提交前 | 确认突变已还原（md5）、`git status` 干净 |
 | QA 独立验证 | 至少复核「该红是否真红」；发现空断言 ⇒ 报告为**缺口**，不得放行 |
 | 卡片关账 | 在本文件 §4 覆盖清单追加行 |
+
+---
+
+## 6 第 5 盲区收口补强（v1.3，2026-10-10 晚）
+
+> 背景：v1.2 修绿了 CI，但两处「已闭环」被用户核实指认**没闭合**——① `PdfFontLocator.probe()` 仍是文件存在性判定（我们自己诊断出的假 ready 只换了字体、没换探针）；② SpotBugs 判定分歧根因未定位，第 5 盲区只是被 XML filter **掩盖**而非闭环。本节是收口动作的登记。
+
+### 6.1 验证同源化：`scripts/verify-like-ci.sh`
+
+**根因未定位 ≠ 无事可做。** 闭环的办法是让本机门禁与 CI 门禁**物理上是同一件事**：
+
+```bash
+bash scripts/verify-like-ci.sh static   # static-analysis 作业同款：同镜像 + fresh m2 + 同参数
+bash scripts/verify-like-ci.sh full     # build-and-test 作业同款：verify（容器内自动补装 fonts-wqy-zenhei）
+```
+
+- 容器 `maven:3.9-eclipse-temurin-17`（与 CI 同 JDK 发行版）、命名卷 `yl-ci-fresh-m2` 模拟 CI 全新缓存（跨次复用，`docker volume rm` 重置）。
+- **口径**：推送前跑 `static`（约 3 分钟）；凡本机绿 / CI 红的分歧，先跑本脚本再论——若本脚本也红，说明分歧在环境层可复现，诊断路径由此打通。
+- 首跑实证（2026-10-10）：static 模式容器内 BUILD SUCCESS（fresh m2 首跑 4m32s，热卷 3m00s）。
+- 遗留：SpotBugs 判定分歧的**根因**（本机 JDK 17.0.20.1 / Windows vs CI temurin 17 / Linux 为何对同一构造器结论相反）仍未定位；用户提示的线索（aux classpath 上 `SmsTicketStore` 的类型解析差异）**尚未走完**。在根因定位前，「本机绿」的预测力一律以本脚本为准。
+
+### 6.2 假 ready 真实化：probe 口径升级（附突变反证 ×2）
+
+`probe()` 从「文件存在性」升级为**全保真自检**（加载 → 绘制汉字 → `doc.save` 触发子集化，任一步失败即换下一候选；`UnsupportedOperationException`「OTF fonts do not have a glyf table」与 `IOException` 同等按不可用处理）。TTC 加载逻辑同步从 `ReportPdfService` 收敛进 `PdfFontLocator.loadFirst()`（唯一真源）。
+
+| 突变 | 预期 | 实测 |
+|---|---|---|
+| M1：probe 摘掉 `renderable()`（退化回文件存在性） | `unrenderableFontNeverReportedReady` 红 | ✅ 红（`path == 垃圾文件`） |
+| M2：TTC 分支短路（退化回直接 `PDType0Font.load(doc, File)`） | `realFontReportedReadyWithExactPath` 红 | ✅ 红（simsun.ttc 悄然落到 simhei.ttf——CI 38047512446 的事故形态） |
+
+**★ 附带新口径（v1.3）**：**凡健康探针/自检宣称「就绪」，其判定必须与被宣称的能力同级**——「文件在」≠「能用」，探针必须真实行使一次被宣称的能力（加载/调用/执行），失败即如实报未就绪。同批补 `ReportPdfServiceTest` 中文文本抽取断言（PDFTextStripper 抽出文本须含标题），把「能加载」升级为「能正确渲染」。基线 341/0/0（+Skipped 1），净升 3。

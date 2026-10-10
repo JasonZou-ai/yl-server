@@ -32,6 +32,8 @@
 | 验收 | 容器内 `POST /assessments/{id}/report/pdf` → `chineseEmbedded=true`、PDF 可下载且中文可见（当前该断言**只在 Windows 上通过**，容器内必挂） |
 | 回归锚点 | `scripts/smoke-report-review-chain.sh` [3/6] 已含 `chineseEmbedded=true` 断言（2026-09-23 实测 `true` / 28789 bytes）——**换到容器跑即成为本项验收** |
 
+**★ 2026-10-10 晚追记（probe 假 ready 收口，用户核实指认）**：P1-4a 的「启动自检」落地形态是 `PdfFontLocator.probe()`，但它是**纯文件存在性判定**——容器装着无法子集化的 Noto CJK 期间，文件在、health 报 `ready`、渲染实际豆腐块，「健康检查在整个静默降级期一直在说谎」。本轮修复：① **真实加载性收敛**——TTC 集合加载逻辑从 `ReportPdfService` 移入 `PdfFontLocator.loadFirst()`（唯一真源，消灭两处重复代码），probe 做**全保真自检**（加载 → 绘制汉字 → `doc.save` 触发子集化，任一步失败即换下一候选；`UnsupportedOperationException`「OTF fonts do not have a glyf table」与 `IOException` 同等按不可用处理）；② 结果进程内缓存 + 防御性拷贝返回；③ **突变反证 ×2**（probe 退化回文件存在 → `unrenderableFontNeverReportedReady` 红；TTC 分支短路 → `realFontReportedReadyWithExactPath` 红——后者正是 CI 38047512446 的真实事故形态）；④ `ReportPdfServiceTest` 补**中文文本抽取断言**（PDFTextStripper 抽出文本必须含标题，把「能加载」升级为「能正确渲染」，封死「加载成功但渲染豆腐块仍全绿」的另一半盲区）；⑤ 配套 `scripts/verify-like-ci.sh`（容器内复刻 CI 同款命令，见 `red-line-guard-mutation-proof.md` v1.3）。基线 341/0/0（+Skipped 1），净升 3 条。
+
 ### P1-4b ARCHIVED 超保留期归档（并入 ADR-0004 调度）
 
 | 项 | 口径 |
