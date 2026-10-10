@@ -23,6 +23,14 @@ public enum ErrorCode {
     ACCOUNT_DISABLED(20002, "账号已停用"),
     ROLE_NOT_PERMITTED(20003, "角色无权执行该操作"),
 
+    /** 短信核身通道（P2-8-A，2xxxx 账号段） */
+    SMS_CAPTCHA_REQUIRED(20004, "请先完成图形验证"),
+    SMS_CAPTCHA_INVALID(20005, "图形验证码错误或已失效"),
+    SMS_CODE_INVALID(20006, "验证码错误或已失效"),
+    SMS_SEND_FAILED(20007, "验证码发送失败，请稍后重试"),
+    SMS_TICKET_INVALID(20008, "登录凭据无效或已失效"),
+    SMS_ACCOUNT_NOT_BOUND(20009, "该手机号尚未绑定账号"),
+
     /** 评估 */
     EVAL_RULE_VERSION_MISSING(30001, "未找到生效的国标规则版本"),
     EVAL_STATE_ILLEGAL(30002, "评估单状态不允许该操作"),
