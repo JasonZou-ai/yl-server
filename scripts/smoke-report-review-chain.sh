@@ -20,24 +20,27 @@
 # 前置：后端已启动（默认 http://127.0.0.1:8080），数据库已完成初始化，
 #       且**已播种 dev 联调账号**（docker/mysql/init/04_seed_dev_accounts.sql）。
 #       作废用例还需后端启动时配置 SECOND_VERIFY_DEV_CODE（未配置则二次验证一律拒绝）。
-# 用法：
+# 用法（**必需** 环境变量，缺则 fail-closed 退出，不再静默降级 —— 见 SMOKE-R1）：
+#   DEV_LOGIN_PASSWORD=***                    # dev 账号口令（本机值见未跟踪文件，仓库内无明文）
+#   MYSQL_BIN=/c/mysql/bin/mysql.exe MYSQL_PASSWORD=***   # 前清/后清与跨机构段必需
+#   SECOND_VERIFY_DEV_CODE=***                # 第四闸（作废/解绑等敏感点）必需
+#   EXPORT_DIR=<后端 yl.export.dir 同目录>     # B9 CSV 魔数/表头断言必需
+#   BASE_URL=http://127.0.0.1:8080            # 可选，默认 8080
 #   bash scripts/smoke-report-review-chain.sh
-#   BASE_URL=http://127.0.0.1:8081 bash scripts/smoke-report-review-chain.sh
-#   SECOND_VERIFY_DEV_CODE=246810 bash scripts/smoke-report-review-chain.sh
-#   MYSQL_BIN=/c/mysql/bin/mysql.exe MYSQL_PASSWORD='xxx' bash scripts/smoke-report-review-chain.sh  # 带清理
 #
-# 断言数随环境变量变化（**无固定总数，勿硬编码**）：
-#   · 未设 MYSQL_BIN/MYSQL_PASSWORD → 「跨机构 reportNo 回归」整段记为 1 跳过（少 4 条断言）；
-#   · 未设 SECOND_VERIFY_DEV_CODE → 「作废全链路」记为 1 跳过（少 3 条断言）。
+# 断言数：设置齐上述四项后**固定为 119 通过 / 0 失败 / 0 跳过**（2026-10-10 实测）。
+#   ★ 2026-10-10（SMOKE-R1 闭环）起 `MYSQL_BIN`+`MYSQL_PASSWORD` 由「可选」升为**必需**：
+#     原先缺凭据时清理整段与跨机构段被**静默跳过**，既让断言数漂移，又把残留数据留给下一次运行
+#     （实测造成 113/0/6 假红）。现在缺任一必需项直接 exit 1，不再有"半跑"状态。
+#   · 唯一可剩余跳过项：D-3 B9 CSV（需 EXPORT_DIR 可读）。
 # 2026-09-24 实测（带 MYSQL_BIN + MYSQL_PASSWORD，未设 SECOND_VERIFY_DEV_CODE）：34 通过 / 0 失败 / 1 跳过。
-# 2026-09-26 D-2 新增「档案域」段（第 [7/7] 段），断言随环境变量变化（仍未设固定总数，勿硬编码）。
+# 2026-09-26 D-2 新增「档案域」段（第 [7/7] 段）。
 # 2026-09-28 D-3 新增「报表与监管域」段（第 [8/8] 段：B6/B7/B8/B9/B10 + R6 + 未认证 401 + 跨机构收口）。
-#   · B9 CSV 魔数/表头断言需设 EXPORT_DIR（与后端 yl.export.dir / EXPORT_DIR 指向同一目录且可读）。
-#   · 断言随 MYSQL_BIN/MYSQL_PASSWORD、SECOND_VERIFY_DEV_CODE、EXPORT_DIR 变化，勿硬编码总数。
 # 2026-09-29 D-4 新增「家属域」段（第 [9/9] 段：绑定五态 + 家属读三端点 + elder↔user 绑定 + ★C1/C3 + authLogout 黑名单六步）。
-#   · 需 04_seed_dev_accounts.sh 含 elder_dev/family_dev；需后端配置 SENSITIVE_FIELD_KEY（否则申请返回 40001）。
+#   · 需 04_seed_dev_accounts.sql 含 elder_dev/family_dev；需后端配置 SENSITIVE_FIELD_KEY（否则申请返回 40001）。
 #   · 解绑「带凭据 → code=0」需设 SECOND_VERIFY_DEV_CODE；★C3：ELDER E2E 不覆盖报告读取（D4-R7 恒假）。
 # 2026-09-30 D-4a 收尾（R-1/R-2）：[9/9] 增 9.4b/9.6b/9.7b —— ★R-2 重新申请复用活性行（拒绝/解绑后 → code=0 且 status∈{0,1} 且 id 不变；status∈{0,1,2} 重复申请 → 10005）。
+# 2026-10-10 P2-8-R12/SMOKE-R1：口令改由 DEV_LOGIN_PASSWORD 注入（明文全部出仓）；清理凭据 fail-closed；新增开跑前"前清"使套件幂等。
 # =============================================================================
 
 BASE=${BASE_URL:-http://127.0.0.1:8080}
@@ -48,16 +51,56 @@ ORG=${ORG_ID:-1}
 
 # 联调账号（04_seed_dev_accounts.sql）：评估员（录入人）与机构管理员（复核人/派单），二者必须不同
 ASSESSOR_USER=${ASSESSOR_USER:-assessor_dev}
-ASSESSOR_PWD=${ASSESSOR_PWD:-YlDev@2026}
 ADMIN_USER=${ADMIN_USER:-orgadmin_dev}
-ADMIN_PWD=${ADMIN_PWD:-YlDev@2026}
 # D-4 家属域联调账号（04_seed_dev_accounts.sql）：老人本人（ELDER/scope=1）与家属（FAMILY/scope=5）
 ELDER_USER=${ELDER_USER:-elder_dev}
-ELDER_PWD=${ELDER_PWD:-YlDev@2026}
 FAMILY_USER=${FAMILY_USER:-family_dev}
-FAMILY_PWD=${FAMILY_PWD:-YlDev@2026}
+ELDER_DEV_USER_ID=900000000000000003
+
+# ★ 口令**绝不落脚本**（P2-8-R12：原写死的固定口令已随公开历史永久泄露，本轮已轮换）：
+#   统一由环境变量 DEV_LOGIN_PASSWORD 注入（本机值见未跟踪文件，如 /tmp/d4-run/env.sh）。
+#   四个 dev 账号共用同一口令、但散列**互不相同**；如需单独覆盖用 ASSESSOR_PWD/ADMIN_PWD/ELDER_PWD/FAMILY_PWD。
+DEV_LOGIN_PASSWORD=${DEV_LOGIN_PASSWORD:-}
+ASSESSOR_PWD=${ASSESSOR_PWD:-$DEV_LOGIN_PASSWORD}
+ADMIN_PWD=${ADMIN_PWD:-$DEV_LOGIN_PASSWORD}
+ELDER_PWD=${ELDER_PWD:-$DEV_LOGIN_PASSWORD}
+FAMILY_PWD=${FAMILY_PWD:-$DEV_LOGIN_PASSWORD}
+if [ -z "$ASSESSOR_PWD" ] || [ -z "$ADMIN_PWD" ] || [ -z "$ELDER_PWD" ] || [ -z "$FAMILY_PWD" ]; then
+    echo "✗ 未提供 dev 口令（**fail-closed**）："
+    echo "  请先 export DEV_LOGIN_PASSWORD=...（或分别设 ASSESSOR_PWD/ADMIN_PWD/ELDER_PWD/FAMILY_PWD）。"
+    echo "  口令来源见 docker/mysql/init/04_seed_dev_accounts.sql 头部声明 —— 本仓库内**不含**明文口令。"
+    exit 1
+fi
 # 第四闸二次验证口令（与后端 yl.security.second-verify.dev-code / SECOND_VERIFY_DEV_CODE 一致）
 SECOND_VERIFY_CODE=${SECOND_VERIFY_DEV_CODE:-}
+
+# ---- 清理凭据：**必需，缺则 fail-closed**（闭环 SMOKE-R1） ----
+# 历史缺陷：缺 MYSQL_BIN/MYSQL_PASSWORD 时清理整段被静默跳过 ⇒ 残留 elder 的 user_id 绑定
+#   ⇒ **下一次**运行 9.2 user-binding 撞 `elder.user_id` 唯一键 ⇒ 10005 ⇒ 下游 6 条断言级联假红。
+#   即「只在空库上才绿」的验收脚本 = 假红发生器。故此处拒绝运行而非静默降级。
+MYSQL_BIN=${MYSQL_BIN:-}
+MYSQL_PASSWORD=${MYSQL_PASSWORD:-}
+if [ -z "$MYSQL_BIN" ] || [ -z "$MYSQL_PASSWORD" ]; then
+    echo "✗ 缺少 MYSQL_BIN / MYSQL_PASSWORD（**fail-closed**）："
+    echo "  本脚本既是冒烟、也是「验收数据自清理 + 幂等」的门禁；缺凭据会导致："
+    echo "    ① 本次不清理 → 污染**下一次**运行（SMOKE-R1 实证：113/0/6 假红）；"
+    echo "    ② 「跨机构 reportNo 回归」段被跳过 → 断言数随环境漂移，掩盖真实回归。"
+    echo "  用法：MYSQL_BIN=/c/mysql/bin/mysql.exe MYSQL_PASSWORD=*** bash scripts/smoke-report-review-chain.sh"
+    exit 1
+fi
+MYSQL_CONN="-h${MYSQL_HOST:-127.0.0.1} -P${MYSQL_PORT:-3306} -u${MYSQL_USER:-root} -p${MYSQL_PASSWORD}"
+
+# ---- 前清（幂等前提）：解除 dev 账号在 elder.user_id 上的历史绑定 ----
+# 唯一键冲突的唯一来源（9.2 把建档老人绑为 elder_dev 本人）。残留成因：上次运行在 9.2 之前中断，
+#   或（历史缺陷 SMOKE-R1）清理被跳过。做成"开跑前先清"后，本套件对上次残留**幂等**。
+"$MYSQL_BIN" $MYSQL_CONN yl_evaluation >/dev/null 2>&1 <<'SQL'
+UPDATE elder e JOIN sys_user u ON u.id = e.user_id SET e.user_id = NULL WHERE u.username LIKE '%\_dev';
+SQL
+if [ $? -ne 0 ]; then
+    echo "✗ 前清失败：无法连接数据库或 SQL 执行失败（检查 MYSQL_BIN/MYSQL_PASSWORD/端口/库名 yl_evaluation）。"
+    exit 1
+fi
+echo "前清完成：已解除 dev 账号的历史 elder.user_id 绑定（幂等前提）"
 
 PASS=0
 FAIL=0
@@ -834,11 +877,10 @@ echo "=============================================================="
 echo " 结果：通过 $PASS 项，失败 $FAIL 项，跳过 $SKIP 项"
 echo "=============================================================="
 
-if [ -n "$MYSQL_BIN" ] && [ -n "$MYSQL_PASSWORD" ]; then
-    echo ""
-    echo "清理联调数据（评估单 $ORDER / $ORDER2 / $ORDER3）..."
-    CONN="-h${MYSQL_HOST:-127.0.0.1} -P${MYSQL_PORT:-3306} -u${MYSQL_USER:-root} -p${MYSQL_PASSWORD}"
-    "$MYSQL_BIN" $CONN yl_evaluation <<SQL
+echo ""
+echo "清理联调数据（评估单 $ORDER / $ORDER2 / $ORDER3）..."
+CONN="$MYSQL_CONN"
+"$MYSQL_BIN" $CONN yl_evaluation <<SQL
 DELETE FROM eval_report WHERE order_id IN ($ORDER,$ORDER2,$ORDER3);
 DELETE FROM eval_answer WHERE order_id IN ($ORDER,$ORDER2,$ORDER3);
 DELETE FROM eval_order WHERE id IN ($ORDER,$ORDER2,$ORDER3);
@@ -847,31 +889,31 @@ DELETE FROM care_plan WHERE report_id NOT IN (SELECT id FROM eval_report);
 DELETE FROM report_dimension_score WHERE report_id NOT IN (SELECT id FROM eval_report);
 DELETE FROM eval_review_log WHERE order_id IN ($ORDER,$ORDER2,$ORDER3);
 SQL
-    echo "  剩余业务数据：评估单 $("$MYSQL_BIN" $CONN -N -e 'SELECT COUNT(*) FROM yl_evaluation.eval_order;') 行"
-    # 报表与监管域（D-3）：清理本次冒烟产生的导出任务与当月监管上报行
-    "$MYSQL_BIN" $CONN -N -e \
-        "DELETE FROM yl_evaluation.export_task WHERE task_no LIKE 'EX%'; " >/dev/null 2>&1
-    "$MYSQL_BIN" $CONN -N -e \
-        "DELETE FROM yl_evaluation.supervise_report WHERE org_id=$ORG AND report_month=DATE_FORMAT(NOW(),'%Y-%m');" \
-        >/dev/null 2>&1
-    echo "  已清理报表与监管域冒烟数据（export_task / supervise_report 当月）"
-    # 档案域（D-2）：清理本次冒烟建档行（audit_log 留痕按合规保留期保留，不清理）
-    if [ -n "$ELDER_ID" ]; then
-        "$MYSQL_BIN" $CONN -N -e "DELETE FROM yl_evaluation.elder WHERE id=$ELDER_ID;" >/dev/null 2>&1
-        echo "  已清理档案域冒烟数据（elder id=$ELDER_ID）"
-    fi
-    # 家属域（D-4）：清理本次冒烟产生的绑定行与第二个建档老人 E2
-    if [ -n "$ELDER_ID" ]; then
-        "$MYSQL_BIN" $CONN -N -e "DELETE FROM yl_evaluation.elder_family_bind WHERE elder_id=$ELDER_ID;" >/dev/null 2>&1
-    fi
-    if [ -n "$E2_ID" ]; then
-        "$MYSQL_BIN" $CONN -N -e "DELETE FROM yl_evaluation.elder_family_bind WHERE elder_id=$E2_ID;" >/dev/null 2>&1
-        "$MYSQL_BIN" $CONN -N -e "DELETE FROM yl_evaluation.elder WHERE id=$E2_ID;" >/dev/null 2>&1
-        echo "  已清理家属域冒烟数据（elder_family_bind / elder id=$E2_ID）"
-    fi
-else
-    echo ""
-    echo "提示：未设置 MYSQL_BIN / MYSQL_PASSWORD，跳过数据清理（需手工清理联调数据）"
+echo "  剩余业务数据：评估单 $("$MYSQL_BIN" $CONN -N -e 'SELECT COUNT(*) FROM yl_evaluation.eval_order;') 行"
+# 报表与监管域（D-3）：清理本次冒烟产生的导出任务与当月监管上报行
+"$MYSQL_BIN" $CONN -N -e \
+    "DELETE FROM yl_evaluation.export_task WHERE task_no LIKE 'EX%'; " >/dev/null 2>&1
+"$MYSQL_BIN" $CONN -N -e \
+    "DELETE FROM yl_evaluation.supervise_report WHERE org_id=$ORG AND report_month=DATE_FORMAT(NOW(),'%Y-%m');" \
+    >/dev/null 2>&1
+echo "  已清理报表与监管域冒烟数据（export_task / supervise_report 当月）"
+# 档案域（D-2）：清理本次冒烟建档行（audit_log 留痕按合规保留期保留，不清理）
+if [ -n "$ELDER_ID" ]; then
+    "$MYSQL_BIN" $CONN -N -e "DELETE FROM yl_evaluation.elder WHERE id=$ELDER_ID;" >/dev/null 2>&1
+    echo "  已清理档案域冒烟数据（elder id=$ELDER_ID）"
 fi
+# 家属域（D-4）：清理本次冒烟产生的绑定行与第二个建档老人 E2
+if [ -n "$ELDER_ID" ]; then
+    "$MYSQL_BIN" $CONN -N -e "DELETE FROM yl_evaluation.elder_family_bind WHERE elder_id=$ELDER_ID;" >/dev/null 2>&1
+fi
+if [ -n "$E2_ID" ]; then
+    "$MYSQL_BIN" $CONN -N -e "DELETE FROM yl_evaluation.elder_family_bind WHERE elder_id=$E2_ID;" >/dev/null 2>&1
+    "$MYSQL_BIN" $CONN -N -e "DELETE FROM yl_evaluation.elder WHERE id=$E2_ID;" >/dev/null 2>&1
+    echo "  已清理家属域冒烟数据（elder_family_bind / elder id=$E2_ID）"
+fi
+# 兜底：本次新建的 elder 若仍有 dev 账号绑定残留，一并解除（保持"跑完即整洁"）
+"$MYSQL_BIN" $CONN -N -e \
+    "UPDATE yl_evaluation.elder e JOIN yl_evaluation.sys_user u ON u.id=e.user_id SET e.user_id=NULL WHERE u.username LIKE '%\\_dev';" \
+    >/dev/null 2>&1
 
 [ "$FAIL" -eq 0 ] || exit 1

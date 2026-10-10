@@ -21,6 +21,16 @@ INFRA_TEST = (
     "-Dsurefire.failIfNoSpecifiedTests=false "
     "-Dspotless.check.skip=true -Dcheckstyle.skip=true -Dspotbugs.skip=true"
 )
+COMMON_TEST = (
+    "mvn -o -pl yl-common test -Dtest=SensitiveFieldCodecTest "
+    "-Dsurefire.failIfNoSpecifiedTests=false "
+    "-Dspotless.check.skip=true -Dcheckstyle.skip=true -Dspotbugs.skip=true"
+)
+BOOTSTRAP_TEST = (
+    "mvn -o -pl yl-bootstrap -am test -Dtest=DevCredentialStartupGuardTest "
+    "-Dsurefire.failIfNoSpecifiedTests=false "
+    "-Dspotless.check.skip=true -Dcheckstyle.skip=true -Dspotbugs.skip=true"
+)
 
 SMS_SERVICE = os.path.join(
     REPO,
@@ -29,6 +39,14 @@ SMS_SERVICE = os.path.join(
 LOGGING_SENDER = os.path.join(
     REPO,
     r"yl-infrastructure\src\main\java\cn\yl\infrastructure\sms\LoggingSmsSender.java",
+)
+SENSITIVE_CODEC = os.path.join(
+    REPO,
+    r"yl-common\src\main\java\cn\yl\common\security\SensitiveFieldCodec.java",
+)
+DEV_GUARD = os.path.join(
+    REPO,
+    r"yl-bootstrap\src\main\java\cn\yl\bootstrap\security\DevCredentialStartupGuard.java",
 )
 
 MUTATIONS = [
@@ -67,6 +85,64 @@ MUTATIONS = [
         "old": '        String maskedPhone = MaskUtils.maskPhone(phone);',
         "new": "        String maskedPhone = phone; // MUTATED: 脱敏守卫已摘除",
         "cmd": INFRA_TEST,
+    },
+    # ===== P2-8-R12：联调凭据启动守卫（用户 2026-10-10 要求"摘掉守卫必须变红"） =====
+    {
+        "id": "G1",
+        "desc": "摘掉「已知泄露散列」金丝雀（公开口令可再次登录任何环境）",
+        "file": DEV_GUARD,
+        "old": "            if (hits > 0) {",
+        "new": "            if (false) { // MUTATED: 泄露散列金丝雀已摘除",
+        "cmd": BOOTSTRAP_TEST,
+    },
+    {
+        "id": "G2",
+        "desc": "摘掉「非 dev profile 禁止联调账号」分支",
+        "file": DEV_GUARD,
+        "old": "        if (!devProfile && !devUsernames.isEmpty()) {",
+        "new": "        if (false) { // MUTATED: 非 dev 账号禁令已摘除",
+        "cmd": BOOTSTRAP_TEST,
+    },
+    {
+        "id": "G3",
+        "desc": "篡改金丝雀常量（守卫「看着在」，实际不再盯真泄露值）",
+        "file": DEV_GUARD,
+        "old": '"$2a$10$JudcPt.pgXFygWWNKYQs6OaRLs0XufV7hLmphlz4w9ggRDbtZP.Hq"',
+        "new": '"$2a$10$MUTATEDCANARYVALUE000000000000000000000000000000000000"',
+        "cmd": BOOTSTRAP_TEST,
+    },
+    # ===== P2-8-R10：SensitiveFieldCodec（R1 加密 / R2 摘要） =====
+    {
+        "id": "G4",
+        "desc": "R1 解密失败改为**静默返回密文**（去掉 fail-closed，篡改/换密钥不再报错）",
+        "file": SENSITIVE_CODEC,
+        "old": '            throw new IllegalStateException("敏感字段解密失败", e);',
+        "new": "            return cipherText; // MUTATED: 解密失败已静默降级",
+        "cmd": COMMON_TEST,
+    },
+    {
+        "id": "G5",
+        "desc": "R2 摘要退化为**无密钥** SHA-256（丢 HMAC，摘要可被反推）",
+        "file": SENSITIVE_CODEC,
+        "old": (
+            "            Mac mac = Mac.getInstance(HMAC_SHA256);\n"
+            "            mac.init(hmacKey);\n"
+            "            byte[] digest = mac.doFinal(plain.getBytes(StandardCharsets.UTF_8));"
+        ),
+        "new": (
+            "            byte[] digest =\n"
+            "                    java.security.MessageDigest.getInstance(\"SHA-256\")\n"
+            "                            .digest(plain.getBytes(StandardCharsets.UTF_8));"
+        ),
+        "cmd": COMMON_TEST,
+    },
+    {
+        "id": "G6",
+        "desc": "R1 加密退化为恒等返回（明文落库）",
+        "file": SENSITIVE_CODEC,
+        "old": "            return Base64.getEncoder().encodeToString(out);",
+        "new": "            return plain; // MUTATED: 加密已退化为明文透传",
+        "cmd": COMMON_TEST,
     },
 ]
 
