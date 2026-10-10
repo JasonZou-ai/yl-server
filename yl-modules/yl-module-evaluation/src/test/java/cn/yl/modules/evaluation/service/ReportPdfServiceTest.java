@@ -3,6 +3,7 @@ package cn.yl.modules.evaluation.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assumptions.assumeTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.verify;
@@ -19,6 +20,9 @@ import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Map;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.text.PDFTextStripper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -32,7 +36,9 @@ import org.mockito.quality.Strictness;
 /**
  * 报告 PDF 渲染测试（PRD P02 下载 PDF / ADR-0006）。
  *
- * <p>断言产出的确是 PDF（魔数 {@code %PDF-}）且回填了对象键与验真内容； 中文字体是否嵌入取决于运行环境，故不作断言（Linux CI 无字体时降级渲染仍须成功）。
+ * <p>断言产出的确是 PDF（魔数 {@code %PDF-}）且回填了对象键与验真内容； 中文字形断言（2026-10-10
+ * 补，red-line-guard-mutation-proof.md v1.2 附则）： 环境有可渲染字体时，抽取文本必须含中文标题——把「能加载」升级成「能正确渲染」，
+ * 封死「字体加载成功但渲染成豆腐块/空白」仍全绿的盲区（字体类型不兼容属渲染抛异常， 已被 CI 38047253236/38048586455 间接捕获；本断言补的是另一半）。
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -120,6 +126,24 @@ class ReportPdfServiceTest {
         when(reportService.getReport(anyLong()))
                 .thenThrow(new BizException(ErrorCode.NOT_FOUND, "报告尚未生成"));
         assertThrows(BizException.class, () -> service.generate(3003L));
+    }
+
+    /**
+     * 中文字形行为断言（v1.2 附则）：环境有可渲染字体时，抽取 PDF 文本必须含中文标题—— 「能加载」升级为「能正确渲染」。fontless 环境降级渲染无中文字形，跳过（CI 的
+     * build-and-test / sonarqube 作业已装 fonts-wqy-zenhei，本断言在 CI 上必然真实执行）。
+     */
+    @Test
+    void extractedTextContainsChineseTitleWhenFontRenderable() throws Exception {
+        service.generate(3005L);
+        Path file = tempDir.resolve("report").resolve("RP-TEST-0001.pdf");
+
+        Map<String, Object> probe = new PdfFontLocator("").probe();
+        assumeTrue("ready".equals(probe.get("status")), "无可渲染中文字体的环境跳过（降级渲染无中文字形可断言）");
+
+        try (PDDocument doc = PDDocument.load(file.toFile())) {
+            String text = new PDFTextStripper().getText(doc);
+            assertTrue(text.contains("老年人能力评估报告"), "抽取文本必须含中文标题——字体加载成功却渲染成豆腐块/空白的盲区由此封死");
+        }
     }
 
     private EvalReportResponse view() {

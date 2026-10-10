@@ -13,7 +13,6 @@ import cn.yl.modules.evaluation.mapper.EvalReportMapper;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import edu.umd.cs.findbugs.annotations.SuppressFBWarnings;
 import java.io.ByteArrayOutputStream;
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -21,15 +20,12 @@ import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import org.apache.fontbox.ttf.TrueTypeCollection;
-import org.apache.fontbox.ttf.TrueTypeFont;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.pdmodel.font.PDFont;
-import org.apache.pdfbox.pdmodel.font.PDType0Font;
 import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -184,7 +180,8 @@ public class ReportPdfService {
         // TTC 集合必须活到 doc.save() 之后（子集化在 save 阶段读取字体数据），save 完成再统一关闭
         List<TrueTypeCollection> openedCollections = new ArrayList<>();
         try (PDDocument doc = new PDDocument()) {
-            PDFont chinese = loadChineseFont(doc, openedCollections);
+            // 字体候选与加载真源在 PdfFontLocator（TTC 集合引用须活到下方 doc.save() 之后，finally 统一关闭）
+            PDFont chinese = fontLocator.loadFirst(doc, openedCollections).orElse(null);
             PDFont font = chinese == null ? PDType1Font.HELVETICA : chinese;
             Cursor cursor = new Cursor(doc, font, chinese != null);
             drawTitle(cursor, view);
@@ -277,43 +274,6 @@ public class ReportPdfService {
         cursor.line("规则版本：" + view.getRuleVersion() + "    规则指纹：" + view.getRuleSha(), BODY_SIZE);
         cursor.line("内容摘要（SHA-256）：" + view.getVerifyHash(), BODY_SIZE);
         cursor.line("扫码验真：" + qrBaseUrl + "?no=" + view.getReportNo(), BODY_SIZE);
-    }
-
-    /**
-     * 中文字体探测：候选口径见 {@link PdfFontLocator}（配置优先，其次系统常见字体）；均不可用时降级（返回 null）。
-     *
-     * <p><b>TTC 支持（2026-10-10）</b>：Linux/容器侧的 Noto CJK 与 Windows 的 simsun 均为 {@code .ttc}（TrueType
-     * Collection），PDFBox 的 {@code PDType0Font.load(doc, File)} 不能直接读集合文件 （报 {@code 'head' table is
-     * mandatory}，此前容器与 CI 一直因此静默降级为 Helvetica），必须经 {@link TrueTypeCollection#processAllFonts}
-     * 取出子字体再加载；集合引用须活到 {@code doc.save()} 之后 （子集化在 save 阶段读取字体数据），由调用方在 save 完成后统一关闭。
-     */
-    private PDFont loadChineseFont(PDDocument doc, List<TrueTypeCollection> openedCollections)
-            throws IOException {
-        for (String candidate : fontLocator.candidates()) {
-            File file = new File(candidate);
-            if (!file.isFile()) {
-                continue;
-            }
-            try {
-                if (candidate.toLowerCase(Locale.ROOT).endsWith(".ttc")) {
-                    TrueTypeCollection collection = new TrueTypeCollection(file);
-                    openedCollections.add(collection);
-                    TrueTypeFont ttf = firstFontOf(collection);
-                    return PDType0Font.load(doc, ttf, true);
-                }
-                return PDType0Font.load(doc, file);
-            } catch (IOException e) {
-                LOGGER.warn("加载 PDF 中文字体失败，尝试下一个候选: {} ({})", candidate, e.getMessage());
-            }
-        }
-        LOGGER.warn("未找到可用的中文字体，报告 PDF 将降级渲染（中文缺字形）。请配置 yl.report.pdf.font-path");
-        return null;
-    }
-
-    private TrueTypeFont firstFontOf(TrueTypeCollection collection) throws IOException {
-        List<TrueTypeFont> fonts = new ArrayList<>(1);
-        collection.processAllFonts(fonts::add);
-        return fonts.get(0);
     }
 
     private Path resolve(String key) {
