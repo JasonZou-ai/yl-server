@@ -1,23 +1,79 @@
 openapi: 3.0.3
 info:
   title: 银龄守护 · 统一 API（yl-server）
+  version: 1.1.4
   description: |
     四端（微信小程序 / 抖音小程序 / iOS / 安卓）共用同一套 API，由后端统一供给
-    （PRD YL-PRD-v1.0 §8「统一原则」）。
+    （PRD YL-PRD-v1.2 §8「统一原则」）。
 
     ## 统一约定
     - **版本**：所有业务接口前缀 `/api/v1`，版本升级以新增路径而非破坏性修改实现。
     - **鉴权**：`Authorization: Bearer <accessToken>`；access 2h / refresh 14d（JWT 双令牌）。
       四端登录方式差异（微信/抖音授权、Apple ID/Face ID、账号密码）由 `/api/v1/auth/*` 统一换取 yl 自有令牌。
-    - **统一响应**：HTTP 状态码只表达传输层语义；业务语义一律走响应体 `code`。
-      `code=0` 成功，非 0 见「错误码字典」。
+    - **统一响应（写测试前必读）**：HTTP 状态码只表达传输层语义；业务语义一律走响应体 `code`。
+      `code=0` 成功，非 0 见「错误码字典」。**业务失败仍是 HTTP 200** —— 实现上
+      `GlobalExceptionHandler#handleBiz` 未加 `@ResponseStatus`，全项目只有两类会改状态码：
+      参数校验失败 → 400、未预期异常 → 500；鉴权链的未认证 → 401（凭据无效）/ 403（未携带凭据）。
+      ⇒ 断言业务拒绝（越权 / 不存在）必须看 `R.code`，**不能看 HTTP 状态码**；
+      反之拿 200 当「放行」证据是假绿。二进制端点（PDF）另需验魔数，见该操作 `responses` 说明。
     - **幂等**：写操作（提交评估、生成报告、上报、导出）必须携带 `Idempotency-Key`（客户端 UUID）；
       服务端按 key 去重，重复请求直接返回首次结果，不重复执行。
     - **分页**：`pageNum`（从 1 起）/ `pageSize`（1-100，默认 20）。
     - **脱敏**：手机号/身份证/姓名等敏感字段默认脱敏返回（如 `138****5678`），
       需查看明文须走 `/api/v1/security/reveal`（二次验证 + 留痕）。
     - **追踪**：响应体与响应头 `X-Trace-Id` 均返回 traceId，便于全链路排障。
-  version: 1.0.0
+
+    ## 契约口径（v1.1.0 起为强制项，由门禁机械化校验）
+    每个操作**必须**声明下列扩展键；缺一即门禁变红（`scripts/verify-openapi.sh`
+    ＋ `yl-bootstrap` 的 `OpenApiContractTest`，两者同源口径、互为冗余）。
+
+    - `x-required-permission`：所需权限码。取值必须存在于 `sys_permission.perm_code`
+      （该断言在 `scripts/verify-schema.sh`，因为需要连库）。多码用 ` | ` 分隔表示
+      **任一满足**（OR 语义，对应 `@RequiresPermission(logical = Logical.OR)`）。
+      不校验权限码的操作用 `none` —— 出现 `none` 的只有两类：
+      ① `x-data-scope.mode = public`（会话入口 / 探针 / 扫码验真）；
+      ② 需要登录但不校验权限码的会话相关端点（`/auth/second-verify`、`/auth/logout`）。
+      `mode = public` 必须搭配 `none`（反之不成立）。
+    - `x-data-scope`：第三闸（数据域）口径。
+      - `mode` 取值域 `public | self | org | relation | all`：
+        - `public`   无需登录，或无行级数据域（会话入口 / 健康探针 / 扫码验真）；
+        - `self`     仅本人数据（按归属用户列过滤）；
+        - `org`      本机构数据（`org_id IN (登录态所属机构)`）；
+        - `relation` **关系级**：仅经 `elder_family_bind` **生效**绑定可达的老人（家属账号）；
+        - `all`      字典类/规则类，无行级过滤（全角色可读）。
+      - `mode` 取该端点在五角色下的**最窄**档位；各角色实际落点（若有差异）见可选键 `by-role`。
+        例：`GET /elders` 对机构是 `org`、对家属是 `relation`、对监管是 `all` → `mode: relation` + `by-role` 列全。
+      - 另三个可选键：`via`（关系级经哪张表收口）、`condition`（生效口径）、`extra`（业务附加约束）。
+    - `x-second-verify: true`：第四闸（一次性凭据 `X-Second-Verify-Token`）强制。与
+      `sys_permission.need_second_verify = 1` 的 **4 个敏感点**一一对应
+      （`data:export` / `evaluation:order:void` / `account:family:unbind` / `data:reveal`）。
+    - `x-status`：`implemented`（后端已有实现，须与代码端点**逐一对应**，门禁双向核对漂移）
+      ｜ `planned`（目标态，待 D-2/D-3/D-4 子卡落地）。
+
+    ## `reportNo` 与 `orderId` 的主从关系（避免两套报告契约）
+    - `orderId`：**写入/主链路轴** —— 评估单创建、作答、提交、报告生成、照护方案。
+    - `reportNo`：**读取/分发轴** —— PDF 下载、扫码验真；报告发布后对外可见的稳定标识。
+    二者是同一资源的不同标识，不互为别名；契约不提供「按 reportNo 生成报告」这类跨轴操作。
+
+    ## 鉴权链（四道闸）与本文档的对应
+    `① 认证` → `② 授权`（`x-required-permission`）→ `③ 数据域`（`x-data-scope`）→ `④ 二次验证`（`x-second-verify`）。
+    第三闸只作用于 SQL：**任何"绕过数据库直接读资源"的实现都会使第三闸失效**
+    （CR-M2-006 即 `GET /evaluation/reports/{reportNo}/pdf` 直接读文件导致的跨机构下载越权，已修复并加回归断言）。
+
+    ## 版本演进
+    - **1.1.4**（2026-10-10）：**短信核身通道（P2-8-A）契约先行**。新增 4 个未登录前置操作
+      （`SMS-01` 图形验证码 / `SMS-02` 发送 / `SMS-03` 校验 / `SMS-04` ticket 兑换登录态）+ 3 个响应 schema；
+      并**订正** `POST /api/v1/auth/login/{channel}` 的 `channel` 枚举面（旧值 `PASSWORD/APPLE` 与实现
+      `LoginChannel` 不符，属既有契约-实现漂移，本卡同批纠正为 `IOS/ANDROID` 并追加 `SMS`）。
+    - **1.1.1**（2026-09-24）：**错误语义口径勘误**（不改实现，只把契约改准）。CR-M2-006 验收时发现契约
+      误写「跨机构 reportNo 返回 404」，实际全站业务异常为 HTTP 200 + `R.code=10004`；已把
+      `GET /evaluation/reports/{reportNo}/pdf` 的 responses 改为 `200 / 401 / 403` 并写明判 `code` 的口径，
+      同时把「统一响应」一节写死（业务失败=200；仅校验 400 / 未预期 500）。相应修正
+      `scripts/smoke-report-review-chain.sh` 的断言层级（原按 HTTP 状态码断言会得到假红 + 一条假绿）。
+    - **1.1.0**（2026-09-24）：契约向实现对齐（A 类 9 项）；补登实现侧未登记端点（C 类 9 项，含复核三端点/照护方案/
+      报告 PDF/题库）；引入 `x-data-scope` / `x-sensitive-fields` / `x-status` 扩展键与 4 条门禁断言；
+      家属端 F1~F9 契约先行（D-1 裁决，路径统一为 `/family/bindings/{relationId}/...`）。
+    - **1.0.0**（2026-09-18）：首版（C1/C3 业务闭环）。
 servers:
   - url: http://localhost:8080
     description: 本地开发（docker-compose 一键启动）
@@ -28,17 +84,24 @@ tags:
   - name: auth
     description: 认证与令牌
   - name: elder
-    description: 老人档案
+    description: 老人档案与敏感字段
   - name: evaluation
-    description: 评估任务与评估单
+    description: 评估任务、评估单、分级与复核
   - name: rule
     description: 国标分级规则
   - name: report
-    description: 评估报告
+    description: 评估报告与验真
+  - name: family
+    description: 亲情绑定与家属端读取
   - name: supervise
     description: 监管上报与导出
+  - name: sms
+    description: 短信核身通道（图形验证码 / 发送 / 校验 / ticket 兑换，未登录前置）
   - name: system
     description: 系统
+
+security:
+  - bearerAuth: []
 
 components:
   securitySchemes:
@@ -67,6 +130,24 @@ components:
       in: query
       required: false
       schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+    OrderId:
+      name: orderId
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
+      description: 评估单 id（雪花 id，见 ADR-0003）
+    ReportNo:
+      name: reportNo
+      in: path
+      required: true
+      schema: { type: string, maxLength: 64, pattern: '^[A-Za-z0-9_-]{1,64}$' }
+      description: 报告编号（读取/分发轴；做白名单校验防目录穿越）
+    RelationId:
+      name: relationId
+      in: path
+      required: true
+      schema: { type: integer, format: int64 }
+      description: 亲情绑定 id（家属端以绑定关系为资源轴；不是 elderId）
 
   schemas:
     R:
@@ -87,25 +168,23 @@ components:
         pageNum: { type: integer }
         pageSize: { type: integer }
         pages: { type: integer }
-    
+
     LoginRequest:
       type: object
-      description: 四端统一登录入口的请求体（登录方式由 channel 区分）
+      description: 登录请求体（渠道由路径 `{channel}` 承载，不再放在 body 内）
       properties:
-        channel:
-          type: string
-          enum: [WECHAT, DOUYIN, PASSWORD, APPLE, FACE]
-          description: 登录渠道
         code:
           type: string
-          description: 平台授权码（WECHAT/DOUYIN/APPLE）；PASSWORD 方式为空
-        username: { type: string }
-        password: { type: string, description: 仅 PASSWORD 方式；服务端只比对散列 }
+          description: 平台授权码（WECHAT / DOUYIN / APPLE）
+        username: { type: string, description: 仅 PASSWORD 渠道 }
+        password:
+          type: string
+          description: 仅 PASSWORD 渠道；服务端只比对 BCrypt 散列。dev 联调期 WECHAT/DOUYIN 可携口令走降级分支（CR-M2-004）
         deviceType:
           type: string
           enum: [WXMP, DYMP, IOS, ANDROID, WEB]
         deviceId: { type: string }
-      required: [channel, deviceType]
+      required: [deviceType]
     TokenPair:
       type: object
       properties:
@@ -115,6 +194,9 @@ components:
         userId: { type: integer, format: int64 }
         roles: { type: array, items: { type: string } }
         orgId: { type: integer, format: int64, nullable: true }
+        channelDowngrade:
+          type: boolean
+          description: 是否走了 dev 渠道降级分支（CR-M2-004 审计标记；生产恒为 false）
 
     ElderCreate:
       type: object
@@ -125,8 +207,8 @@ components:
         birthDate: { type: string, format: date }
         phone: { type: string }
         address: { type: string }
-        orgId: { type: integer, format: int64 }
-      required: [name, orgId]
+        orgId: { type: integer, format: int64, description: 缺省取登录态默认机构；显式传值须在本人机构域内 }
+      required: [name]
     ElderView:
       type: object
       description: 敏感字段默认脱敏返回
@@ -140,6 +222,54 @@ components:
         age: { type: integer }
         orgId: { type: integer, format: int64 }
         status: { type: integer }
+
+    FamilyBindingCreate:
+      type: object
+      description: |
+        发起亲情绑定。**服务端要求 `elderName` / `idCardNo` 必填**（用于经 `name_hash` + `id_card_hash` 精确核验被绑老人；
+        `required` 数组暂不改动以保持翻旗批次零语义变更，登记为契约待订正项）。二者**不落明文**。
+      properties:
+        elderId: { type: integer, format: int64, description: 被绑定老人；服务端校验存在且未解绑 }
+        relation: { type: string, enum: [CHILD, SPOUSE, KIN, GUARDIAN] }
+        verifyMethod: { type: string, enum: [SCAN, PHONE, FACE] }
+        proofCosKey: { type: string, description: 监护关系证明对象键（敏感：仅留痕，不回显下载地址） }
+        elderName: { type: string, description: 老人姓名（核验必填，服务端要求；不落明文，只算 name_hash 精确匹配） }
+        idCardNo: { type: string, description: 老人身份证号（核验必填，服务端要求；不落明文，只算 id_card_hash 精确匹配） }
+      required: [elderId, relation, verifyMethod]
+    FamilyBindingView:
+      type: object
+      description: 绑定视图。**未生效阶段（status=0/1）不下发 `elderName`**（防枚举）；仅 `status=2` 下发脱敏名。
+      properties:
+        id: { type: integer, format: int64, description: 绑定关系 id（即 relationId） }
+        elderId: { type: integer, format: int64 }
+        elderName: { type: string, description: 脱敏（如 张*）；未生效阶段不下发（null） }
+        relation: { type: string }
+        status:
+          type: integer
+          description: 0-待确认 1-待机构审核 2-生效 3-已拒绝 4-已解绑/过期
+        authStartAt: { type: string, format: date-time, nullable: true }
+        authEndAt: { type: string, format: date-time, nullable: true, description: 到期自动解绑（PRD P04） }
+        rejectReason: { type: string, nullable: true }
+      required: [id, elderId, status]
+
+    UserBindingRequest:
+      type: object
+      description: >-
+        elder↔user 绑定入参（elderId 在 path，**不含**身份字段，**不含** authEndAt）。老人↔账号为 **1:1**
+        （elder.uk_elder_user 唯一）；冲突一律返回 **10005**，绝不 500。有效期不在此承载（elder 表无 auth_end_at 列，零 DDL；
+        合法承载为 elder_authorization ER-07，本卡明令不接 D4-R3）。
+        **未知字段（如遗留客户端仍发送 authEndAt）被 Jackson 静默忽略并返回 code=0** —— 本工程未开
+        FAIL_ON_UNKNOWN_PROPERTIES，故本 schema **刻意不加** additionalProperties: false，以免"契约收紧而实现仍返 200"
+        造成契约≠实现（见 D4-R10）。
+      properties:
+        userId: { type: integer, format: int64, description: 目标 ELDER 账号 sys_user.id }
+      required: [userId]
+    UserBindingView:
+      type: object
+      properties:
+        elderId: { type: integer, format: int64 }
+        userId: { type: integer, format: int64 }
+        boundAt: { type: string, format: date-time, description: 绑定时间（= elder.updated_at） }
 
     EvalOrder:
       type: object
@@ -180,17 +310,52 @@ components:
               maxScore: { type: number }
         ruleVersionId: { type: integer, format: int64 }
 
-security:
-  - bearerAuth: []
+    SmsCaptchaImageResponse:
+      type: object
+      description: SMS-01 图形验证码响应。`captchaImage` 为 data URI（`data:image/png;base64,…`）。
+      properties:
+        captchaId: { type: string, description: 图形验证码标识（答案存 Redis，TTL 120s，一次性） }
+        captchaImage: { type: string, description: PNG data URI }
+        ttl: { type: integer, description: 有效期（秒），当前为 120 }
+      required: [captchaId, captchaImage, ttl]
+    SmsSendResponse:
+      type: object
+      description: |
+        SMS-02 发送响应。★ 不含任何「该手机号是否已注册」信息（防手机号存在性枚举）：
+        对已注册 / 未注册手机号，本响应体与 `R.code` 完全一致。
+      properties:
+        maskedPhone: { type: string, description: 脱敏手机号，如 138****8000 }
+        ttl: { type: integer, description: 验证码有效期（秒），当前为 300 }
+      required: [maskedPhone, ttl]
+    SmsTicketResponse:
+      type: object
+      description: SMS-03 校验通过后的一次性登录凭据（携至 SMS-04 兑换令牌）。
+      properties:
+        ticket: { type: string, description: 一次性 ticket（Redis GETDEL，TTL 300s） }
+        ticketTtl: { type: integer, description: ticket 有效期（秒），当前为 300 }
+      required: [ticket, ticketTtl]
 
 paths:
-  /api/v1/auth/login:
+  # ======================= auth（会话入口，第二闸豁免） =======================
+  /api/v1/auth/login/{channel}:
     post:
       tags: [auth]
-      summary: 四端统一登录
-      x-required-permission: none
-      description: 各端以各自平台凭据换取 yl 统一令牌；差异仅在 channel。
+      summary: 四端统一登录（渠道由路径承载）
+      description: |
+        各端以平台凭据换取 yl 统一令牌。`channel ∈ {WECHAT, DOUYIN, IOS, ANDROID, FACE, SMS}`。
+        dev 联调期 WECHAT/DOUYIN 可携 `password` 走「渠道降级分支」（仍强制 BCrypt 比对，CR-M2-004）。
+        ★ `SMS` 仅用于**登录日志口径**（`login_log.login_type = SMS`）；**短信登录不经本端点**，
+        请走 `POST /api/v1/auth/login-by-ticket`（SMS-04，ticket 兑换）。在本端点传 `SMS` 返回 `R.code=20001`。
+      operationId: authLogin
       security: []
+      x-required-permission: none
+      x-data-scope: { mode: public }
+      x-status: implemented
+      parameters:
+        - name: channel
+          in: path
+          required: true
+          schema: { type: string, enum: [WECHAT, DOUYIN, IOS, ANDROID, FACE, SMS] }
       requestBody:
         required: true
         content:
@@ -211,8 +376,11 @@ paths:
     post:
       tags: [auth]
       summary: 刷新令牌
-      x-required-permission: none
+      operationId: authRefresh
       security: []
+      x-required-permission: none
+      x-data-scope: { mode: public }
+      x-status: implemented
       requestBody:
         required: true
         content:
@@ -240,7 +408,10 @@ paths:
       description: |
         敏感操作（导出 / 作废评估单 / 解绑亲情 / 查看明文）前调用。校验通过后返回一次性凭据，
         后续业务请求以 `X-Second-Verify-Token` 头携带；凭据一次性消费、300 秒有效（Redis GETDEL）。
+      operationId: authSecondVerify
       x-required-permission: none
+      x-data-scope: { mode: self }
+      x-status: implemented
       requestBody:
         required: true
         content:
@@ -269,23 +440,190 @@ paths:
                         type: object
                         properties:
                           token: { type: string }
-                          expiresIn:
-                            type: integer
-                            description: 有效期（秒），当前为 300
+                          expiresIn: { type: integer, description: 有效期（秒），当前为 300 }
 
   /api/v1/auth/logout:
     post:
       tags: [auth]
       summary: 退出登录（令牌加入黑名单）
+      description: |
+        退出登录（D-4 落地）。服务端将 access 令牌按 `sha256` 记入黑名单（TTL=令牌剩余有效期），
+        并在请求体携带 `refreshToken` 时**同时**吊销该 refresh（双令牌同时失效）。
+        access 黑名单键 `yl:bl:at:<sha256(token)>`；`JwtAuthFilter` 在 `parse` 成功后命中黑名单即 **401 + `R.code=10002`**。
+        **无权限码**（会话出口；安全边界 = 登录态本身，非权限矩阵某一格）。
+      operationId: authLogout
       x-required-permission: none
+      x-data-scope: { mode: self }
+      x-status: implemented
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                refreshToken: { type: string, description: 可选；携带则同时吊销该 refresh 令牌 }
       responses:
         '200': { description: 成功, content: { application/json: { schema: { $ref: '#/components/schemas/R' } } } }
 
+  /api/v1/auth/login-by-ticket:
+    post:
+      tags: [sms]
+      summary: SMS-04 以短信核身 ticket 兑换登录态
+      description: |
+        短信校验（SMS-03）通过后签发的一次性 ticket 换取 yl 统一令牌。ticket **GETDEL 一次性**消费
+        （缺失/过期/重放 → `20008`）；按 `phone_hash` 查 `sys_user`，**未命中返回 `20009`，绝不自动建号**
+        （新账号角色归属为产品决策）。命中则复用既有双令牌签发，写 `login_log`（`login_type=SMS`，
+        `device_type=scene 映射` WXMP/DYMP/IOS/ANDROID，兜底 WEB）。
+      operationId: authLoginByTicket
+      security: []
+      x-required-permission: none
+      x-data-scope: { mode: public }
+      x-status: implemented
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                ticket: { type: string, description: SMS-03 返回的一次性凭据 }
+                scene:
+                  type: string
+                  enum: [WECHAT, DOUYIN, IOS, ANDROID]
+                  description: 端侧场景（用于 device_type 映射；缺失时取 ticket 内场景，再兜底 WEB）
+              required: [ticket]
+      responses:
+        '200':
+          description: 登录结果（未命中用户为 `20009`，凭据无效为 `20008`）
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/R'
+                  - properties:
+                      data: { $ref: '#/components/schemas/TokenPair' }
+
+  # ======================= sms（短信核身通道，未登录前置，P2-8-A） =======================
+  /api/v1/sms/captcha-image:
+    post:
+      tags: [sms]
+      summary: SMS-01 获取图形验证码
+      description: |
+        生成 4 位数字图形验证码（JDK AWT，含干扰线/噪点），答案存 `yl:sms:captcha:{captchaId}`（TTL 120s，GETDEL 一次性）。
+        触发条件见 SMS-02 的图形验证前置判定（同手机号 1h≥3 或 同 IP 1h≥10）。
+      operationId: smsCaptchaImage
+      security: []
+      x-required-permission: none
+      x-data-scope: { mode: public }
+      x-status: implemented
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                scene: { type: string, description: 图形验证码用途场景标签（缺省 sms_send） }
+      responses:
+        '200':
+          description: 图形验证码
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/R'
+                  - properties:
+                      data: { $ref: '#/components/schemas/SmsCaptchaImageResponse' }
+
+  /api/v1/sms/send:
+    post:
+      tags: [sms]
+      summary: SMS-02 发送短信验证码
+      description: |
+        顺序即安全性：参数校验（`10001`）→ 计算 `phone_hash`（此后不再用明文手机号做键）→ 频控（超限 `10429`，**此处不查库**）
+        → 锁定检查（`yl:sms:err` ≥5 → `10429`）→ 图形验证触发判定（需验证未携带 `20004` / 不通过 `20005`）
+        → 生成 6 位码存 Redis（`sha256(code)`，TTL 300s）→ 下发（通道不可用 `20007`，fail-closed）。
+        ★ 防枚举：对已注册 / 未注册手机号，响应体与 `R.code` 完全一致，且实现路径不查库。
+      operationId: smsSend
+      security: []
+      x-required-permission: none
+      x-data-scope: { mode: public }
+      x-status: implemented
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                phone: { type: string, description: 手机号（服务端转 phone_hash，明文不入库/不入日志） }
+                purpose: { type: string, enum: [LOGIN, BIND, CHANGE_PHONE] }
+                scene: { type: string, enum: [WECHAT, DOUYIN, IOS, ANDROID] }
+                captchaId: { type: string, description: 触发图形验证时必填 }
+                captchaCode: { type: string, description: 用户填写的图形验证码 }
+              required: [phone, purpose, scene]
+      responses:
+        '200':
+          description: 发送结果（通道不可用为 `20007`）
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/R'
+                  - properties:
+                      data: { $ref: '#/components/schemas/SmsSendResponse' }
+
+  /api/v1/sms/verify:
+    post:
+      tags: [sms]
+      summary: SMS-03 校验短信验证码（一次性核销）
+      description: |
+        Lua 原子「比对并焚毁」：不存在/不匹配 → 失败计数 +1（≥5 锁 900s → `10429`）→ `20006`
+        （错误与过期同码，防探测）；匹配 → 已 DEL（一次性核销）→ 签发一次性 ticket（TTL 300s）。
+      operationId: smsVerify
+      security: []
+      x-required-permission: none
+      x-data-scope: { mode: public }
+      x-status: implemented
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                phone: { type: string }
+                purpose: { type: string, enum: [LOGIN, BIND, CHANGE_PHONE] }
+                code: { type: string, description: 短信验证码 }
+                scene: { type: string, enum: [WECHAT, DOUYIN, IOS, ANDROID] }
+              required: [phone, purpose, code, scene]
+      responses:
+        '200':
+          description: 校验结果（失败为 `20006`，锁定为 `10429`）
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/R'
+                  - properties:
+                      data: { $ref: '#/components/schemas/SmsTicketResponse' }
+
+  # ======================= elder（老人档案） =======================
   /api/v1/elders:
     post:
       tags: [elder]
       summary: 新建老人档案
+      description: |
+        家属侧走代办申请（`elder:archive:create:apply`），建档由评估员/机构管理员落库。
+        `orgId` 可省略，缺省取登录态默认机构；显式传值须落在本人机构域内。
+      operationId: elderCreate
       x-required-permission: elder:archive:create
+      x-data-scope:
+        mode: org
+        by-role: { ELDER: self, ASSESSOR: org, FAMILY: org, ORG_ADMIN: org, SUPERVISOR: all }
+        extra: 归属机构缺省取登录态默认机构；显式传值须落在本人机构域内
+      x-status: implemented
       parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
       requestBody:
         required: true
@@ -305,7 +643,18 @@ paths:
     get:
       tags: [elder]
       summary: 老人列表（分页 + 多维筛选）
+      description: |
+        「权限码全角色授予、可见范围由第三闸控制」（CR-M2-001 对 `elder:archive:read` 的既定裁决）。
+        家属为关系级：仅返回经 **生效** 绑定可达的老人（`elder.id IN (我绑定的 elder_id)`）。
+        批量拉档风险由 `ArchiveAccessRateGuard` 行为异常检测兜底。
+      operationId: elderList
       x-required-permission: elder:archive:read
+      x-data-scope:
+        mode: relation
+        by-role: { ELDER: self, ASSESSOR: org, FAMILY: relation, ORG_ADMIN: org, SUPERVISOR: all }
+        via: elder_family_bind
+        condition: "status=2 AND deleted=0 AND (auth_end_at IS NULL OR auth_end_at > NOW())"
+      x-status: implemented
       parameters:
         - { $ref: '#/components/parameters/PageNum' }
         - { $ref: '#/components/parameters/PageSize' }
@@ -339,8 +688,16 @@ paths:
   /api/v1/elders/{elderId}:
     get:
       tags: [elder]
-      summary: 老人档案详情
+      summary: 老人档案详情（脱敏）
+      operationId: elderDetail
       x-required-permission: elder:archive:read
+      x-data-scope:
+        mode: relation
+        by-role: { ELDER: self, ASSESSOR: org, FAMILY: relation, ORG_ADMIN: org, SUPERVISOR: all }
+        via: elder_family_bind
+        condition: "status=2 AND deleted=0 AND (auth_end_at IS NULL OR auth_end_at > NOW())"
+      x-sensitive-fields: [name, idCardMask, phone, address]
+      x-status: implemented
       parameters:
         - name: elderId
           in: path
@@ -357,12 +714,58 @@ paths:
                   - properties:
                       data: { $ref: '#/components/schemas/ElderView' }
 
+  /api/v1/elders/{elderId}/user-binding:
+    post:
+      tags: [elder]
+      summary: 绑定老人本人登录账号（elder↔user，机构侧）
+      description: |
+        D-4 新增（R1 承载点）。机构管理员把某 ELDER 账号绑定为该 `elder` 的**本人**账号（写 `elder.user_id`）。
+        本期**只写 `elder.user_id`**，不碰 `elder_authorization`（两者语义不同构：归属 vs 范围化授权）。
+        三道显式校验：① 目标账号须属本机构（否则 `20003`）；② 该 `elder` 未被其他账号占用（否则 `10005`）；
+        ③ `elder.org_id` 由第三闸按机构收口（越界/不存在 → `10004`）。`uk_elder_user` 冲突 → `10005`（**绝不 500**）。
+      operationId: elderUserBinding
+      x-required-permission: account:org:manage
+      x-data-scope:
+        mode: org
+        by-role: { ORG_ADMIN: org }
+        extra: 目标 elder 经第三闸 elder.org_id IN (myOrgs) 收口（越界 10004）；目标账号须属本机构（20003）
+      x-status: implemented
+      parameters:
+        - name: elderId
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UserBindingRequest' }
+      responses:
+        '200':
+          description: 绑定结果
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/R'
+                  - properties:
+                      data: { $ref: '#/components/schemas/UserBindingView' }
+
   /api/v1/security/reveal:
     post:
       tags: [elder]
       summary: 查看敏感字段明文（二次验证 + 全留痕）
+      description: 需 `X-Second-Verify-Token`（`POST /api/v1/auth/second-verify` 换取）；调用写入 `audit_log(sensitive=1)`。
+      operationId: dataReveal
       x-required-permission: data:reveal
-      description: 需 secondaryToken（短信/人脸二次验证换取）；调用写入 audit_log(sensitive=1)。
+      x-data-scope:
+        mode: org
+        by-role: { ORG_ADMIN: org }
+        extra: 仅机构管理员持有该权限点（敏感点，须二次验证）
+      x-second-verify: true
+      x-sensitive-fields: [name, idCardNo, phone, address]
+      x-status: implemented
       parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
       requestBody:
         required: true
@@ -374,8 +777,7 @@ paths:
                 bizType: { type: string, enum: [ELDER, USER] }
                 bizId: { type: integer, format: int64 }
                 fields: { type: array, items: { type: string } }
-                secondaryToken: { type: string }
-              required: [bizType, bizId, fields, secondaryToken]
+              required: [bizType, bizId, fields]
       responses:
         '200':
           description: 明文（调用方需自行做展示期防护）
@@ -383,11 +785,17 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/R' }
 
-  /api/v1/eval/tasks:
+  # ======================= evaluation（主链路） =======================
+  /api/v1/evaluation/tasks:
     get:
       tags: [evaluation]
       summary: 评估任务列表（按机构/评估员/状态筛选）
+      operationId: evalTaskList
       x-required-permission: evaluation:task:read
+      x-data-scope:
+        mode: org
+        by-role: { ASSESSOR: org, ORG_ADMIN: org, SUPERVISOR: all }
+      x-status: implemented
       parameters:
         - { $ref: '#/components/parameters/PageNum' }
         - { $ref: '#/components/parameters/PageSize' }
@@ -408,11 +816,18 @@ paths:
                   - properties:
                       data: { $ref: '#/components/schemas/PageResult' }
 
-  /api/v1/eval/orders:
+  /api/v1/evaluation/assessments:
     post:
       tags: [evaluation]
       summary: 创建评估单（校验评估员资质 + 30 天内重复评估）
+      description: 归属机构与录入人取自登录态；显式传值时机构须在本人机构域内、录入人须为本人（或持派单权限）。
+      operationId: assessmentCreate
       x-required-permission: evaluation:order:create
+      x-data-scope:
+        mode: org
+        by-role: { ASSESSOR: org, ORG_ADMIN: org }
+        extra: orgId 必须在登录态机构域内；录入人仅可为本人或留空待接单
+      x-status: implemented
       parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
       requestBody:
         required: true
@@ -423,9 +838,10 @@ paths:
               properties:
                 elderId: { type: integer, format: int64 }
                 orgId: { type: integer, format: int64 }
+                assessorId: { type: integer, format: int64, nullable: true }
                 scene: { type: string }
                 changeReason: { type: string, description: 30 天内重复评估时必填 }
-              required: [elderId, orgId]
+              required: [elderId]
       responses:
         '200':
           description: 创建结果
@@ -437,16 +853,33 @@ paths:
                   - properties:
                       data: { $ref: '#/components/schemas/EvalOrder' }
 
-  /api/v1/eval/orders/{orderId}/answers:
+  /api/v1/evaluation/assessments/{orderId}:
+    get:
+      tags: [evaluation]
+      summary: 查询评估单（当前状态与等级结果）
+      operationId: assessmentGet
+      x-required-permission: evaluation:task:read | report:view
+      x-data-scope:
+        mode: org
+        by-role: { ELDER: self, ASSESSOR: org, FAMILY: relation, ORG_ADMIN: org, SUPERVISOR: all }
+        via: elder_family_bind
+        condition: "家属：eval_order.elder_id ∈ 我生效绑定的老人"
+        extra: 权限码从宽 + 数据域从严（与「可见范围不靠权限点区分」口径一致）
+      x-status: implemented
+      parameters: [{ $ref: '#/components/parameters/OrderId' }]
+      responses:
+        '200': { description: 评估单, content: { application/json: { schema: { $ref: '#/components/schemas/R' } } } }
+
+  /api/v1/evaluation/assessments/{orderId}/answers:
     put:
       tags: [evaluation]
       summary: 保存作答（草稿，30s 自动保存 / 断点续填）
+      operationId: assessmentSaveAnswers
       x-required-permission: evaluation:item:input
+      x-data-scope: { mode: org, by-role: { ASSESSOR: org, ORG_ADMIN: org } }
+      x-status: implemented
       parameters:
-        - name: orderId
-          in: path
-          required: true
-          schema: { type: integer, format: int64 }
+        - { $ref: '#/components/parameters/OrderId' }
         - { $ref: '#/components/parameters/IdempotencyKey' }
       requestBody:
         required: true
@@ -470,18 +903,53 @@ paths:
       responses:
         '200': { description: 保存成功, content: { application/json: { schema: { $ref: '#/components/schemas/R' } } } }
 
-  /api/v1/eval/orders/{orderId}/grade:
+  /api/v1/evaluation/assessments/{orderId}/submit:
     post:
       tags: [evaluation]
-      summary: 触达分级引擎（规则版本化、可热更）
+      summary: 提交复核（DRAFT → SUBMITTED；校验必填完整性与留证）
+      description: 提交时调用 GB/T 42195-2022 分级引擎并落库初判/终判等级与规则指纹。
+      operationId: assessmentSubmit
       x-required-permission: evaluation:item:input
-      description: 输出总分 + 等级 + 维度得分 + 等级上调结果。幂等：同一 order + 同一 key 不重复计算。
+      x-data-scope: { mode: org, by-role: { ASSESSOR: org, ORG_ADMIN: org } }
+      x-status: implemented
       parameters:
-        - name: orderId
-          in: path
-          required: true
-          schema: { type: integer, format: int64 }
+        - { $ref: '#/components/parameters/OrderId' }
         - { $ref: '#/components/parameters/IdempotencyKey' }
+      responses:
+        '200': { description: 成功, content: { application/json: { schema: { $ref: '#/components/schemas/R' } } } }
+        '409': { description: 状态不允许（10005 / 30002） }
+
+  /api/v1/evaluation/grade:
+    post:
+      tags: [evaluation]
+      summary: 分级引擎试算（无状态，不落库）
+      description: |
+        与 `submit` 的区别：本端点**不落库**、不绑定 `orderId`，供端上即时预览等级（PRD 单测/演示场景）。
+        口径唯一真源是 RuleSet JSON（`ruleVersion`）。
+      operationId: evaluationGrade
+      x-required-permission: evaluation:item:input
+      x-data-scope:
+        mode: org
+        by-role: { ASSESSOR: org, ORG_ADMIN: org }
+        extra: 无状态试算、不落库，无行级数据可过滤
+      x-status: implemented
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                answers:
+                  type: array
+                  items:
+                    type: object
+                    properties:
+                      itemId: { type: integer, format: int64 }
+                      score: { type: number }
+                      isRefused: { type: boolean }
+                flags: { type: object, additionalProperties: true }
+              required: [answers]
       responses:
         '200':
           description: 分级结果
@@ -493,32 +961,65 @@ paths:
                   - properties:
                       data: { $ref: '#/components/schemas/GradeResult' }
 
-  /api/v1/eval/orders/{orderId}/submit:
+  /api/v1/evaluation/items:
+    get:
+      tags: [evaluation]
+      summary: 题库元信息（26 项）
+      description: 返回 26 项二级指标（itemId 即引擎指标编号 101~405）与规则指纹，四端据此免除端上题号硬编码。
+      operationId: evaluationItems
+      x-required-permission: evaluation:task:read | evaluation:item:input
+      x-data-scope:
+        mode: all
+        extra: 字典类（eval_item 未登记数据域列），全角色可读、不做行级过滤
+      x-status: implemented
+      responses:
+        '200': { description: 题库, content: { application/json: { schema: { $ref: '#/components/schemas/R' } } } }
+
+  /api/v1/evaluation/rule-meta:
+    get:
+      tags: [evaluation]
+      summary: 当前生效规则版本与指纹
+      operationId: evaluationRuleMeta
+      x-required-permission: rule:view
+      x-data-scope: { mode: all, extra: 字典/规则类，无行级过滤（五角色全授予） }
+      x-status: implemented
+      responses:
+        '200': { description: 规则元信息, content: { application/json: { schema: { $ref: '#/components/schemas/R' } } } }
+
+  /api/v1/evaluation/assessments/{orderId}/review/publish:
     post:
       tags: [evaluation]
-      summary: 提交复核（DRAFT → SUBMITTED；校验必填完整性与留证）
-      x-required-permission: evaluation:item:input
+      summary: 复核通过并发布（SUBMITTED → PUBLISHED，报告转有效）
+      description: 复核人取自登录态；须 ≠ 录入人（PRD §2.2）。发布时写 `retain_until = now + 5 年`（ER-03/ER-14）。
+      operationId: reviewPublish
+      x-required-permission: evaluation:order:review
+      x-data-scope: { mode: org, by-role: { ORG_ADMIN: org } }
+      x-status: implemented
       parameters:
-        - name: orderId
-          in: path
-          required: true
-          schema: { type: integer, format: int64 }
+        - { $ref: '#/components/parameters/OrderId' }
         - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                opinion: { type: string }
       responses:
         '200': { description: 成功, content: { application/json: { schema: { $ref: '#/components/schemas/R' } } } }
-        '409':
-          description: 状态不允许（10005/30002）
+        '403': { description: 录入人自行复核被拒（20003） }
 
-  /api/v1/eval/orders/{orderId}/review:
+  /api/v1/evaluation/assessments/{orderId}/review/reject:
     post:
       tags: [evaluation]
-      summary: 复核（发布/驳回；复核人必须 ≠ 录入人）
+      summary: 复核驳回（SUBMITTED → REJECTED，退回录入人可修改重提）
+      operationId: reviewReject
       x-required-permission: evaluation:order:review
+      x-data-scope: { mode: org, by-role: { ORG_ADMIN: org } }
+      x-status: implemented
       parameters:
-        - name: orderId
-          in: path
-          required: true
-          schema: { type: integer, format: int64 }
+        - { $ref: '#/components/parameters/OrderId' }
         - { $ref: '#/components/parameters/IdempotencyKey' }
       requestBody:
         required: true
@@ -527,27 +1028,187 @@ paths:
             schema:
               type: object
               properties:
-                decision: { type: string, enum: [PUBLISH, REJECT] }
-                opinion: { type: string }
-              required: [decision]
+                opinion: { type: string, description: 驳回意见必填 }
+              required: [opinion]
       responses:
         '200': { description: 成功, content: { application/json: { schema: { $ref: '#/components/schemas/R' } } } }
-        '403':
-          description: 录入人自行复核被拒（20003）
 
-  /api/v1/rule/versions:
-    get:
-      tags: [rule]
-      summary: 国标规则版本列表
-      x-required-permission: rule:view
+  /api/v1/evaluation/assessments/{orderId}/review/void:
+    post:
+      tags: [evaluation]
+      summary: 作废评估单（SUBMITTED / PUBLISHED / REJECTED → VOID）
+      description: |
+        权限码为 **OR 语义**：`evaluation:order:review`（机构管理员常驻持有）**或**
+        `evaluation:order:void`（敏感点，种子不授予任何角色，由运行时二次验证临时提权）。
+        只要码表含敏感码，第四闸即强制要求 `X-Second-Verify-Token` —— 最终效力 = 机构管理员 + 二次验证。
+      operationId: reviewVoid
+      x-required-permission: evaluation:order:review | evaluation:order:void
+      x-data-scope: { mode: org, by-role: { ORG_ADMIN: org } }
+      x-second-verify: true
+      x-status: implemented
+      parameters:
+        - { $ref: '#/components/parameters/OrderId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                opinion: { type: string, description: 作废原因 }
       responses:
-        '200': { description: 列表, content: { application/json: { schema: { $ref: '#/components/schemas/R' } } } }
+        '200': { description: 成功, content: { application/json: { schema: { $ref: '#/components/schemas/R' } } } }
 
+  /api/v1/evaluation/assessments/{orderId}/review-logs:
+    get:
+      tags: [evaluation]
+      summary: 复核流转日志（审计链）
+      description: 可读范围三者任一：复核只读（监管）、复核（机构管理员）、任务读（录入评估员，须看驳回意见）。
+      operationId: reviewLogs
+      x-required-permission: evaluation:order:review:read | evaluation:order:review | evaluation:task:read
+      x-data-scope:
+        mode: org
+        by-role: { ASSESSOR: org, ORG_ADMIN: org, SUPERVISOR: all }
+        extra: eval_review_log 无机构列，由「经 orderId 反查 + 第二闸」约束
+      x-status: implemented
+      parameters: [{ $ref: '#/components/parameters/OrderId' }]
+      responses:
+        '200': { description: 流水, content: { application/json: { schema: { $ref: '#/components/schemas/R' } } } }
+
+  /api/v1/evaluation/assessments/{orderId}/report:
+    post:
+      tags: [report]
+      summary: 生成报告（幂等）并绑定初判/终判/变化原因 + 规则版本与指纹
+      operationId: reportBind
+      x-required-permission: evaluation:item:input
+      x-data-scope: { mode: org, by-role: { ASSESSOR: org, ORG_ADMIN: org } }
+      x-status: implemented
+      parameters:
+        - { $ref: '#/components/parameters/OrderId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      responses:
+        '200': { description: 报告视图, content: { application/json: { schema: { $ref: '#/components/schemas/R' } } } }
+    get:
+      tags: [report]
+      summary: 查询评估报告（含维度得分、PDF 键与验真二维码）
+      operationId: reportGet
+      x-required-permission: report:view
+      x-data-scope:
+        mode: org
+        by-role: { ELDER: self, ASSESSOR: org, FAMILY: relation, ORG_ADMIN: org, SUPERVISOR: all }
+        via: elder_family_bind
+      x-sensitive-fields: [gradeCode, totalScore, dimensionScores]
+      x-status: implemented
+      parameters: [{ $ref: '#/components/parameters/OrderId' }]
+      responses:
+        '200': { description: 报告详情, content: { application/json: { schema: { $ref: '#/components/schemas/R' } } } }
+
+  /api/v1/evaluation/assessments/{orderId}/report/pdf:
+    post:
+      tags: [report]
+      summary: 生成报告 PDF 并回填对象键与验真二维码内容（幂等）
+      operationId: reportPdfGenerate
+      x-required-permission: report:view
+      x-data-scope: { mode: org, by-role: { ASSESSOR: org, ORG_ADMIN: org, SUPERVISOR: all } }
+      x-sensitive-fields: [gradeCode, totalScore, dimensionScores, careItems]
+      x-status: implemented
+      parameters:
+        - { $ref: '#/components/parameters/OrderId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      responses:
+        '200':
+          description: 生成结果（对象键、字节数、是否嵌入中文字体）
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/R' }
+
+  /api/v1/evaluation/reports/{reportNo}/pdf:
+    get:
+      tags: [report]
+      summary: 下载报告 PDF
+      description: |
+        **读取/分发轴**（按报告编号）。本端点曾存在 P0 越权（CR-M2-006：无第二闸 + 服务直接读文件使第三闸失效 →
+        任何已登录用户可跨机构下载任意报告全文），修复后两道闸均生效：
+        ① 第二闸 `report:view`；② `read()` 先按 `report_no` 反查使得数据域行级过滤介入，
+        跨机构/跨关系的编号统一落 `R.code=10004`（与「报告不存在」同码，不泄露存在性；HTTP 状态码仍为 200，见 responses）。
+      operationId: reportPdfDownload
+      x-required-permission: report:view
+      x-data-scope:
+        mode: relation
+        by-role: { ELDER: self, ASSESSOR: org, FAMILY: relation, ORG_ADMIN: org, SUPERVISOR: all }
+        via: elder_family_bind
+        condition: "status=2 AND deleted=0 AND (auth_end_at IS NULL OR auth_end_at > NOW())"
+        extra: 先查库后读文件（否则第三闸在文件路径上失效）
+      x-sensitive-fields: [gradeCode, totalScore, dimensionScores, careItems, elderName]
+      x-status: implemented
+      parameters: [{ $ref: '#/components/parameters/ReportNo' }]
+      responses:
+        '200':
+          description: |
+            PDF 字节流（`application/pdf`）。
+            ⚠ 本服务**业务异常一律返回 HTTP 200** + 统一响应体（`GlobalExceptionHandler#handleBiz` 无 `@ResponseStatus`，
+            仅参数校验 400、未预期异常 500 才改状态码）。因此「报告不存在或无权访问」同样落在 200，
+            客户端**必须判 `R.code`**（`10004`）、不能以 HTTP 状态码区分成败。
+            对二进制端点尤须如此：响应体一旦是 `application/json`（而非 `%PDF-` 开头），即表示未拿到文件。
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        '401': { description: 凭据无效或已过期（`JwtAuthFilter` 置 401 + `R.code=10002`） }
+        '403': { description: 未携带凭据（Spring Security 默认入口点，非统一响应体） }
+
+  /api/v1/evaluation/assessments/{orderId}/care-plan:
+    post:
+      tags: [evaluation]
+      summary: 生成照护方案（按等级匹配模板；无匹配降级通用建议）
+      description: 建议人取登录态；评估员持 `care:plan:edit:suggest`、机构管理员持 `care:plan:edit`，二者任一可生成。
+      operationId: carePlanGenerate
+      x-required-permission: care:plan:edit | care:plan:edit:suggest
+      x-data-scope: { mode: org, by-role: { ASSESSOR: org, ORG_ADMIN: org } }
+      x-status: implemented
+      parameters:
+        - { $ref: '#/components/parameters/OrderId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      responses:
+        '200': { description: 方案, content: { application/json: { schema: { $ref: '#/components/schemas/R' } } } }
+    get:
+      tags: [evaluation]
+      summary: 查询照护方案
+      operationId: carePlanGet
+      x-required-permission: report:view | care:plan:edit | care:plan:edit:suggest
+      x-data-scope:
+        mode: org
+        by-role: { ELDER: self, ASSESSOR: org, FAMILY: relation, ORG_ADMIN: org, SUPERVISOR: all }
+        via: care_plan.elder_id
+      x-sensitive-fields: [items]
+      x-status: implemented
+      parameters: [{ $ref: '#/components/parameters/OrderId' }]
+      responses:
+        '200': { description: 方案, content: { application/json: { schema: { $ref: '#/components/schemas/R' } } } }
+
+  /api/v1/evaluation/assessments/{orderId}/care-plan/confirm:
+    post:
+      tags: [evaluation]
+      summary: 确认照护方案（确认人取登录态，须 ≠ 建议人）
+      operationId: carePlanConfirm
+      x-required-permission: care:plan:edit
+      x-data-scope: { mode: org, by-role: { ORG_ADMIN: org } }
+      x-status: implemented
+      parameters:
+        - { $ref: '#/components/parameters/OrderId' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      responses:
+        '200': { description: 方案, content: { application/json: { schema: { $ref: '#/components/schemas/R' } } } }
+
+  # ======================= rule（国标规则） =======================
   /api/v1/rule/mapping:
     get:
       tags: [rule]
       summary: 国标条款 → 规则条目映射矩阵（可机器校验的追溯锚点）
+      operationId: ruleMapping
       x-required-permission: rule:view
+      x-data-scope: { mode: all, extra: 字典/规则类，无行级过滤 }
+      x-status: implemented
       parameters:
         - name: ruleVersionId
           in: query
@@ -556,43 +1217,17 @@ paths:
       responses:
         '200': { description: 映射矩阵, content: { application/json: { schema: { $ref: '#/components/schemas/R' } } } }
 
-  /api/v1/reports/{reportId}:
-    get:
-      tags: [report]
-      summary: 报告详情（含维度得分与验真信息）
-      x-required-permission: report:view
-      parameters:
-        - name: reportId
-          in: path
-          required: true
-          schema: { type: integer, format: int64 }
-      responses:
-        '200': { description: 详情, content: { application/json: { schema: { $ref: '#/components/schemas/R' } } } }
-
-  /api/v1/reports/{reportId}/generate:
-    post:
-      tags: [report]
-      summary: 生成 PDF 报告（幂等：防重复生成，PRD §7 幂等防重）
-      x-required-permission: evaluation:order:review
-      parameters:
-        - name: reportId
-          in: path
-          required: true
-          schema: { type: integer, format: int64 }
-        - { $ref: '#/components/parameters/IdempotencyKey' }
-      responses:
-        '200':
-          description: 生成结果（含 pdf 下载临时地址）
-          content:
-            application/json:
-              schema: { $ref: '#/components/schemas/R' }
-
+  # ======================= report（验真） =======================
   /api/v1/reports/verify:
     get:
       tags: [report]
       summary: 二维码验真（扫码核验报告有效性）
-      x-required-permission: none
+      description: 公开端点（扫码即验），需限频；仅返回"有效/无效 + 等级 + 出具时间"，不返回个人信息。
+      operationId: reportVerify
       security: []
+      x-required-permission: none
+      x-data-scope: { mode: public, extra: 仅返回验真结论，不含个人敏感字段；须限频 }
+      x-status: implemented
       parameters:
         - name: code
           in: query
@@ -601,11 +1236,284 @@ paths:
       responses:
         '200': { description: 验真结果, content: { application/json: { schema: { $ref: '#/components/schemas/R' } } } }
 
+  # ======================= family（亲情绑定与家属端读取，D-4） =======================
+  /api/v1/family/bindings:
+    get:
+      tags: [family]
+      summary: 我的亲情绑定列表（家属侧）
+      description: 绑定表自身按 `family_user_id` 过滤（**不可**按老人锚列：同为一位老人的其他家属绑定行不得可见）。
+      operationId: familyBindingList
+      x-required-permission: account:family:bind
+      x-data-scope:
+        mode: relation
+        via: elder_family_bind
+        condition: "FAMILY: family_user_id = 登录用户（本表自身过滤）；ORG_ADMIN: elder_family_bind.elder_id IN (SELECT id FROM elder WHERE elder.org_id IN (登录机构))"
+        extra: 仅返回本人发起的绑定（含待审核/已生效/已解绑）；机构管理员经 elder.org_id 反查锚收口本机构（★F3）
+      x-sensitive-fields: [elderName, proofCosKey]
+      x-status: implemented
+      parameters:
+        - { $ref: '#/components/parameters/PageNum' }
+        - { $ref: '#/components/parameters/PageSize' }
+      responses:
+        '200':
+          description: 分页结果
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/R'
+                  - properties:
+                      data:
+                        allOf:
+                          - $ref: '#/components/schemas/PageResult'
+                          - properties:
+                              list:
+                                type: array
+                                items: { $ref: '#/components/schemas/FamilyBindingView' }
+    post:
+      tags: [family]
+      summary: 发起亲情绑定（家属侧）
+      operationId: familyBindingCreate
+      x-required-permission: account:family:bind
+      x-data-scope:
+        mode: relation
+        extra: 写入前校验 elderId 存在且未与他人生效绑定；机构审核通过后 status=2
+      x-sensitive-fields: [proofCosKey]
+      x-status: implemented
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/FamilyBindingCreate' }
+      responses:
+        '200':
+          description: 绑定申请（status=0/1）
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/R'
+                  - properties:
+                      data: { $ref: '#/components/schemas/FamilyBindingView' }
+
+  /api/v1/family/bindings/{id}/approve:
+    post:
+      tags: [family]
+      summary: 机构审核通过绑定
+      description: 反向缺口 R3；PRD §4.2 绑定五步的「④ 机构审核」。
+      operationId: familyBindingApprove
+      x-required-permission: account:org:manage
+      x-data-scope:
+        mode: org
+        by-role: { ORG_ADMIN: org }
+        condition: "elder_family_bind.elder_id IN (SELECT id FROM elder WHERE elder.org_id IN (登录机构))"
+        extra: 被审绑定须落在本机构域内（经 elder.org_id 反查锚，★F3）；权限码为 ORG_ADMIN 独占（★C1，原 account:family:bind 被 FAMILY 共享 → 可自我放行）
+      x-status: implemented
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      responses:
+        '200': { description: 成功, content: { application/json: { schema: { $ref: '#/components/schemas/R' } } } }
+
+  /api/v1/family/bindings/{id}/reject:
+    post:
+      tags: [family]
+      summary: 老人侧拒绝亲情绑定
+      description: 反向缺口 R4；权限码只给「拒绝」，不含「确认」——老人可不注册（PRD §2.1），放行由机构审核承载。
+      operationId: familyBindingReject
+      x-required-permission: account:family:bind:reject
+      x-data-scope:
+        mode: self
+        via: elder
+        condition: "elder_family_bind.elder_id IN (SELECT id FROM elder WHERE elder.user_id = 登录用户)"
+        extra: 仅绑定关系中的老人本人可拒绝（经 elder.user_id 反查锚，★F1）
+      x-status: implemented
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason: { type: string }
+      responses:
+        '200': { description: 成功, content: { application/json: { schema: { $ref: '#/components/schemas/R' } } } }
+
+  /api/v1/family/bindings/{id}/unbind:
+    post:
+      tags: [family]
+      summary: 解绑亲情关系（敏感：二次验证）
+      description: |
+        反向缺口 R2 落地。权限码 `account:family:unbind`（敏感点，不授予任何角色，由运行时二次验证临时提权）。
+        实现采用 **OR 语义**：持 `account:family:bind` **或** `account:family:unbind` 任一即可 —— 所需码表**含敏感码** ⇒
+        `PermissionAspect` 仍**强制第四闸**二次验证（缺 `X-Second-Verify-Token` → `10008`）。
+      operationId: familyBindingUnbind
+      x-required-permission: account:family:unbind
+      x-data-scope:
+        mode: relation
+        via: elder_family_bind
+        condition: "FAMILY: family_user_id = 登录用户；ORG_ADMIN: elder_family_bind.elder_id IN (SELECT id FROM elder WHERE elder.org_id IN (登录机构))"
+        extra: 仅可解绑本人参与的绑定关系；机构管理员经 elder.org_id 反查锚收口本机构（★F3）
+      x-second-verify: true
+      x-status: implemented
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+      responses:
+        '200': { description: 成功, content: { application/json: { schema: { $ref: '#/components/schemas/R' } } } }
+
+  /api/v1/family/bindings/{relationId}/reports:
+    get:
+      tags: [family]
+      summary: 家属查看老人已发布报告列表
+      description: 复用 `report:view`（不新增 `family:*:read`，与 CR-M2-001 对 `elder:archive:read` 的裁决同构）。
+      operationId: familyReportList
+      x-required-permission: report:view
+      x-data-scope:
+        mode: relation
+        via: elder_family_bind
+        condition: "status=2 AND deleted=0 AND (auth_end_at IS NULL OR auth_end_at > NOW())"
+        extra: 仅 status=PUBLISHED 的报告；relationId 必须是本人名下的绑定关系
+      x-sensitive-fields: [gradeCode, totalScore]
+      x-status: implemented
+      parameters:
+        - { $ref: '#/components/parameters/RelationId' }
+        - { $ref: '#/components/parameters/PageNum' }
+        - { $ref: '#/components/parameters/PageSize' }
+      responses:
+        '200':
+          description: 分页结果
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/R'
+                  - properties:
+                      data: { $ref: '#/components/schemas/PageResult' }
+
+  /api/v1/family/bindings/{relationId}/reports/{reportId}:
+    get:
+      tags: [family]
+      summary: 家属查看报告详情（含维度得分与照护建议）
+      operationId: familyReportDetail
+      x-required-permission: report:view
+      x-data-scope:
+        mode: relation
+        via: elder_family_bind
+        condition: "status=2 AND deleted=0 AND (auth_end_at IS NULL OR auth_end_at > NOW())"
+        extra: 仅 status=PUBLISHED；他人 reportId 在数据域层即被拒（反查锚）
+      x-sensitive-fields: [gradeCode, totalScore, dimensionScores, careItems]
+      x-status: implemented
+      parameters:
+        - { $ref: '#/components/parameters/RelationId' }
+        - name: reportId
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '200': { description: 报告详情, content: { application/json: { schema: { $ref: '#/components/schemas/R' } } } }
+
+  /api/v1/family/bindings/{relationId}/trend:
+    get:
+      tags: [family]
+      summary: 家属查看能力变化趋势（历次等级与总分）
+      operationId: familyTrend
+      x-required-permission: report:view
+      x-data-scope:
+        mode: relation
+        via: elder_family_bind
+        condition: "status=2 AND deleted=0 AND (auth_end_at IS NULL OR auth_end_at > NOW())"
+        extra: 仅 status=PUBLISHED；按 published_at 升序
+      x-sensitive-fields: [gradeCode, totalScore]
+      x-status: implemented
+      parameters: [{ $ref: '#/components/parameters/RelationId' }]
+      responses:
+        '200': { description: 趋势点集, content: { application/json: { schema: { $ref: '#/components/schemas/R' } } } }
+
+  /api/v1/family/bindings/{relationId}/care-plan:
+    get:
+      tags: [family]
+      summary: 家属查看已确认的照护方案
+      operationId: familyCarePlan
+      x-required-permission: report:view
+      x-data-scope:
+        mode: relation
+        via: care_plan.elder_id
+        condition: "status=2 AND deleted=0 AND (auth_end_at IS NULL OR auth_end_at > NOW())"
+        extra: 仅 status=1（已确认）的方案
+      x-sensitive-fields: [items]
+      x-status: implemented
+      parameters: [{ $ref: '#/components/parameters/RelationId' }]
+      responses:
+        '200': { description: 方案, content: { application/json: { schema: { $ref: '#/components/schemas/R' } } } }
+
+  # ======================= account（机构/人员管理，D-3） =======================
+  /api/v1/account/orgs:
+    get:
+      tags: [account]
+      summary: 机构列表
+      description: 反向缺口 R6（`account:org:manage` / `:read`）；`Org` 实体已存在，仅缺控制器。
+      operationId: orgList
+      x-required-permission: account:org:manage | account:org:manage:read
+      x-data-scope: { mode: org, by-role: { ORG_ADMIN: org, SUPERVISOR: all } }
+      x-status: implemented
+      parameters:
+        - { $ref: '#/components/parameters/PageNum' }
+        - { $ref: '#/components/parameters/PageSize' }
+      responses:
+        '200':
+          description: 分页结果
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/R'
+                  - properties:
+                      data: { $ref: '#/components/schemas/PageResult' }
+
+  /api/v1/account/orgs/{orgId}:
+    get:
+      tags: [account]
+      summary: 机构详情
+      operationId: orgDetail
+      x-required-permission: account:org:manage | account:org:manage:read
+      x-data-scope: { mode: org, by-role: { ORG_ADMIN: org, SUPERVISOR: all } }
+      x-status: implemented
+      parameters:
+        - name: orgId
+          in: path
+          required: true
+          schema: { type: integer, format: int64 }
+      responses:
+        '200': { description: 详情, content: { application/json: { schema: { $ref: '#/components/schemas/R' } } } }
+
+  # ======================= supervise（监管上报与导出，D-3） =======================
   /api/v1/supervise/exports:
     post:
       tags: [supervise]
       summary: 创建导出任务（≤5000 同步；>10000 走异步落地 COS；全留痕）
+      operationId: superviseExportCreate
       x-required-permission: data:export
+      x-data-scope:
+        mode: org
+        by-role: { ORG_ADMIN: org, SUPERVISOR: all }
+        extra: 导出范围不得超过登录态数据域；`export_task` 按 operator_id 记录发起人，并新增可空机构锚列 `org_id`（D-3 裁决 1-A）以支撑机构级可见性
+      x-second-verify: true
+      x-sensitive-fields: [elderName, idCardMask, phone]
+      x-status: implemented
       parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
       requestBody:
         required: true
@@ -617,31 +1525,37 @@ paths:
                 exportType: { type: string, enum: [EVAL_LIST, REPORT, STAT] }
                 format: { type: string, enum: [XLSX, PDF, CSV] }
                 queryParams: { type: object, additionalProperties: true }
-                secondaryToken: { type: string, description: 导出需二次验证 }
-              required: [exportType, format, secondaryToken]
+              required: [exportType, format]
       responses:
         '200':
           description: 任务已创建（返回 taskNo 与状态）
           content:
             application/json:
               schema: { $ref: '#/components/schemas/R' }
-        '400':
-          description: 超出单次上限（60001）
+        '400': { description: 超出单次上限（60001） }
 
   /api/v1/supervise/report:
     post:
       tags: [supervise]
       summary: 监管数据上报（支持重试 + 幂等）
+      description: 上报成功时写 `retain_until`（归档任务据此清理，ER-14 / ADR-0004）。
+      operationId: superviseReportSubmit
       x-required-permission: supervise:report:submit
+      x-data-scope: { mode: org, by-role: { ORG_ADMIN: org, SUPERVISOR: all } }
+      x-status: implemented
       parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
       responses:
         '200': { description: 受理, content: { application/json: { schema: { $ref: '#/components/schemas/R' } } } }
 
+  # ======================= system =======================
   /api/v1/system/health:
     get:
       tags: [system]
-      summary: 健康检查（actuator 探针）
-      x-required-permission: none
+      summary: 健康检查（actuator 探针，含报告字体自检）
+      operationId: systemHealth
       security: []
+      x-required-permission: none
+      x-data-scope: { mode: public }
+      x-status: implemented
       responses:
         '200': { description: UP }
