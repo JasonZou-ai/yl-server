@@ -223,7 +223,7 @@ SELF_VIA_PARENT:  elder_family_bind → (elder_id, elder)   // scope=1：经 eld
 | 6 | `authLogout` 黑名单 | 复用既有 `StringRedisTemplate`：access 令牌按 `sha256(token)` 记黑名单，TTL = 剩余 `accessTtl`（300s）；**同时** `RefreshTokenStore.revoke(refreshToken)`（键 `yl:rt:` 已存在）→ 双令牌同时失效。**不新增 `@Scheduled`** |
 | 7 | 家属端模块归属 | **落 `yl-module-archive`**（D-2 已建 `elder` 实体 + `SensitiveFieldSupport` + 分页基建；`elder_family_bind` 是档案的关联关系）。跨域读（报告/趋势/照护）用**只读投影 Mapper**（D-3 判据） |
 | 8 | `reject` 契约 `mode` | 由 `relation` 订正为 `self`（§4.4） |
-| 9 | dev 联调账号 | **补 `elder_dev`（ELDER/1）+ `family_dev`（FAMILY/5）**，口令 `YlDev@2026`，同 `04_seed_dev_accounts.sql`「上线前必须移除」红线；ELDER 账号须经 `POST /elders/{elderId}/user-binding` 或种子回填绑定到某 `elder.user_id` |
+| 9 | dev 联调账号 | **补 `elder_dev`（ELDER/1）+ `family_dev`（FAMILY/5）**，口令经环境变量 `DEV_LOGIN_PASSWORD` 注入（原为已泄露的固定口令，**2026-10-10 轮换**，见 `04_seed_dev_accounts.sql` 头部声明与 `P2-8-R12`）；ELDER 账号须经 `POST /elders/{elderId}/user-binding` 或种子回填绑定到某 `elder.user_id` |
 
 ---
 

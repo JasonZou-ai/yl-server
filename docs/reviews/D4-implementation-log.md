@@ -304,7 +304,7 @@ MYSQL_PASSWORD=… MYSQL_BIN=/c/mysql/bin/mysql.exe bash scripts/verify-schema.s
 **修改文件**：`docker/mysql/init/04_seed_dev_accounts.sql`（只加不改；**零 DDL**、**不动 verify-schema 断言**）
 
 - 新增 `sys_user`：`elder_dev`（id `…003`，ELDER/1001，data_scope=1）、`family_dev`（id `…004`，FAMILY/1003，
-  data_scope=5）；口令 `YlDev@2026`（沿用同款 BCrypt 散列）。
+  data_scope=5）；口令经环境变量 `DEV_LOGIN_PASSWORD` 注入。**★ 2026-10-10 更正**：原记录写「沿用同款 BCrypt 散列」—— 即四账号**共用同一散列**（一处泄露即全部泄露，已修）；该散列与对应明文口令**已随公开历史永久暴露**，现按已泄露凭据处理并**已轮换**（见 `P2-8-R12`）。
 - 新增 `sys_user_role`：`…003→1001`、`…004→1003`。
 - 新增 `sys_org_member`：两行归属联调机构 `org=1`（`role_id` 与 `sys_user_role` 一致，`is_default=1`）。
 - 全部 `INSERT IGNORE`（幂等）。

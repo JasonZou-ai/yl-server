@@ -24,7 +24,7 @@
 | Redis | `C:\redis`，6379 无密码（启动时须 `REDIS_PASSWORD=''`） |
 | 敏感字段密钥 | Base64 且 ≥32 字节，启动时注入（建档/reveal 正常路径必需） |
 | 二次验证口令 | `SECOND_VERIFY_DEV_CODE`（敏感 reveal 必需） |
-| dev 账号 | `assessor_dev`（ASSESSOR）/ `orgadmin_dev`（ORG_ADMIN，reveal 用），口令 `YlDev@2026` |
+| dev 账号 | `assessor_dev`（ASSESSOR）/ `orgadmin_dev`（ORG_ADMIN，reveal 用）；口令由环境变量 **`DEV_LOGIN_PASSWORD`** 注入（**不落任何已跟踪文件**，见 `04_seed_dev_accounts.sql` 头部声明） |
 
 启动后端（逐字照抄，三个坑必须绕开）：
 

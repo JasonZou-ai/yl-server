@@ -25,7 +25,7 @@
 | 敏感字段密钥 | Base64 且 ≥32 字节，启动时注入（B9 CSV 姓名/手机解密→脱敏正常路径必需） |
 | 二次验证口令 | `SECOND_VERIFY_DEV_CODE`（B9 `data:export` 敏感点必需） |
 | 导出落盘目录 | `EXPORT_DIR`（= 后端 `yl.export.dir`），供 B9 魔数/表头/注入断言读取 |
-| dev 账号 | `assessor_dev`（ASSESSOR）/ `orgadmin_dev`（ORG_ADMIN），口令 `YlDev@2026` |
+| dev 账号 | `assessor_dev`（ASSESSOR）/ `orgadmin_dev`（ORG_ADMIN）；口令由环境变量 **`DEV_LOGIN_PASSWORD`** 注入（**不落任何已跟踪文件**） |
 
 启动后端（逐字照抄，三个坑必须绕开）：
 

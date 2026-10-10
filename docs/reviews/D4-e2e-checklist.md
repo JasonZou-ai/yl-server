@@ -27,7 +27,7 @@
 | Redis | `C:\redis`，6379 无密码（启动时须 `REDIS_PASSWORD=''`） |
 | 敏感字段密钥 | `SENSITIVE_FIELD_KEY` / `SENSITIVE_FIELD_HASH_KEY`，**Base64 且 ≥32 字节**（D-4 申请核验 `hashForSearch` 必需；**缺失 → 申请 `40001`**） |
 | 二次验证口令 | `SECOND_VERIFY_DEV_CODE`（解除绑定 `account:family:unbind` 敏感点必需） |
-| dev 账号 | `assessor_dev`（ASSESSOR）/ `orgadmin_dev`（ORG_ADMIN）/ **`elder_dev`（ELDER）/ `family_dev`（FAMILY）**，口令 `YlDev@2026` |
+| dev 账号 | `assessor_dev`（ASSESSOR）/ `orgadmin_dev`（ORG_ADMIN）/ **`elder_dev`（ELDER）/ `family_dev`（FAMILY）**；口令由环境变量 **`DEV_LOGIN_PASSWORD`** 注入（**不落任何已跟踪文件**） |
 
 > **★C4 前言（缺任一 → 预期内失败，非缺陷）**：D-4 新增端到端链**强依赖**以下启动前置——
 > ① `SENSITIVE_FIELD_KEY` + `SENSITIVE_FIELD_HASH_KEY`（否则 `POST /family/bindings` 核验前即 `40001`，**零 insert**）；
