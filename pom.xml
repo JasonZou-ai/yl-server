@@ -44,6 +44,8 @@
         <rocketmq.version>2.3.0</rocketmq.version>
         <xxl-job.version>2.4.1</xxl-job.version>
         <knife4j.version>4.5.0</knife4j.version>
+        <!-- 报告 PDF 渲染（ADR-0006）：Apache-2.0 许可，避免 iText/AGPL 传染性 -->
+        <pdfbox.version>2.0.30</pdfbox.version>
 
         <spotless.version>2.43.0</spotless.version>
         <google-java-format.version>1.19.2</google-java-format.version>
@@ -111,6 +113,13 @@
                 <groupId>com.xuxueli</groupId>
                 <artifactId>xxl-job-core</artifactId>
                 <version>${xxl-job.version}</version>
+            </dependency>
+
+            <!-- 报告 PDF 渲染（ADR-0006）：Apache PDFBox，Apache-2.0 -->
+            <dependency>
+                <groupId>org.apache.pdfbox</groupId>
+                <artifactId>pdfbox</artifactId>
+                <version>${pdfbox.version}</version>
             </dependency>
 
             <!-- 工具 -->
@@ -190,6 +199,11 @@
                     <version>3.13.0</version>
                     <configuration>
                         <release>17</release>
+                        <!-- 保留方法参数名（-parameters）：否则 Spring MVC 无法解析未显式命名的
+                             @PathVariable / @RequestParam，运行期抛
+                             "Name for argument of type [...] not specified"（真实 HTTP 调用才暴露，单测/Mock 测不出）。
+                             本项目未继承 spring-boot-starter-parent，故必须显式开启。 -->
+                        <parameters>true</parameters>
                         <annotationProcessorPaths>
                             <path>
                                 <groupId>org.projectlombok</groupId>

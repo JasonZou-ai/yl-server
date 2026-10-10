@@ -87,4 +87,36 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <!--
+            DB 级集成门禁 profile（闭环 D5-R1）。
+
+            默认 surefire includes = **/*Test.java，故 *IT.java（如 RetentionChainDbIT）不进默认 `mvn verify`
+            ——既有 270/0 基线不受影响。仅当显式 `-P db-it` 时把 includes 收窄为 **/*IT.java，只跑 DB 级集成测试。
+            便捷入口：`bash scripts/verify-retention-chain.sh`（需 MySQL/Redis 在跑）。
+        -->
+        <profile>
+            <id>db-it</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-surefire-plugin</artifactId>
+                        <!--
+                            显式固定版本以消除 “plugin.version is missing” WARNING（根 POM 无 pluginManagement）。
+                            3.5.4 = 本机 Maven 3.9.16 超 POM 的默认值，故与默认构建**同版本、零行为变更**；
+                            如升级 Maven / 需要统一版本，请同步修改此处。
+                        -->
+                        <version>3.5.4</version>
+                        <configuration>
+                            <includes>
+                                <include>**/*IT.java</include>
+                            </includes>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

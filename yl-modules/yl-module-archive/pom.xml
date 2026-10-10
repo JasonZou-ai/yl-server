@@ -18,5 +18,15 @@
             <groupId>cn.yl</groupId>
             <artifactId>yl-api</artifactId>
         </dependency>
+        <!-- 档案域自己持有 ElderMapper/实体，需 MyBatis-Plus（与 yl-module-evaluation 同构） -->
+        <dependency>
+            <groupId>com.baomidou</groupId>
+            <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
     </dependencies>
 </project>
