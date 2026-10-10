@@ -1,0 +1,7429 @@
+[
+  {
+    "id": "N000",
+    "title": "总分 0 边界",
+    "category": "boundary",
+    "description": "无特殊标志，总分=0",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 0
+        },
+        {
+          "indicatorId": 102,
+          "score": 0
+        },
+        {
+          "indicatorId": 103,
+          "score": 0
+        },
+        {
+          "indicatorId": 104,
+          "score": 0
+        },
+        {
+          "indicatorId": 105,
+          "score": 0
+        },
+        {
+          "indicatorId": 106,
+          "score": 0
+        },
+        {
+          "indicatorId": 107,
+          "score": 0
+        },
+        {
+          "indicatorId": 108,
+          "score": 0
+        },
+        {
+          "indicatorId": 201,
+          "score": 0
+        },
+        {
+          "indicatorId": 202,
+          "score": 0
+        },
+        {
+          "indicatorId": 203,
+          "score": 0
+        },
+        {
+          "indicatorId": 204,
+          "score": 0
+        },
+        {
+          "indicatorId": 301,
+          "score": 0
+        },
+        {
+          "indicatorId": 302,
+          "score": 0
+        },
+        {
+          "indicatorId": 303,
+          "score": 0
+        },
+        {
+          "indicatorId": 304,
+          "score": 0
+        },
+        {
+          "indicatorId": 305,
+          "score": 0
+        },
+        {
+          "indicatorId": 306,
+          "score": 0
+        },
+        {
+          "indicatorId": 307,
+          "score": 0
+        },
+        {
+          "indicatorId": 308,
+          "score": 0
+        },
+        {
+          "indicatorId": 309,
+          "score": 0
+        },
+        {
+          "indicatorId": 401,
+          "score": 0
+        },
+        {
+          "indicatorId": 402,
+          "score": 0
+        },
+        {
+          "indicatorId": 403,
+          "score": 0
+        },
+        {
+          "indicatorId": 404,
+          "score": 0
+        },
+        {
+          "indicatorId": 405,
+          "score": 0
+        }
+      ],
+      "flags": {}
+    },
+    "expect": {
+      "totalScore": 0,
+      "preliminaryLevel": 4,
+      "level": 4,
+      "levelChangeReason": null
+    }
+  },
+  {
+    "id": "N001",
+    "title": "总分 1 边界",
+    "category": "boundary",
+    "description": "边界总分=1",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 0
+        },
+        {
+          "indicatorId": 102,
+          "score": 0
+        },
+        {
+          "indicatorId": 103,
+          "score": 0
+        },
+        {
+          "indicatorId": 104,
+          "score": 0
+        },
+        {
+          "indicatorId": 105,
+          "score": 0
+        },
+        {
+          "indicatorId": 106,
+          "score": 0
+        },
+        {
+          "indicatorId": 107,
+          "score": 0
+        },
+        {
+          "indicatorId": 108,
+          "score": 0
+        },
+        {
+          "indicatorId": 201,
+          "score": 0
+        },
+        {
+          "indicatorId": 202,
+          "score": 0
+        },
+        {
+          "indicatorId": 203,
+          "score": 0
+        },
+        {
+          "indicatorId": 204,
+          "score": 0
+        },
+        {
+          "indicatorId": 301,
+          "score": 0
+        },
+        {
+          "indicatorId": 302,
+          "score": 0
+        },
+        {
+          "indicatorId": 303,
+          "score": 0
+        },
+        {
+          "indicatorId": 304,
+          "score": 0
+        },
+        {
+          "indicatorId": 305,
+          "score": 0
+        },
+        {
+          "indicatorId": 306,
+          "score": 0
+        },
+        {
+          "indicatorId": 307,
+          "score": 0
+        },
+        {
+          "indicatorId": 308,
+          "score": 0
+        },
+        {
+          "indicatorId": 309,
+          "score": 0
+        },
+        {
+          "indicatorId": 401,
+          "score": 0
+        },
+        {
+          "indicatorId": 402,
+          "score": 0
+        },
+        {
+          "indicatorId": 403,
+          "score": 0
+        },
+        {
+          "indicatorId": 404,
+          "score": 0
+        },
+        {
+          "indicatorId": 405,
+          "score": 1
+        }
+      ],
+      "flags": {}
+    },
+    "expect": {
+      "totalScore": 1,
+      "preliminaryLevel": 4,
+      "level": 4,
+      "levelChangeReason": null
+    }
+  },
+  {
+    "id": "N003",
+    "title": "总分 3 常规",
+    "category": "normal",
+    "description": "无特殊标志，总分=3",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 0
+        },
+        {
+          "indicatorId": 102,
+          "score": 0
+        },
+        {
+          "indicatorId": 103,
+          "score": 0
+        },
+        {
+          "indicatorId": 104,
+          "score": 0
+        },
+        {
+          "indicatorId": 105,
+          "score": 0
+        },
+        {
+          "indicatorId": 106,
+          "score": 0
+        },
+        {
+          "indicatorId": 107,
+          "score": 0
+        },
+        {
+          "indicatorId": 108,
+          "score": 0
+        },
+        {
+          "indicatorId": 201,
+          "score": 0
+        },
+        {
+          "indicatorId": 202,
+          "score": 0
+        },
+        {
+          "indicatorId": 203,
+          "score": 0
+        },
+        {
+          "indicatorId": 204,
+          "score": 0
+        },
+        {
+          "indicatorId": 301,
+          "score": 0
+        },
+        {
+          "indicatorId": 302,
+          "score": 0
+        },
+        {
+          "indicatorId": 303,
+          "score": 0
+        },
+        {
+          "indicatorId": 304,
+          "score": 0
+        },
+        {
+          "indicatorId": 305,
+          "score": 0
+        },
+        {
+          "indicatorId": 306,
+          "score": 0
+        },
+        {
+          "indicatorId": 307,
+          "score": 0
+        },
+        {
+          "indicatorId": 308,
+          "score": 0
+        },
+        {
+          "indicatorId": 309,
+          "score": 0
+        },
+        {
+          "indicatorId": 401,
+          "score": 0
+        },
+        {
+          "indicatorId": 402,
+          "score": 0
+        },
+        {
+          "indicatorId": 403,
+          "score": 0
+        },
+        {
+          "indicatorId": 404,
+          "score": 0
+        },
+        {
+          "indicatorId": 405,
+          "score": 3
+        }
+      ],
+      "flags": {}
+    },
+    "expect": {
+      "totalScore": 3,
+      "preliminaryLevel": 4,
+      "level": 4,
+      "levelChangeReason": null
+    }
+  },
+  {
+    "id": "N006",
+    "title": "总分 6 常规",
+    "category": "normal",
+    "description": "无特殊标志，总分=6",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 0
+        },
+        {
+          "indicatorId": 102,
+          "score": 0
+        },
+        {
+          "indicatorId": 103,
+          "score": 0
+        },
+        {
+          "indicatorId": 104,
+          "score": 0
+        },
+        {
+          "indicatorId": 105,
+          "score": 0
+        },
+        {
+          "indicatorId": 106,
+          "score": 0
+        },
+        {
+          "indicatorId": 107,
+          "score": 0
+        },
+        {
+          "indicatorId": 108,
+          "score": 0
+        },
+        {
+          "indicatorId": 201,
+          "score": 0
+        },
+        {
+          "indicatorId": 202,
+          "score": 0
+        },
+        {
+          "indicatorId": 203,
+          "score": 0
+        },
+        {
+          "indicatorId": 204,
+          "score": 0
+        },
+        {
+          "indicatorId": 301,
+          "score": 0
+        },
+        {
+          "indicatorId": 302,
+          "score": 0
+        },
+        {
+          "indicatorId": 303,
+          "score": 0
+        },
+        {
+          "indicatorId": 304,
+          "score": 0
+        },
+        {
+          "indicatorId": 305,
+          "score": 0
+        },
+        {
+          "indicatorId": 306,
+          "score": 0
+        },
+        {
+          "indicatorId": 307,
+          "score": 0
+        },
+        {
+          "indicatorId": 308,
+          "score": 0
+        },
+        {
+          "indicatorId": 309,
+          "score": 0
+        },
+        {
+          "indicatorId": 401,
+          "score": 0
+        },
+        {
+          "indicatorId": 402,
+          "score": 0
+        },
+        {
+          "indicatorId": 403,
+          "score": 0
+        },
+        {
+          "indicatorId": 404,
+          "score": 2
+        },
+        {
+          "indicatorId": 405,
+          "score": 4
+        }
+      ],
+      "flags": {}
+    },
+    "expect": {
+      "totalScore": 6,
+      "preliminaryLevel": 4,
+      "level": 4,
+      "levelChangeReason": null
+    }
+  },
+  {
+    "id": "N009",
+    "title": "总分 9 常规",
+    "category": "normal",
+    "description": "无特殊标志，总分=9",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 0
+        },
+        {
+          "indicatorId": 102,
+          "score": 0
+        },
+        {
+          "indicatorId": 103,
+          "score": 0
+        },
+        {
+          "indicatorId": 104,
+          "score": 0
+        },
+        {
+          "indicatorId": 105,
+          "score": 0
+        },
+        {
+          "indicatorId": 106,
+          "score": 0
+        },
+        {
+          "indicatorId": 107,
+          "score": 0
+        },
+        {
+          "indicatorId": 108,
+          "score": 0
+        },
+        {
+          "indicatorId": 201,
+          "score": 0
+        },
+        {
+          "indicatorId": 202,
+          "score": 0
+        },
+        {
+          "indicatorId": 203,
+          "score": 0
+        },
+        {
+          "indicatorId": 204,
+          "score": 0
+        },
+        {
+          "indicatorId": 301,
+          "score": 0
+        },
+        {
+          "indicatorId": 302,
+          "score": 0
+        },
+        {
+          "indicatorId": 303,
+          "score": 0
+        },
+        {
+          "indicatorId": 304,
+          "score": 0
+        },
+        {
+          "indicatorId": 305,
+          "score": 0
+        },
+        {
+          "indicatorId": 306,
+          "score": 0
+        },
+        {
+          "indicatorId": 307,
+          "score": 0
+        },
+        {
+          "indicatorId": 308,
+          "score": 0
+        },
+        {
+          "indicatorId": 309,
+          "score": 0
+        },
+        {
+          "indicatorId": 401,
+          "score": 0
+        },
+        {
+          "indicatorId": 402,
+          "score": 0
+        },
+        {
+          "indicatorId": 403,
+          "score": 2
+        },
+        {
+          "indicatorId": 404,
+          "score": 3
+        },
+        {
+          "indicatorId": 405,
+          "score": 4
+        }
+      ],
+      "flags": {}
+    },
+    "expect": {
+      "totalScore": 9,
+      "preliminaryLevel": 4,
+      "level": 4,
+      "levelChangeReason": null
+    }
+  },
+  {
+    "id": "N012",
+    "title": "总分 12 常规",
+    "category": "normal",
+    "description": "无特殊标志，总分=12",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 0
+        },
+        {
+          "indicatorId": 102,
+          "score": 0
+        },
+        {
+          "indicatorId": 103,
+          "score": 0
+        },
+        {
+          "indicatorId": 104,
+          "score": 0
+        },
+        {
+          "indicatorId": 105,
+          "score": 0
+        },
+        {
+          "indicatorId": 106,
+          "score": 0
+        },
+        {
+          "indicatorId": 107,
+          "score": 0
+        },
+        {
+          "indicatorId": 108,
+          "score": 0
+        },
+        {
+          "indicatorId": 201,
+          "score": 0
+        },
+        {
+          "indicatorId": 202,
+          "score": 0
+        },
+        {
+          "indicatorId": 203,
+          "score": 0
+        },
+        {
+          "indicatorId": 204,
+          "score": 0
+        },
+        {
+          "indicatorId": 301,
+          "score": 0
+        },
+        {
+          "indicatorId": 302,
+          "score": 0
+        },
+        {
+          "indicatorId": 303,
+          "score": 0
+        },
+        {
+          "indicatorId": 304,
+          "score": 0
+        },
+        {
+          "indicatorId": 305,
+          "score": 0
+        },
+        {
+          "indicatorId": 306,
+          "score": 0
+        },
+        {
+          "indicatorId": 307,
+          "score": 0
+        },
+        {
+          "indicatorId": 308,
+          "score": 0
+        },
+        {
+          "indicatorId": 309,
+          "score": 0
+        },
+        {
+          "indicatorId": 401,
+          "score": 0
+        },
+        {
+          "indicatorId": 402,
+          "score": 1
+        },
+        {
+          "indicatorId": 403,
+          "score": 4
+        },
+        {
+          "indicatorId": 404,
+          "score": 3
+        },
+        {
+          "indicatorId": 405,
+          "score": 4
+        }
+      ],
+      "flags": {}
+    },
+    "expect": {
+      "totalScore": 12,
+      "preliminaryLevel": 4,
+      "level": 4,
+      "levelChangeReason": null
+    }
+  },
+  {
+    "id": "N015",
+    "title": "总分 15 常规",
+    "category": "normal",
+    "description": "无特殊标志，总分=15",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 0
+        },
+        {
+          "indicatorId": 102,
+          "score": 0
+        },
+        {
+          "indicatorId": 103,
+          "score": 0
+        },
+        {
+          "indicatorId": 104,
+          "score": 0
+        },
+        {
+          "indicatorId": 105,
+          "score": 0
+        },
+        {
+          "indicatorId": 106,
+          "score": 0
+        },
+        {
+          "indicatorId": 107,
+          "score": 0
+        },
+        {
+          "indicatorId": 108,
+          "score": 0
+        },
+        {
+          "indicatorId": 201,
+          "score": 0
+        },
+        {
+          "indicatorId": 202,
+          "score": 0
+        },
+        {
+          "indicatorId": 203,
+          "score": 0
+        },
+        {
+          "indicatorId": 204,
+          "score": 0
+        },
+        {
+          "indicatorId": 301,
+          "score": 0
+        },
+        {
+          "indicatorId": 302,
+          "score": 0
+        },
+        {
+          "indicatorId": 303,
+          "score": 0
+        },
+        {
+          "indicatorId": 304,
+          "score": 0
+        },
+        {
+          "indicatorId": 305,
+          "score": 0
+        },
+        {
+          "indicatorId": 306,
+          "score": 0
+        },
+        {
+          "indicatorId": 307,
+          "score": 0
+        },
+        {
+          "indicatorId": 308,
+          "score": 0
+        },
+        {
+          "indicatorId": 309,
+          "score": 0
+        },
+        {
+          "indicatorId": 401,
+          "score": 2
+        },
+        {
+          "indicatorId": 402,
+          "score": 2
+        },
+        {
+          "indicatorId": 403,
+          "score": 4
+        },
+        {
+          "indicatorId": 404,
+          "score": 3
+        },
+        {
+          "indicatorId": 405,
+          "score": 4
+        }
+      ],
+      "flags": {}
+    },
+    "expect": {
+      "totalScore": 15,
+      "preliminaryLevel": 4,
+      "level": 4,
+      "levelChangeReason": null
+    }
+  },
+  {
+    "id": "N018",
+    "title": "总分 18 常规",
+    "category": "normal",
+    "description": "无特殊标志，总分=18",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 0
+        },
+        {
+          "indicatorId": 102,
+          "score": 0
+        },
+        {
+          "indicatorId": 103,
+          "score": 0
+        },
+        {
+          "indicatorId": 104,
+          "score": 0
+        },
+        {
+          "indicatorId": 105,
+          "score": 0
+        },
+        {
+          "indicatorId": 106,
+          "score": 0
+        },
+        {
+          "indicatorId": 107,
+          "score": 0
+        },
+        {
+          "indicatorId": 108,
+          "score": 0
+        },
+        {
+          "indicatorId": 201,
+          "score": 0
+        },
+        {
+          "indicatorId": 202,
+          "score": 0
+        },
+        {
+          "indicatorId": 203,
+          "score": 0
+        },
+        {
+          "indicatorId": 204,
+          "score": 0
+        },
+        {
+          "indicatorId": 301,
+          "score": 0
+        },
+        {
+          "indicatorId": 302,
+          "score": 0
+        },
+        {
+          "indicatorId": 303,
+          "score": 0
+        },
+        {
+          "indicatorId": 304,
+          "score": 0
+        },
+        {
+          "indicatorId": 305,
+          "score": 0
+        },
+        {
+          "indicatorId": 306,
+          "score": 0
+        },
+        {
+          "indicatorId": 307,
+          "score": 0
+        },
+        {
+          "indicatorId": 308,
+          "score": 1
+        },
+        {
+          "indicatorId": 309,
+          "score": 2
+        },
+        {
+          "indicatorId": 401,
+          "score": 2
+        },
+        {
+          "indicatorId": 402,
+          "score": 2
+        },
+        {
+          "indicatorId": 403,
+          "score": 4
+        },
+        {
+          "indicatorId": 404,
+          "score": 3
+        },
+        {
+          "indicatorId": 405,
+          "score": 4
+        }
+      ],
+      "flags": {}
+    },
+    "expect": {
+      "totalScore": 18,
+      "preliminaryLevel": 4,
+      "level": 4,
+      "levelChangeReason": null
+    }
+  },
+  {
+    "id": "N021",
+    "title": "总分 21 常规",
+    "category": "normal",
+    "description": "无特殊标志，总分=21",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 0
+        },
+        {
+          "indicatorId": 102,
+          "score": 0
+        },
+        {
+          "indicatorId": 103,
+          "score": 0
+        },
+        {
+          "indicatorId": 104,
+          "score": 0
+        },
+        {
+          "indicatorId": 105,
+          "score": 0
+        },
+        {
+          "indicatorId": 106,
+          "score": 0
+        },
+        {
+          "indicatorId": 107,
+          "score": 0
+        },
+        {
+          "indicatorId": 108,
+          "score": 0
+        },
+        {
+          "indicatorId": 201,
+          "score": 0
+        },
+        {
+          "indicatorId": 202,
+          "score": 0
+        },
+        {
+          "indicatorId": 203,
+          "score": 0
+        },
+        {
+          "indicatorId": 204,
+          "score": 0
+        },
+        {
+          "indicatorId": 301,
+          "score": 0
+        },
+        {
+          "indicatorId": 302,
+          "score": 0
+        },
+        {
+          "indicatorId": 303,
+          "score": 0
+        },
+        {
+          "indicatorId": 304,
+          "score": 0
+        },
+        {
+          "indicatorId": 305,
+          "score": 0
+        },
+        {
+          "indicatorId": 306,
+          "score": 2
+        },
+        {
+          "indicatorId": 307,
+          "score": 1
+        },
+        {
+          "indicatorId": 308,
+          "score": 1
+        },
+        {
+          "indicatorId": 309,
+          "score": 2
+        },
+        {
+          "indicatorId": 401,
+          "score": 2
+        },
+        {
+          "indicatorId": 402,
+          "score": 2
+        },
+        {
+          "indicatorId": 403,
+          "score": 4
+        },
+        {
+          "indicatorId": 404,
+          "score": 3
+        },
+        {
+          "indicatorId": 405,
+          "score": 4
+        }
+      ],
+      "flags": {}
+    },
+    "expect": {
+      "totalScore": 21,
+      "preliminaryLevel": 4,
+      "level": 4,
+      "levelChangeReason": null
+    }
+  },
+  {
+    "id": "N024",
+    "title": "总分 24 常规",
+    "category": "normal",
+    "description": "无特殊标志，总分=24",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 0
+        },
+        {
+          "indicatorId": 102,
+          "score": 0
+        },
+        {
+          "indicatorId": 103,
+          "score": 0
+        },
+        {
+          "indicatorId": 104,
+          "score": 0
+        },
+        {
+          "indicatorId": 105,
+          "score": 0
+        },
+        {
+          "indicatorId": 106,
+          "score": 0
+        },
+        {
+          "indicatorId": 107,
+          "score": 0
+        },
+        {
+          "indicatorId": 108,
+          "score": 0
+        },
+        {
+          "indicatorId": 201,
+          "score": 0
+        },
+        {
+          "indicatorId": 202,
+          "score": 0
+        },
+        {
+          "indicatorId": 203,
+          "score": 0
+        },
+        {
+          "indicatorId": 204,
+          "score": 0
+        },
+        {
+          "indicatorId": 301,
+          "score": 0
+        },
+        {
+          "indicatorId": 302,
+          "score": 0
+        },
+        {
+          "indicatorId": 303,
+          "score": 0
+        },
+        {
+          "indicatorId": 304,
+          "score": 0
+        },
+        {
+          "indicatorId": 305,
+          "score": 1
+        },
+        {
+          "indicatorId": 306,
+          "score": 4
+        },
+        {
+          "indicatorId": 307,
+          "score": 1
+        },
+        {
+          "indicatorId": 308,
+          "score": 1
+        },
+        {
+          "indicatorId": 309,
+          "score": 2
+        },
+        {
+          "indicatorId": 401,
+          "score": 2
+        },
+        {
+          "indicatorId": 402,
+          "score": 2
+        },
+        {
+          "indicatorId": 403,
+          "score": 4
+        },
+        {
+          "indicatorId": 404,
+          "score": 3
+        },
+        {
+          "indicatorId": 405,
+          "score": 4
+        }
+      ],
+      "flags": {}
+    },
+    "expect": {
+      "totalScore": 24,
+      "preliminaryLevel": 4,
+      "level": 4,
+      "levelChangeReason": null
+    }
+  },
+  {
+    "id": "N027",
+    "title": "总分 27 常规",
+    "category": "normal",
+    "description": "无特殊标志，总分=27",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 0
+        },
+        {
+          "indicatorId": 102,
+          "score": 0
+        },
+        {
+          "indicatorId": 103,
+          "score": 0
+        },
+        {
+          "indicatorId": 104,
+          "score": 0
+        },
+        {
+          "indicatorId": 105,
+          "score": 0
+        },
+        {
+          "indicatorId": 106,
+          "score": 0
+        },
+        {
+          "indicatorId": 107,
+          "score": 0
+        },
+        {
+          "indicatorId": 108,
+          "score": 0
+        },
+        {
+          "indicatorId": 201,
+          "score": 0
+        },
+        {
+          "indicatorId": 202,
+          "score": 0
+        },
+        {
+          "indicatorId": 203,
+          "score": 0
+        },
+        {
+          "indicatorId": 204,
+          "score": 0
+        },
+        {
+          "indicatorId": 301,
+          "score": 0
+        },
+        {
+          "indicatorId": 302,
+          "score": 0
+        },
+        {
+          "indicatorId": 303,
+          "score": 0
+        },
+        {
+          "indicatorId": 304,
+          "score": 0
+        },
+        {
+          "indicatorId": 305,
+          "score": 4
+        },
+        {
+          "indicatorId": 306,
+          "score": 4
+        },
+        {
+          "indicatorId": 307,
+          "score": 1
+        },
+        {
+          "indicatorId": 308,
+          "score": 1
+        },
+        {
+          "indicatorId": 309,
+          "score": 2
+        },
+        {
+          "indicatorId": 401,
+          "score": 2
+        },
+        {
+          "indicatorId": 402,
+          "score": 2
+        },
+        {
+          "indicatorId": 403,
+          "score": 4
+        },
+        {
+          "indicatorId": 404,
+          "score": 3
+        },
+        {
+          "indicatorId": 405,
+          "score": 4
+        }
+      ],
+      "flags": {}
+    },
+    "expect": {
+      "totalScore": 27,
+      "preliminaryLevel": 4,
+      "level": 4,
+      "levelChangeReason": null
+    }
+  },
+  {
+    "id": "N028",
+    "title": "总分 28 边界",
+    "category": "boundary",
+    "description": "边界总分=28",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 0
+        },
+        {
+          "indicatorId": 102,
+          "score": 0
+        },
+        {
+          "indicatorId": 103,
+          "score": 0
+        },
+        {
+          "indicatorId": 104,
+          "score": 0
+        },
+        {
+          "indicatorId": 105,
+          "score": 0
+        },
+        {
+          "indicatorId": 106,
+          "score": 0
+        },
+        {
+          "indicatorId": 107,
+          "score": 0
+        },
+        {
+          "indicatorId": 108,
+          "score": 0
+        },
+        {
+          "indicatorId": 201,
+          "score": 0
+        },
+        {
+          "indicatorId": 202,
+          "score": 0
+        },
+        {
+          "indicatorId": 203,
+          "score": 0
+        },
+        {
+          "indicatorId": 204,
+          "score": 0
+        },
+        {
+          "indicatorId": 301,
+          "score": 0
+        },
+        {
+          "indicatorId": 302,
+          "score": 0
+        },
+        {
+          "indicatorId": 303,
+          "score": 0
+        },
+        {
+          "indicatorId": 304,
+          "score": 1
+        },
+        {
+          "indicatorId": 305,
+          "score": 4
+        },
+        {
+          "indicatorId": 306,
+          "score": 4
+        },
+        {
+          "indicatorId": 307,
+          "score": 1
+        },
+        {
+          "indicatorId": 308,
+          "score": 1
+        },
+        {
+          "indicatorId": 309,
+          "score": 2
+        },
+        {
+          "indicatorId": 401,
+          "score": 2
+        },
+        {
+          "indicatorId": 402,
+          "score": 2
+        },
+        {
+          "indicatorId": 403,
+          "score": 4
+        },
+        {
+          "indicatorId": 404,
+          "score": 3
+        },
+        {
+          "indicatorId": 405,
+          "score": 4
+        }
+      ],
+      "flags": {}
+    },
+    "expect": {
+      "totalScore": 28,
+      "preliminaryLevel": 4,
+      "level": 4,
+      "levelChangeReason": null
+    }
+  },
+  {
+    "id": "N029",
+    "title": "总分 29 边界",
+    "category": "boundary",
+    "description": "边界总分=29",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 0
+        },
+        {
+          "indicatorId": 102,
+          "score": 0
+        },
+        {
+          "indicatorId": 103,
+          "score": 0
+        },
+        {
+          "indicatorId": 104,
+          "score": 0
+        },
+        {
+          "indicatorId": 105,
+          "score": 0
+        },
+        {
+          "indicatorId": 106,
+          "score": 0
+        },
+        {
+          "indicatorId": 107,
+          "score": 0
+        },
+        {
+          "indicatorId": 108,
+          "score": 0
+        },
+        {
+          "indicatorId": 201,
+          "score": 0
+        },
+        {
+          "indicatorId": 202,
+          "score": 0
+        },
+        {
+          "indicatorId": 203,
+          "score": 0
+        },
+        {
+          "indicatorId": 204,
+          "score": 0
+        },
+        {
+          "indicatorId": 301,
+          "score": 0
+        },
+        {
+          "indicatorId": 302,
+          "score": 0
+        },
+        {
+          "indicatorId": 303,
+          "score": 0
+        },
+        {
+          "indicatorId": 304,
+          "score": 2
+        },
+        {
+          "indicatorId": 305,
+          "score": 4
+        },
+        {
+          "indicatorId": 306,
+          "score": 4
+        },
+        {
+          "indicatorId": 307,
+          "score": 1
+        },
+        {
+          "indicatorId": 308,
+          "score": 1
+        },
+        {
+          "indicatorId": 309,
+          "score": 2
+        },
+        {
+          "indicatorId": 401,
+          "score": 2
+        },
+        {
+          "indicatorId": 402,
+          "score": 2
+        },
+        {
+          "indicatorId": 403,
+          "score": 4
+        },
+        {
+          "indicatorId": 404,
+          "score": 3
+        },
+        {
+          "indicatorId": 405,
+          "score": 4
+        }
+      ],
+      "flags": {}
+    },
+    "expect": {
+      "totalScore": 29,
+      "preliminaryLevel": 4,
+      "level": 4,
+      "levelChangeReason": null
+    }
+  },
+  {
+    "id": "N030",
+    "title": "总分 30 边界",
+    "category": "boundary",
+    "description": "无特殊标志，总分=30",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 0
+        },
+        {
+          "indicatorId": 102,
+          "score": 0
+        },
+        {
+          "indicatorId": 103,
+          "score": 0
+        },
+        {
+          "indicatorId": 104,
+          "score": 0
+        },
+        {
+          "indicatorId": 105,
+          "score": 0
+        },
+        {
+          "indicatorId": 106,
+          "score": 0
+        },
+        {
+          "indicatorId": 107,
+          "score": 0
+        },
+        {
+          "indicatorId": 108,
+          "score": 0
+        },
+        {
+          "indicatorId": 201,
+          "score": 0
+        },
+        {
+          "indicatorId": 202,
+          "score": 0
+        },
+        {
+          "indicatorId": 203,
+          "score": 0
+        },
+        {
+          "indicatorId": 204,
+          "score": 0
+        },
+        {
+          "indicatorId": 301,
+          "score": 0
+        },
+        {
+          "indicatorId": 302,
+          "score": 0
+        },
+        {
+          "indicatorId": 303,
+          "score": 0
+        },
+        {
+          "indicatorId": 304,
+          "score": 3
+        },
+        {
+          "indicatorId": 305,
+          "score": 4
+        },
+        {
+          "indicatorId": 306,
+          "score": 4
+        },
+        {
+          "indicatorId": 307,
+          "score": 1
+        },
+        {
+          "indicatorId": 308,
+          "score": 1
+        },
+        {
+          "indicatorId": 309,
+          "score": 2
+        },
+        {
+          "indicatorId": 401,
+          "score": 2
+        },
+        {
+          "indicatorId": 402,
+          "score": 2
+        },
+        {
+          "indicatorId": 403,
+          "score": 4
+        },
+        {
+          "indicatorId": 404,
+          "score": 3
+        },
+        {
+          "indicatorId": 405,
+          "score": 4
+        }
+      ],
+      "flags": {}
+    },
+    "expect": {
+      "totalScore": 30,
+      "preliminaryLevel": 3,
+      "level": 3,
+      "levelChangeReason": null
+    }
+  },
+  {
+    "id": "N033",
+    "title": "总分 33 常规",
+    "category": "normal",
+    "description": "无特殊标志，总分=33",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 0
+        },
+        {
+          "indicatorId": 102,
+          "score": 0
+        },
+        {
+          "indicatorId": 103,
+          "score": 0
+        },
+        {
+          "indicatorId": 104,
+          "score": 0
+        },
+        {
+          "indicatorId": 105,
+          "score": 0
+        },
+        {
+          "indicatorId": 106,
+          "score": 0
+        },
+        {
+          "indicatorId": 107,
+          "score": 0
+        },
+        {
+          "indicatorId": 108,
+          "score": 0
+        },
+        {
+          "indicatorId": 201,
+          "score": 0
+        },
+        {
+          "indicatorId": 202,
+          "score": 0
+        },
+        {
+          "indicatorId": 203,
+          "score": 0
+        },
+        {
+          "indicatorId": 204,
+          "score": 0
+        },
+        {
+          "indicatorId": 301,
+          "score": 0
+        },
+        {
+          "indicatorId": 302,
+          "score": 0
+        },
+        {
+          "indicatorId": 303,
+          "score": 2
+        },
+        {
+          "indicatorId": 304,
+          "score": 4
+        },
+        {
+          "indicatorId": 305,
+          "score": 4
+        },
+        {
+          "indicatorId": 306,
+          "score": 4
+        },
+        {
+          "indicatorId": 307,
+          "score": 1
+        },
+        {
+          "indicatorId": 308,
+          "score": 1
+        },
+        {
+          "indicatorId": 309,
+          "score": 2
+        },
+        {
+          "indicatorId": 401,
+          "score": 2
+        },
+        {
+          "indicatorId": 402,
+          "score": 2
+        },
+        {
+          "indicatorId": 403,
+          "score": 4
+        },
+        {
+          "indicatorId": 404,
+          "score": 3
+        },
+        {
+          "indicatorId": 405,
+          "score": 4
+        }
+      ],
+      "flags": {}
+    },
+    "expect": {
+      "totalScore": 33,
+      "preliminaryLevel": 3,
+      "level": 3,
+      "levelChangeReason": null
+    }
+  },
+  {
+    "id": "N036",
+    "title": "总分 36 常规",
+    "category": "normal",
+    "description": "无特殊标志，总分=36",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 0
+        },
+        {
+          "indicatorId": 102,
+          "score": 0
+        },
+        {
+          "indicatorId": 103,
+          "score": 0
+        },
+        {
+          "indicatorId": 104,
+          "score": 0
+        },
+        {
+          "indicatorId": 105,
+          "score": 0
+        },
+        {
+          "indicatorId": 106,
+          "score": 0
+        },
+        {
+          "indicatorId": 107,
+          "score": 0
+        },
+        {
+          "indicatorId": 108,
+          "score": 0
+        },
+        {
+          "indicatorId": 201,
+          "score": 0
+        },
+        {
+          "indicatorId": 202,
+          "score": 0
+        },
+        {
+          "indicatorId": 203,
+          "score": 0
+        },
+        {
+          "indicatorId": 204,
+          "score": 0
+        },
+        {
+          "indicatorId": 301,
+          "score": 0
+        },
+        {
+          "indicatorId": 302,
+          "score": 1
+        },
+        {
+          "indicatorId": 303,
+          "score": 4
+        },
+        {
+          "indicatorId": 304,
+          "score": 4
+        },
+        {
+          "indicatorId": 305,
+          "score": 4
+        },
+        {
+          "indicatorId": 306,
+          "score": 4
+        },
+        {
+          "indicatorId": 307,
+          "score": 1
+        },
+        {
+          "indicatorId": 308,
+          "score": 1
+        },
+        {
+          "indicatorId": 309,
+          "score": 2
+        },
+        {
+          "indicatorId": 401,
+          "score": 2
+        },
+        {
+          "indicatorId": 402,
+          "score": 2
+        },
+        {
+          "indicatorId": 403,
+          "score": 4
+        },
+        {
+          "indicatorId": 404,
+          "score": 3
+        },
+        {
+          "indicatorId": 405,
+          "score": 4
+        }
+      ],
+      "flags": {}
+    },
+    "expect": {
+      "totalScore": 36,
+      "preliminaryLevel": 3,
+      "level": 3,
+      "levelChangeReason": null
+    }
+  },
+  {
+    "id": "N039",
+    "title": "总分 39 常规",
+    "category": "normal",
+    "description": "无特殊标志，总分=39",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 0
+        },
+        {
+          "indicatorId": 102,
+          "score": 0
+        },
+        {
+          "indicatorId": 103,
+          "score": 0
+        },
+        {
+          "indicatorId": 104,
+          "score": 0
+        },
+        {
+          "indicatorId": 105,
+          "score": 0
+        },
+        {
+          "indicatorId": 106,
+          "score": 0
+        },
+        {
+          "indicatorId": 107,
+          "score": 0
+        },
+        {
+          "indicatorId": 108,
+          "score": 0
+        },
+        {
+          "indicatorId": 201,
+          "score": 0
+        },
+        {
+          "indicatorId": 202,
+          "score": 0
+        },
+        {
+          "indicatorId": 203,
+          "score": 0
+        },
+        {
+          "indicatorId": 204,
+          "score": 0
+        },
+        {
+          "indicatorId": 301,
+          "score": 0
+        },
+        {
+          "indicatorId": 302,
+          "score": 4
+        },
+        {
+          "indicatorId": 303,
+          "score": 4
+        },
+        {
+          "indicatorId": 304,
+          "score": 4
+        },
+        {
+          "indicatorId": 305,
+          "score": 4
+        },
+        {
+          "indicatorId": 306,
+          "score": 4
+        },
+        {
+          "indicatorId": 307,
+          "score": 1
+        },
+        {
+          "indicatorId": 308,
+          "score": 1
+        },
+        {
+          "indicatorId": 309,
+          "score": 2
+        },
+        {
+          "indicatorId": 401,
+          "score": 2
+        },
+        {
+          "indicatorId": 402,
+          "score": 2
+        },
+        {
+          "indicatorId": 403,
+          "score": 4
+        },
+        {
+          "indicatorId": 404,
+          "score": 3
+        },
+        {
+          "indicatorId": 405,
+          "score": 4
+        }
+      ],
+      "flags": {}
+    },
+    "expect": {
+      "totalScore": 39,
+      "preliminaryLevel": 3,
+      "level": 3,
+      "levelChangeReason": null
+    }
+  },
+  {
+    "id": "N042",
+    "title": "总分 42 常规",
+    "category": "normal",
+    "description": "无特殊标志，总分=42",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 0
+        },
+        {
+          "indicatorId": 102,
+          "score": 0
+        },
+        {
+          "indicatorId": 103,
+          "score": 0
+        },
+        {
+          "indicatorId": 104,
+          "score": 0
+        },
+        {
+          "indicatorId": 105,
+          "score": 0
+        },
+        {
+          "indicatorId": 106,
+          "score": 0
+        },
+        {
+          "indicatorId": 107,
+          "score": 0
+        },
+        {
+          "indicatorId": 108,
+          "score": 0
+        },
+        {
+          "indicatorId": 201,
+          "score": 0
+        },
+        {
+          "indicatorId": 202,
+          "score": 0
+        },
+        {
+          "indicatorId": 203,
+          "score": 0
+        },
+        {
+          "indicatorId": 204,
+          "score": 0
+        },
+        {
+          "indicatorId": 301,
+          "score": 3
+        },
+        {
+          "indicatorId": 302,
+          "score": 4
+        },
+        {
+          "indicatorId": 303,
+          "score": 4
+        },
+        {
+          "indicatorId": 304,
+          "score": 4
+        },
+        {
+          "indicatorId": 305,
+          "score": 4
+        },
+        {
+          "indicatorId": 306,
+          "score": 4
+        },
+        {
+          "indicatorId": 307,
+          "score": 1
+        },
+        {
+          "indicatorId": 308,
+          "score": 1
+        },
+        {
+          "indicatorId": 309,
+          "score": 2
+        },
+        {
+          "indicatorId": 401,
+          "score": 2
+        },
+        {
+          "indicatorId": 402,
+          "score": 2
+        },
+        {
+          "indicatorId": 403,
+          "score": 4
+        },
+        {
+          "indicatorId": 404,
+          "score": 3
+        },
+        {
+          "indicatorId": 405,
+          "score": 4
+        }
+      ],
+      "flags": {}
+    },
+    "expect": {
+      "totalScore": 42,
+      "preliminaryLevel": 3,
+      "level": 3,
+      "levelChangeReason": null
+    }
+  },
+  {
+    "id": "N044",
+    "title": "总分 44 边界",
+    "category": "boundary",
+    "description": "边界总分=44",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 0
+        },
+        {
+          "indicatorId": 102,
+          "score": 0
+        },
+        {
+          "indicatorId": 103,
+          "score": 0
+        },
+        {
+          "indicatorId": 104,
+          "score": 0
+        },
+        {
+          "indicatorId": 105,
+          "score": 0
+        },
+        {
+          "indicatorId": 106,
+          "score": 0
+        },
+        {
+          "indicatorId": 107,
+          "score": 0
+        },
+        {
+          "indicatorId": 108,
+          "score": 0
+        },
+        {
+          "indicatorId": 201,
+          "score": 0
+        },
+        {
+          "indicatorId": 202,
+          "score": 0
+        },
+        {
+          "indicatorId": 203,
+          "score": 0
+        },
+        {
+          "indicatorId": 204,
+          "score": 1
+        },
+        {
+          "indicatorId": 301,
+          "score": 4
+        },
+        {
+          "indicatorId": 302,
+          "score": 4
+        },
+        {
+          "indicatorId": 303,
+          "score": 4
+        },
+        {
+          "indicatorId": 304,
+          "score": 4
+        },
+        {
+          "indicatorId": 305,
+          "score": 4
+        },
+        {
+          "indicatorId": 306,
+          "score": 4
+        },
+        {
+          "indicatorId": 307,
+          "score": 1
+        },
+        {
+          "indicatorId": 308,
+          "score": 1
+        },
+        {
+          "indicatorId": 309,
+          "score": 2
+        },
+        {
+          "indicatorId": 401,
+          "score": 2
+        },
+        {
+          "indicatorId": 402,
+          "score": 2
+        },
+        {
+          "indicatorId": 403,
+          "score": 4
+        },
+        {
+          "indicatorId": 404,
+          "score": 3
+        },
+        {
+          "indicatorId": 405,
+          "score": 4
+        }
+      ],
+      "flags": {}
+    },
+    "expect": {
+      "totalScore": 44,
+      "preliminaryLevel": 3,
+      "level": 3,
+      "levelChangeReason": null
+    }
+  },
+  {
+    "id": "N045",
+    "title": "总分 45 边界",
+    "category": "boundary",
+    "description": "无特殊标志，总分=45",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 0
+        },
+        {
+          "indicatorId": 102,
+          "score": 0
+        },
+        {
+          "indicatorId": 103,
+          "score": 0
+        },
+        {
+          "indicatorId": 104,
+          "score": 0
+        },
+        {
+          "indicatorId": 105,
+          "score": 0
+        },
+        {
+          "indicatorId": 106,
+          "score": 0
+        },
+        {
+          "indicatorId": 107,
+          "score": 0
+        },
+        {
+          "indicatorId": 108,
+          "score": 0
+        },
+        {
+          "indicatorId": 201,
+          "score": 0
+        },
+        {
+          "indicatorId": 202,
+          "score": 0
+        },
+        {
+          "indicatorId": 203,
+          "score": 0
+        },
+        {
+          "indicatorId": 204,
+          "score": 2
+        },
+        {
+          "indicatorId": 301,
+          "score": 4
+        },
+        {
+          "indicatorId": 302,
+          "score": 4
+        },
+        {
+          "indicatorId": 303,
+          "score": 4
+        },
+        {
+          "indicatorId": 304,
+          "score": 4
+        },
+        {
+          "indicatorId": 305,
+          "score": 4
+        },
+        {
+          "indicatorId": 306,
+          "score": 4
+        },
+        {
+          "indicatorId": 307,
+          "score": 1
+        },
+        {
+          "indicatorId": 308,
+          "score": 1
+        },
+        {
+          "indicatorId": 309,
+          "score": 2
+        },
+        {
+          "indicatorId": 401,
+          "score": 2
+        },
+        {
+          "indicatorId": 402,
+          "score": 2
+        },
+        {
+          "indicatorId": 403,
+          "score": 4
+        },
+        {
+          "indicatorId": 404,
+          "score": 3
+        },
+        {
+          "indicatorId": 405,
+          "score": 4
+        }
+      ],
+      "flags": {}
+    },
+    "expect": {
+      "totalScore": 45,
+      "preliminaryLevel": 3,
+      "level": 3,
+      "levelChangeReason": null
+    }
+  },
+  {
+    "id": "N046",
+    "title": "总分 46 边界",
+    "category": "boundary",
+    "description": "边界总分=46",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 0
+        },
+        {
+          "indicatorId": 102,
+          "score": 0
+        },
+        {
+          "indicatorId": 103,
+          "score": 0
+        },
+        {
+          "indicatorId": 104,
+          "score": 0
+        },
+        {
+          "indicatorId": 105,
+          "score": 0
+        },
+        {
+          "indicatorId": 106,
+          "score": 0
+        },
+        {
+          "indicatorId": 107,
+          "score": 0
+        },
+        {
+          "indicatorId": 108,
+          "score": 0
+        },
+        {
+          "indicatorId": 201,
+          "score": 0
+        },
+        {
+          "indicatorId": 202,
+          "score": 0
+        },
+        {
+          "indicatorId": 203,
+          "score": 0
+        },
+        {
+          "indicatorId": 204,
+          "score": 3
+        },
+        {
+          "indicatorId": 301,
+          "score": 4
+        },
+        {
+          "indicatorId": 302,
+          "score": 4
+        },
+        {
+          "indicatorId": 303,
+          "score": 4
+        },
+        {
+          "indicatorId": 304,
+          "score": 4
+        },
+        {
+          "indicatorId": 305,
+          "score": 4
+        },
+        {
+          "indicatorId": 306,
+          "score": 4
+        },
+        {
+          "indicatorId": 307,
+          "score": 1
+        },
+        {
+          "indicatorId": 308,
+          "score": 1
+        },
+        {
+          "indicatorId": 309,
+          "score": 2
+        },
+        {
+          "indicatorId": 401,
+          "score": 2
+        },
+        {
+          "indicatorId": 402,
+          "score": 2
+        },
+        {
+          "indicatorId": 403,
+          "score": 4
+        },
+        {
+          "indicatorId": 404,
+          "score": 3
+        },
+        {
+          "indicatorId": 405,
+          "score": 4
+        }
+      ],
+      "flags": {}
+    },
+    "expect": {
+      "totalScore": 46,
+      "preliminaryLevel": 2,
+      "level": 2,
+      "levelChangeReason": null
+    }
+  },
+  {
+    "id": "N048",
+    "title": "总分 48 常规",
+    "category": "normal",
+    "description": "无特殊标志，总分=48",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 0
+        },
+        {
+          "indicatorId": 102,
+          "score": 0
+        },
+        {
+          "indicatorId": 103,
+          "score": 0
+        },
+        {
+          "indicatorId": 104,
+          "score": 0
+        },
+        {
+          "indicatorId": 105,
+          "score": 0
+        },
+        {
+          "indicatorId": 106,
+          "score": 0
+        },
+        {
+          "indicatorId": 107,
+          "score": 0
+        },
+        {
+          "indicatorId": 108,
+          "score": 0
+        },
+        {
+          "indicatorId": 201,
+          "score": 0
+        },
+        {
+          "indicatorId": 202,
+          "score": 0
+        },
+        {
+          "indicatorId": 203,
+          "score": 2
+        },
+        {
+          "indicatorId": 204,
+          "score": 3
+        },
+        {
+          "indicatorId": 301,
+          "score": 4
+        },
+        {
+          "indicatorId": 302,
+          "score": 4
+        },
+        {
+          "indicatorId": 303,
+          "score": 4
+        },
+        {
+          "indicatorId": 304,
+          "score": 4
+        },
+        {
+          "indicatorId": 305,
+          "score": 4
+        },
+        {
+          "indicatorId": 306,
+          "score": 4
+        },
+        {
+          "indicatorId": 307,
+          "score": 1
+        },
+        {
+          "indicatorId": 308,
+          "score": 1
+        },
+        {
+          "indicatorId": 309,
+          "score": 2
+        },
+        {
+          "indicatorId": 401,
+          "score": 2
+        },
+        {
+          "indicatorId": 402,
+          "score": 2
+        },
+        {
+          "indicatorId": 403,
+          "score": 4
+        },
+        {
+          "indicatorId": 404,
+          "score": 3
+        },
+        {
+          "indicatorId": 405,
+          "score": 4
+        }
+      ],
+      "flags": {}
+    },
+    "expect": {
+      "totalScore": 48,
+      "preliminaryLevel": 2,
+      "level": 2,
+      "levelChangeReason": null
+    }
+  },
+  {
+    "id": "N051",
+    "title": "总分 51 常规",
+    "category": "normal",
+    "description": "无特殊标志，总分=51",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 0
+        },
+        {
+          "indicatorId": 102,
+          "score": 0
+        },
+        {
+          "indicatorId": 103,
+          "score": 0
+        },
+        {
+          "indicatorId": 104,
+          "score": 0
+        },
+        {
+          "indicatorId": 105,
+          "score": 0
+        },
+        {
+          "indicatorId": 106,
+          "score": 0
+        },
+        {
+          "indicatorId": 107,
+          "score": 0
+        },
+        {
+          "indicatorId": 108,
+          "score": 0
+        },
+        {
+          "indicatorId": 201,
+          "score": 0
+        },
+        {
+          "indicatorId": 202,
+          "score": 1
+        },
+        {
+          "indicatorId": 203,
+          "score": 4
+        },
+        {
+          "indicatorId": 204,
+          "score": 3
+        },
+        {
+          "indicatorId": 301,
+          "score": 4
+        },
+        {
+          "indicatorId": 302,
+          "score": 4
+        },
+        {
+          "indicatorId": 303,
+          "score": 4
+        },
+        {
+          "indicatorId": 304,
+          "score": 4
+        },
+        {
+          "indicatorId": 305,
+          "score": 4
+        },
+        {
+          "indicatorId": 306,
+          "score": 4
+        },
+        {
+          "indicatorId": 307,
+          "score": 1
+        },
+        {
+          "indicatorId": 308,
+          "score": 1
+        },
+        {
+          "indicatorId": 309,
+          "score": 2
+        },
+        {
+          "indicatorId": 401,
+          "score": 2
+        },
+        {
+          "indicatorId": 402,
+          "score": 2
+        },
+        {
+          "indicatorId": 403,
+          "score": 4
+        },
+        {
+          "indicatorId": 404,
+          "score": 3
+        },
+        {
+          "indicatorId": 405,
+          "score": 4
+        }
+      ],
+      "flags": {}
+    },
+    "expect": {
+      "totalScore": 51,
+      "preliminaryLevel": 2,
+      "level": 2,
+      "levelChangeReason": null
+    }
+  },
+  {
+    "id": "N054",
+    "title": "总分 54 常规",
+    "category": "normal",
+    "description": "无特殊标志，总分=54",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 0
+        },
+        {
+          "indicatorId": 102,
+          "score": 0
+        },
+        {
+          "indicatorId": 103,
+          "score": 0
+        },
+        {
+          "indicatorId": 104,
+          "score": 0
+        },
+        {
+          "indicatorId": 105,
+          "score": 0
+        },
+        {
+          "indicatorId": 106,
+          "score": 0
+        },
+        {
+          "indicatorId": 107,
+          "score": 0
+        },
+        {
+          "indicatorId": 108,
+          "score": 0
+        },
+        {
+          "indicatorId": 201,
+          "score": 0
+        },
+        {
+          "indicatorId": 202,
+          "score": 4
+        },
+        {
+          "indicatorId": 203,
+          "score": 4
+        },
+        {
+          "indicatorId": 204,
+          "score": 3
+        },
+        {
+          "indicatorId": 301,
+          "score": 4
+        },
+        {
+          "indicatorId": 302,
+          "score": 4
+        },
+        {
+          "indicatorId": 303,
+          "score": 4
+        },
+        {
+          "indicatorId": 304,
+          "score": 4
+        },
+        {
+          "indicatorId": 305,
+          "score": 4
+        },
+        {
+          "indicatorId": 306,
+          "score": 4
+        },
+        {
+          "indicatorId": 307,
+          "score": 1
+        },
+        {
+          "indicatorId": 308,
+          "score": 1
+        },
+        {
+          "indicatorId": 309,
+          "score": 2
+        },
+        {
+          "indicatorId": 401,
+          "score": 2
+        },
+        {
+          "indicatorId": 402,
+          "score": 2
+        },
+        {
+          "indicatorId": 403,
+          "score": 4
+        },
+        {
+          "indicatorId": 404,
+          "score": 3
+        },
+        {
+          "indicatorId": 405,
+          "score": 4
+        }
+      ],
+      "flags": {}
+    },
+    "expect": {
+      "totalScore": 54,
+      "preliminaryLevel": 2,
+      "level": 2,
+      "levelChangeReason": null
+    }
+  },
+  {
+    "id": "N057",
+    "title": "总分 57 常规",
+    "category": "normal",
+    "description": "无特殊标志，总分=57",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 0
+        },
+        {
+          "indicatorId": 102,
+          "score": 0
+        },
+        {
+          "indicatorId": 103,
+          "score": 0
+        },
+        {
+          "indicatorId": 104,
+          "score": 0
+        },
+        {
+          "indicatorId": 105,
+          "score": 0
+        },
+        {
+          "indicatorId": 106,
+          "score": 0
+        },
+        {
+          "indicatorId": 107,
+          "score": 0
+        },
+        {
+          "indicatorId": 108,
+          "score": 0
+        },
+        {
+          "indicatorId": 201,
+          "score": 3
+        },
+        {
+          "indicatorId": 202,
+          "score": 4
+        },
+        {
+          "indicatorId": 203,
+          "score": 4
+        },
+        {
+          "indicatorId": 204,
+          "score": 3
+        },
+        {
+          "indicatorId": 301,
+          "score": 4
+        },
+        {
+          "indicatorId": 302,
+          "score": 4
+        },
+        {
+          "indicatorId": 303,
+          "score": 4
+        },
+        {
+          "indicatorId": 304,
+          "score": 4
+        },
+        {
+          "indicatorId": 305,
+          "score": 4
+        },
+        {
+          "indicatorId": 306,
+          "score": 4
+        },
+        {
+          "indicatorId": 307,
+          "score": 1
+        },
+        {
+          "indicatorId": 308,
+          "score": 1
+        },
+        {
+          "indicatorId": 309,
+          "score": 2
+        },
+        {
+          "indicatorId": 401,
+          "score": 2
+        },
+        {
+          "indicatorId": 402,
+          "score": 2
+        },
+        {
+          "indicatorId": 403,
+          "score": 4
+        },
+        {
+          "indicatorId": 404,
+          "score": 3
+        },
+        {
+          "indicatorId": 405,
+          "score": 4
+        }
+      ],
+      "flags": {}
+    },
+    "expect": {
+      "totalScore": 57,
+      "preliminaryLevel": 2,
+      "level": 2,
+      "levelChangeReason": null
+    }
+  },
+  {
+    "id": "N060",
+    "title": "总分 60 常规",
+    "category": "normal",
+    "description": "无特殊标志，总分=60",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 0
+        },
+        {
+          "indicatorId": 102,
+          "score": 0
+        },
+        {
+          "indicatorId": 103,
+          "score": 0
+        },
+        {
+          "indicatorId": 104,
+          "score": 0
+        },
+        {
+          "indicatorId": 105,
+          "score": 0
+        },
+        {
+          "indicatorId": 106,
+          "score": 0
+        },
+        {
+          "indicatorId": 107,
+          "score": 0
+        },
+        {
+          "indicatorId": 108,
+          "score": 2
+        },
+        {
+          "indicatorId": 201,
+          "score": 4
+        },
+        {
+          "indicatorId": 202,
+          "score": 4
+        },
+        {
+          "indicatorId": 203,
+          "score": 4
+        },
+        {
+          "indicatorId": 204,
+          "score": 3
+        },
+        {
+          "indicatorId": 301,
+          "score": 4
+        },
+        {
+          "indicatorId": 302,
+          "score": 4
+        },
+        {
+          "indicatorId": 303,
+          "score": 4
+        },
+        {
+          "indicatorId": 304,
+          "score": 4
+        },
+        {
+          "indicatorId": 305,
+          "score": 4
+        },
+        {
+          "indicatorId": 306,
+          "score": 4
+        },
+        {
+          "indicatorId": 307,
+          "score": 1
+        },
+        {
+          "indicatorId": 308,
+          "score": 1
+        },
+        {
+          "indicatorId": 309,
+          "score": 2
+        },
+        {
+          "indicatorId": 401,
+          "score": 2
+        },
+        {
+          "indicatorId": 402,
+          "score": 2
+        },
+        {
+          "indicatorId": 403,
+          "score": 4
+        },
+        {
+          "indicatorId": 404,
+          "score": 3
+        },
+        {
+          "indicatorId": 405,
+          "score": 4
+        }
+      ],
+      "flags": {}
+    },
+    "expect": {
+      "totalScore": 60,
+      "preliminaryLevel": 2,
+      "level": 2,
+      "levelChangeReason": null
+    }
+  },
+  {
+    "id": "N063",
+    "title": "总分 63 常规",
+    "category": "normal",
+    "description": "无特殊标志，总分=63",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 0
+        },
+        {
+          "indicatorId": 102,
+          "score": 0
+        },
+        {
+          "indicatorId": 103,
+          "score": 0
+        },
+        {
+          "indicatorId": 104,
+          "score": 0
+        },
+        {
+          "indicatorId": 105,
+          "score": 0
+        },
+        {
+          "indicatorId": 106,
+          "score": 0
+        },
+        {
+          "indicatorId": 107,
+          "score": 1
+        },
+        {
+          "indicatorId": 108,
+          "score": 4
+        },
+        {
+          "indicatorId": 201,
+          "score": 4
+        },
+        {
+          "indicatorId": 202,
+          "score": 4
+        },
+        {
+          "indicatorId": 203,
+          "score": 4
+        },
+        {
+          "indicatorId": 204,
+          "score": 3
+        },
+        {
+          "indicatorId": 301,
+          "score": 4
+        },
+        {
+          "indicatorId": 302,
+          "score": 4
+        },
+        {
+          "indicatorId": 303,
+          "score": 4
+        },
+        {
+          "indicatorId": 304,
+          "score": 4
+        },
+        {
+          "indicatorId": 305,
+          "score": 4
+        },
+        {
+          "indicatorId": 306,
+          "score": 4
+        },
+        {
+          "indicatorId": 307,
+          "score": 1
+        },
+        {
+          "indicatorId": 308,
+          "score": 1
+        },
+        {
+          "indicatorId": 309,
+          "score": 2
+        },
+        {
+          "indicatorId": 401,
+          "score": 2
+        },
+        {
+          "indicatorId": 402,
+          "score": 2
+        },
+        {
+          "indicatorId": 403,
+          "score": 4
+        },
+        {
+          "indicatorId": 404,
+          "score": 3
+        },
+        {
+          "indicatorId": 405,
+          "score": 4
+        }
+      ],
+      "flags": {}
+    },
+    "expect": {
+      "totalScore": 63,
+      "preliminaryLevel": 2,
+      "level": 2,
+      "levelChangeReason": null
+    }
+  },
+  {
+    "id": "N064",
+    "title": "总分 64 边界",
+    "category": "boundary",
+    "description": "边界总分=64",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 0
+        },
+        {
+          "indicatorId": 102,
+          "score": 0
+        },
+        {
+          "indicatorId": 103,
+          "score": 0
+        },
+        {
+          "indicatorId": 104,
+          "score": 0
+        },
+        {
+          "indicatorId": 105,
+          "score": 0
+        },
+        {
+          "indicatorId": 106,
+          "score": 0
+        },
+        {
+          "indicatorId": 107,
+          "score": 2
+        },
+        {
+          "indicatorId": 108,
+          "score": 4
+        },
+        {
+          "indicatorId": 201,
+          "score": 4
+        },
+        {
+          "indicatorId": 202,
+          "score": 4
+        },
+        {
+          "indicatorId": 203,
+          "score": 4
+        },
+        {
+          "indicatorId": 204,
+          "score": 3
+        },
+        {
+          "indicatorId": 301,
+          "score": 4
+        },
+        {
+          "indicatorId": 302,
+          "score": 4
+        },
+        {
+          "indicatorId": 303,
+          "score": 4
+        },
+        {
+          "indicatorId": 304,
+          "score": 4
+        },
+        {
+          "indicatorId": 305,
+          "score": 4
+        },
+        {
+          "indicatorId": 306,
+          "score": 4
+        },
+        {
+          "indicatorId": 307,
+          "score": 1
+        },
+        {
+          "indicatorId": 308,
+          "score": 1
+        },
+        {
+          "indicatorId": 309,
+          "score": 2
+        },
+        {
+          "indicatorId": 401,
+          "score": 2
+        },
+        {
+          "indicatorId": 402,
+          "score": 2
+        },
+        {
+          "indicatorId": 403,
+          "score": 4
+        },
+        {
+          "indicatorId": 404,
+          "score": 3
+        },
+        {
+          "indicatorId": 405,
+          "score": 4
+        }
+      ],
+      "flags": {}
+    },
+    "expect": {
+      "totalScore": 64,
+      "preliminaryLevel": 2,
+      "level": 2,
+      "levelChangeReason": null
+    }
+  },
+  {
+    "id": "N065",
+    "title": "总分 65 边界",
+    "category": "boundary",
+    "description": "边界总分=65",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 0
+        },
+        {
+          "indicatorId": 102,
+          "score": 0
+        },
+        {
+          "indicatorId": 103,
+          "score": 0
+        },
+        {
+          "indicatorId": 104,
+          "score": 0
+        },
+        {
+          "indicatorId": 105,
+          "score": 0
+        },
+        {
+          "indicatorId": 106,
+          "score": 0
+        },
+        {
+          "indicatorId": 107,
+          "score": 3
+        },
+        {
+          "indicatorId": 108,
+          "score": 4
+        },
+        {
+          "indicatorId": 201,
+          "score": 4
+        },
+        {
+          "indicatorId": 202,
+          "score": 4
+        },
+        {
+          "indicatorId": 203,
+          "score": 4
+        },
+        {
+          "indicatorId": 204,
+          "score": 3
+        },
+        {
+          "indicatorId": 301,
+          "score": 4
+        },
+        {
+          "indicatorId": 302,
+          "score": 4
+        },
+        {
+          "indicatorId": 303,
+          "score": 4
+        },
+        {
+          "indicatorId": 304,
+          "score": 4
+        },
+        {
+          "indicatorId": 305,
+          "score": 4
+        },
+        {
+          "indicatorId": 306,
+          "score": 4
+        },
+        {
+          "indicatorId": 307,
+          "score": 1
+        },
+        {
+          "indicatorId": 308,
+          "score": 1
+        },
+        {
+          "indicatorId": 309,
+          "score": 2
+        },
+        {
+          "indicatorId": 401,
+          "score": 2
+        },
+        {
+          "indicatorId": 402,
+          "score": 2
+        },
+        {
+          "indicatorId": 403,
+          "score": 4
+        },
+        {
+          "indicatorId": 404,
+          "score": 3
+        },
+        {
+          "indicatorId": 405,
+          "score": 4
+        }
+      ],
+      "flags": {}
+    },
+    "expect": {
+      "totalScore": 65,
+      "preliminaryLevel": 2,
+      "level": 2,
+      "levelChangeReason": null
+    }
+  },
+  {
+    "id": "N066",
+    "title": "总分 66 边界",
+    "category": "boundary",
+    "description": "无特殊标志，总分=66",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 0
+        },
+        {
+          "indicatorId": 102,
+          "score": 0
+        },
+        {
+          "indicatorId": 103,
+          "score": 0
+        },
+        {
+          "indicatorId": 104,
+          "score": 0
+        },
+        {
+          "indicatorId": 105,
+          "score": 0
+        },
+        {
+          "indicatorId": 106,
+          "score": 0
+        },
+        {
+          "indicatorId": 107,
+          "score": 4
+        },
+        {
+          "indicatorId": 108,
+          "score": 4
+        },
+        {
+          "indicatorId": 201,
+          "score": 4
+        },
+        {
+          "indicatorId": 202,
+          "score": 4
+        },
+        {
+          "indicatorId": 203,
+          "score": 4
+        },
+        {
+          "indicatorId": 204,
+          "score": 3
+        },
+        {
+          "indicatorId": 301,
+          "score": 4
+        },
+        {
+          "indicatorId": 302,
+          "score": 4
+        },
+        {
+          "indicatorId": 303,
+          "score": 4
+        },
+        {
+          "indicatorId": 304,
+          "score": 4
+        },
+        {
+          "indicatorId": 305,
+          "score": 4
+        },
+        {
+          "indicatorId": 306,
+          "score": 4
+        },
+        {
+          "indicatorId": 307,
+          "score": 1
+        },
+        {
+          "indicatorId": 308,
+          "score": 1
+        },
+        {
+          "indicatorId": 309,
+          "score": 2
+        },
+        {
+          "indicatorId": 401,
+          "score": 2
+        },
+        {
+          "indicatorId": 402,
+          "score": 2
+        },
+        {
+          "indicatorId": 403,
+          "score": 4
+        },
+        {
+          "indicatorId": 404,
+          "score": 3
+        },
+        {
+          "indicatorId": 405,
+          "score": 4
+        }
+      ],
+      "flags": {}
+    },
+    "expect": {
+      "totalScore": 66,
+      "preliminaryLevel": 1,
+      "level": 1,
+      "levelChangeReason": null
+    }
+  },
+  {
+    "id": "N067",
+    "title": "总分 67 边界",
+    "category": "boundary",
+    "description": "边界总分=67",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 0
+        },
+        {
+          "indicatorId": 102,
+          "score": 0
+        },
+        {
+          "indicatorId": 103,
+          "score": 0
+        },
+        {
+          "indicatorId": 104,
+          "score": 0
+        },
+        {
+          "indicatorId": 105,
+          "score": 0
+        },
+        {
+          "indicatorId": 106,
+          "score": 1
+        },
+        {
+          "indicatorId": 107,
+          "score": 4
+        },
+        {
+          "indicatorId": 108,
+          "score": 4
+        },
+        {
+          "indicatorId": 201,
+          "score": 4
+        },
+        {
+          "indicatorId": 202,
+          "score": 4
+        },
+        {
+          "indicatorId": 203,
+          "score": 4
+        },
+        {
+          "indicatorId": 204,
+          "score": 3
+        },
+        {
+          "indicatorId": 301,
+          "score": 4
+        },
+        {
+          "indicatorId": 302,
+          "score": 4
+        },
+        {
+          "indicatorId": 303,
+          "score": 4
+        },
+        {
+          "indicatorId": 304,
+          "score": 4
+        },
+        {
+          "indicatorId": 305,
+          "score": 4
+        },
+        {
+          "indicatorId": 306,
+          "score": 4
+        },
+        {
+          "indicatorId": 307,
+          "score": 1
+        },
+        {
+          "indicatorId": 308,
+          "score": 1
+        },
+        {
+          "indicatorId": 309,
+          "score": 2
+        },
+        {
+          "indicatorId": 401,
+          "score": 2
+        },
+        {
+          "indicatorId": 402,
+          "score": 2
+        },
+        {
+          "indicatorId": 403,
+          "score": 4
+        },
+        {
+          "indicatorId": 404,
+          "score": 3
+        },
+        {
+          "indicatorId": 405,
+          "score": 4
+        }
+      ],
+      "flags": {}
+    },
+    "expect": {
+      "totalScore": 67,
+      "preliminaryLevel": 1,
+      "level": 1,
+      "levelChangeReason": null
+    }
+  },
+  {
+    "id": "N069",
+    "title": "总分 69 常规",
+    "category": "normal",
+    "description": "无特殊标志，总分=69",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 0
+        },
+        {
+          "indicatorId": 102,
+          "score": 0
+        },
+        {
+          "indicatorId": 103,
+          "score": 0
+        },
+        {
+          "indicatorId": 104,
+          "score": 0
+        },
+        {
+          "indicatorId": 105,
+          "score": 0
+        },
+        {
+          "indicatorId": 106,
+          "score": 3
+        },
+        {
+          "indicatorId": 107,
+          "score": 4
+        },
+        {
+          "indicatorId": 108,
+          "score": 4
+        },
+        {
+          "indicatorId": 201,
+          "score": 4
+        },
+        {
+          "indicatorId": 202,
+          "score": 4
+        },
+        {
+          "indicatorId": 203,
+          "score": 4
+        },
+        {
+          "indicatorId": 204,
+          "score": 3
+        },
+        {
+          "indicatorId": 301,
+          "score": 4
+        },
+        {
+          "indicatorId": 302,
+          "score": 4
+        },
+        {
+          "indicatorId": 303,
+          "score": 4
+        },
+        {
+          "indicatorId": 304,
+          "score": 4
+        },
+        {
+          "indicatorId": 305,
+          "score": 4
+        },
+        {
+          "indicatorId": 306,
+          "score": 4
+        },
+        {
+          "indicatorId": 307,
+          "score": 1
+        },
+        {
+          "indicatorId": 308,
+          "score": 1
+        },
+        {
+          "indicatorId": 309,
+          "score": 2
+        },
+        {
+          "indicatorId": 401,
+          "score": 2
+        },
+        {
+          "indicatorId": 402,
+          "score": 2
+        },
+        {
+          "indicatorId": 403,
+          "score": 4
+        },
+        {
+          "indicatorId": 404,
+          "score": 3
+        },
+        {
+          "indicatorId": 405,
+          "score": 4
+        }
+      ],
+      "flags": {}
+    },
+    "expect": {
+      "totalScore": 69,
+      "preliminaryLevel": 1,
+      "level": 1,
+      "levelChangeReason": null
+    }
+  },
+  {
+    "id": "N072",
+    "title": "总分 72 常规",
+    "category": "normal",
+    "description": "无特殊标志，总分=72",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 0
+        },
+        {
+          "indicatorId": 102,
+          "score": 0
+        },
+        {
+          "indicatorId": 103,
+          "score": 0
+        },
+        {
+          "indicatorId": 104,
+          "score": 0
+        },
+        {
+          "indicatorId": 105,
+          "score": 2
+        },
+        {
+          "indicatorId": 106,
+          "score": 4
+        },
+        {
+          "indicatorId": 107,
+          "score": 4
+        },
+        {
+          "indicatorId": 108,
+          "score": 4
+        },
+        {
+          "indicatorId": 201,
+          "score": 4
+        },
+        {
+          "indicatorId": 202,
+          "score": 4
+        },
+        {
+          "indicatorId": 203,
+          "score": 4
+        },
+        {
+          "indicatorId": 204,
+          "score": 3
+        },
+        {
+          "indicatorId": 301,
+          "score": 4
+        },
+        {
+          "indicatorId": 302,
+          "score": 4
+        },
+        {
+          "indicatorId": 303,
+          "score": 4
+        },
+        {
+          "indicatorId": 304,
+          "score": 4
+        },
+        {
+          "indicatorId": 305,
+          "score": 4
+        },
+        {
+          "indicatorId": 306,
+          "score": 4
+        },
+        {
+          "indicatorId": 307,
+          "score": 1
+        },
+        {
+          "indicatorId": 308,
+          "score": 1
+        },
+        {
+          "indicatorId": 309,
+          "score": 2
+        },
+        {
+          "indicatorId": 401,
+          "score": 2
+        },
+        {
+          "indicatorId": 402,
+          "score": 2
+        },
+        {
+          "indicatorId": 403,
+          "score": 4
+        },
+        {
+          "indicatorId": 404,
+          "score": 3
+        },
+        {
+          "indicatorId": 405,
+          "score": 4
+        }
+      ],
+      "flags": {}
+    },
+    "expect": {
+      "totalScore": 72,
+      "preliminaryLevel": 1,
+      "level": 1,
+      "levelChangeReason": null
+    }
+  },
+  {
+    "id": "N075",
+    "title": "总分 75 常规",
+    "category": "normal",
+    "description": "无特殊标志，总分=75",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 0
+        },
+        {
+          "indicatorId": 102,
+          "score": 0
+        },
+        {
+          "indicatorId": 103,
+          "score": 0
+        },
+        {
+          "indicatorId": 104,
+          "score": 1
+        },
+        {
+          "indicatorId": 105,
+          "score": 4
+        },
+        {
+          "indicatorId": 106,
+          "score": 4
+        },
+        {
+          "indicatorId": 107,
+          "score": 4
+        },
+        {
+          "indicatorId": 108,
+          "score": 4
+        },
+        {
+          "indicatorId": 201,
+          "score": 4
+        },
+        {
+          "indicatorId": 202,
+          "score": 4
+        },
+        {
+          "indicatorId": 203,
+          "score": 4
+        },
+        {
+          "indicatorId": 204,
+          "score": 3
+        },
+        {
+          "indicatorId": 301,
+          "score": 4
+        },
+        {
+          "indicatorId": 302,
+          "score": 4
+        },
+        {
+          "indicatorId": 303,
+          "score": 4
+        },
+        {
+          "indicatorId": 304,
+          "score": 4
+        },
+        {
+          "indicatorId": 305,
+          "score": 4
+        },
+        {
+          "indicatorId": 306,
+          "score": 4
+        },
+        {
+          "indicatorId": 307,
+          "score": 1
+        },
+        {
+          "indicatorId": 308,
+          "score": 1
+        },
+        {
+          "indicatorId": 309,
+          "score": 2
+        },
+        {
+          "indicatorId": 401,
+          "score": 2
+        },
+        {
+          "indicatorId": 402,
+          "score": 2
+        },
+        {
+          "indicatorId": 403,
+          "score": 4
+        },
+        {
+          "indicatorId": 404,
+          "score": 3
+        },
+        {
+          "indicatorId": 405,
+          "score": 4
+        }
+      ],
+      "flags": {}
+    },
+    "expect": {
+      "totalScore": 75,
+      "preliminaryLevel": 1,
+      "level": 1,
+      "levelChangeReason": null
+    }
+  },
+  {
+    "id": "N078",
+    "title": "总分 78 常规",
+    "category": "normal",
+    "description": "无特殊标志，总分=78",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 0
+        },
+        {
+          "indicatorId": 102,
+          "score": 0
+        },
+        {
+          "indicatorId": 103,
+          "score": 0
+        },
+        {
+          "indicatorId": 104,
+          "score": 4
+        },
+        {
+          "indicatorId": 105,
+          "score": 4
+        },
+        {
+          "indicatorId": 106,
+          "score": 4
+        },
+        {
+          "indicatorId": 107,
+          "score": 4
+        },
+        {
+          "indicatorId": 108,
+          "score": 4
+        },
+        {
+          "indicatorId": 201,
+          "score": 4
+        },
+        {
+          "indicatorId": 202,
+          "score": 4
+        },
+        {
+          "indicatorId": 203,
+          "score": 4
+        },
+        {
+          "indicatorId": 204,
+          "score": 3
+        },
+        {
+          "indicatorId": 301,
+          "score": 4
+        },
+        {
+          "indicatorId": 302,
+          "score": 4
+        },
+        {
+          "indicatorId": 303,
+          "score": 4
+        },
+        {
+          "indicatorId": 304,
+          "score": 4
+        },
+        {
+          "indicatorId": 305,
+          "score": 4
+        },
+        {
+          "indicatorId": 306,
+          "score": 4
+        },
+        {
+          "indicatorId": 307,
+          "score": 1
+        },
+        {
+          "indicatorId": 308,
+          "score": 1
+        },
+        {
+          "indicatorId": 309,
+          "score": 2
+        },
+        {
+          "indicatorId": 401,
+          "score": 2
+        },
+        {
+          "indicatorId": 402,
+          "score": 2
+        },
+        {
+          "indicatorId": 403,
+          "score": 4
+        },
+        {
+          "indicatorId": 404,
+          "score": 3
+        },
+        {
+          "indicatorId": 405,
+          "score": 4
+        }
+      ],
+      "flags": {}
+    },
+    "expect": {
+      "totalScore": 78,
+      "preliminaryLevel": 1,
+      "level": 1,
+      "levelChangeReason": null
+    }
+  },
+  {
+    "id": "N081",
+    "title": "总分 81 常规",
+    "category": "normal",
+    "description": "无特殊标志，总分=81",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 0
+        },
+        {
+          "indicatorId": 102,
+          "score": 0
+        },
+        {
+          "indicatorId": 103,
+          "score": 3
+        },
+        {
+          "indicatorId": 104,
+          "score": 4
+        },
+        {
+          "indicatorId": 105,
+          "score": 4
+        },
+        {
+          "indicatorId": 106,
+          "score": 4
+        },
+        {
+          "indicatorId": 107,
+          "score": 4
+        },
+        {
+          "indicatorId": 108,
+          "score": 4
+        },
+        {
+          "indicatorId": 201,
+          "score": 4
+        },
+        {
+          "indicatorId": 202,
+          "score": 4
+        },
+        {
+          "indicatorId": 203,
+          "score": 4
+        },
+        {
+          "indicatorId": 204,
+          "score": 3
+        },
+        {
+          "indicatorId": 301,
+          "score": 4
+        },
+        {
+          "indicatorId": 302,
+          "score": 4
+        },
+        {
+          "indicatorId": 303,
+          "score": 4
+        },
+        {
+          "indicatorId": 304,
+          "score": 4
+        },
+        {
+          "indicatorId": 305,
+          "score": 4
+        },
+        {
+          "indicatorId": 306,
+          "score": 4
+        },
+        {
+          "indicatorId": 307,
+          "score": 1
+        },
+        {
+          "indicatorId": 308,
+          "score": 1
+        },
+        {
+          "indicatorId": 309,
+          "score": 2
+        },
+        {
+          "indicatorId": 401,
+          "score": 2
+        },
+        {
+          "indicatorId": 402,
+          "score": 2
+        },
+        {
+          "indicatorId": 403,
+          "score": 4
+        },
+        {
+          "indicatorId": 404,
+          "score": 3
+        },
+        {
+          "indicatorId": 405,
+          "score": 4
+        }
+      ],
+      "flags": {}
+    },
+    "expect": {
+      "totalScore": 81,
+      "preliminaryLevel": 1,
+      "level": 1,
+      "levelChangeReason": null
+    }
+  },
+  {
+    "id": "N084",
+    "title": "总分 84 常规",
+    "category": "normal",
+    "description": "无特殊标志，总分=84",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 0
+        },
+        {
+          "indicatorId": 102,
+          "score": 2
+        },
+        {
+          "indicatorId": 103,
+          "score": 4
+        },
+        {
+          "indicatorId": 104,
+          "score": 4
+        },
+        {
+          "indicatorId": 105,
+          "score": 4
+        },
+        {
+          "indicatorId": 106,
+          "score": 4
+        },
+        {
+          "indicatorId": 107,
+          "score": 4
+        },
+        {
+          "indicatorId": 108,
+          "score": 4
+        },
+        {
+          "indicatorId": 201,
+          "score": 4
+        },
+        {
+          "indicatorId": 202,
+          "score": 4
+        },
+        {
+          "indicatorId": 203,
+          "score": 4
+        },
+        {
+          "indicatorId": 204,
+          "score": 3
+        },
+        {
+          "indicatorId": 301,
+          "score": 4
+        },
+        {
+          "indicatorId": 302,
+          "score": 4
+        },
+        {
+          "indicatorId": 303,
+          "score": 4
+        },
+        {
+          "indicatorId": 304,
+          "score": 4
+        },
+        {
+          "indicatorId": 305,
+          "score": 4
+        },
+        {
+          "indicatorId": 306,
+          "score": 4
+        },
+        {
+          "indicatorId": 307,
+          "score": 1
+        },
+        {
+          "indicatorId": 308,
+          "score": 1
+        },
+        {
+          "indicatorId": 309,
+          "score": 2
+        },
+        {
+          "indicatorId": 401,
+          "score": 2
+        },
+        {
+          "indicatorId": 402,
+          "score": 2
+        },
+        {
+          "indicatorId": 403,
+          "score": 4
+        },
+        {
+          "indicatorId": 404,
+          "score": 3
+        },
+        {
+          "indicatorId": 405,
+          "score": 4
+        }
+      ],
+      "flags": {}
+    },
+    "expect": {
+      "totalScore": 84,
+      "preliminaryLevel": 1,
+      "level": 1,
+      "levelChangeReason": null
+    }
+  },
+  {
+    "id": "N087",
+    "title": "总分 87 常规",
+    "category": "normal",
+    "description": "无特殊标志，总分=87",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 1
+        },
+        {
+          "indicatorId": 102,
+          "score": 4
+        },
+        {
+          "indicatorId": 103,
+          "score": 4
+        },
+        {
+          "indicatorId": 104,
+          "score": 4
+        },
+        {
+          "indicatorId": 105,
+          "score": 4
+        },
+        {
+          "indicatorId": 106,
+          "score": 4
+        },
+        {
+          "indicatorId": 107,
+          "score": 4
+        },
+        {
+          "indicatorId": 108,
+          "score": 4
+        },
+        {
+          "indicatorId": 201,
+          "score": 4
+        },
+        {
+          "indicatorId": 202,
+          "score": 4
+        },
+        {
+          "indicatorId": 203,
+          "score": 4
+        },
+        {
+          "indicatorId": 204,
+          "score": 3
+        },
+        {
+          "indicatorId": 301,
+          "score": 4
+        },
+        {
+          "indicatorId": 302,
+          "score": 4
+        },
+        {
+          "indicatorId": 303,
+          "score": 4
+        },
+        {
+          "indicatorId": 304,
+          "score": 4
+        },
+        {
+          "indicatorId": 305,
+          "score": 4
+        },
+        {
+          "indicatorId": 306,
+          "score": 4
+        },
+        {
+          "indicatorId": 307,
+          "score": 1
+        },
+        {
+          "indicatorId": 308,
+          "score": 1
+        },
+        {
+          "indicatorId": 309,
+          "score": 2
+        },
+        {
+          "indicatorId": 401,
+          "score": 2
+        },
+        {
+          "indicatorId": 402,
+          "score": 2
+        },
+        {
+          "indicatorId": 403,
+          "score": 4
+        },
+        {
+          "indicatorId": 404,
+          "score": 3
+        },
+        {
+          "indicatorId": 405,
+          "score": 4
+        }
+      ],
+      "flags": {}
+    },
+    "expect": {
+      "totalScore": 87,
+      "preliminaryLevel": 1,
+      "level": 1,
+      "levelChangeReason": null
+    }
+  },
+  {
+    "id": "N088",
+    "title": "总分 88 边界",
+    "category": "boundary",
+    "description": "边界总分=88",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 2
+        },
+        {
+          "indicatorId": 102,
+          "score": 4
+        },
+        {
+          "indicatorId": 103,
+          "score": 4
+        },
+        {
+          "indicatorId": 104,
+          "score": 4
+        },
+        {
+          "indicatorId": 105,
+          "score": 4
+        },
+        {
+          "indicatorId": 106,
+          "score": 4
+        },
+        {
+          "indicatorId": 107,
+          "score": 4
+        },
+        {
+          "indicatorId": 108,
+          "score": 4
+        },
+        {
+          "indicatorId": 201,
+          "score": 4
+        },
+        {
+          "indicatorId": 202,
+          "score": 4
+        },
+        {
+          "indicatorId": 203,
+          "score": 4
+        },
+        {
+          "indicatorId": 204,
+          "score": 3
+        },
+        {
+          "indicatorId": 301,
+          "score": 4
+        },
+        {
+          "indicatorId": 302,
+          "score": 4
+        },
+        {
+          "indicatorId": 303,
+          "score": 4
+        },
+        {
+          "indicatorId": 304,
+          "score": 4
+        },
+        {
+          "indicatorId": 305,
+          "score": 4
+        },
+        {
+          "indicatorId": 306,
+          "score": 4
+        },
+        {
+          "indicatorId": 307,
+          "score": 1
+        },
+        {
+          "indicatorId": 308,
+          "score": 1
+        },
+        {
+          "indicatorId": 309,
+          "score": 2
+        },
+        {
+          "indicatorId": 401,
+          "score": 2
+        },
+        {
+          "indicatorId": 402,
+          "score": 2
+        },
+        {
+          "indicatorId": 403,
+          "score": 4
+        },
+        {
+          "indicatorId": 404,
+          "score": 3
+        },
+        {
+          "indicatorId": 405,
+          "score": 4
+        }
+      ],
+      "flags": {}
+    },
+    "expect": {
+      "totalScore": 88,
+      "preliminaryLevel": 1,
+      "level": 1,
+      "levelChangeReason": null
+    }
+  },
+  {
+    "id": "N089",
+    "title": "总分 89 边界",
+    "category": "boundary",
+    "description": "边界总分=89",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 3
+        },
+        {
+          "indicatorId": 102,
+          "score": 4
+        },
+        {
+          "indicatorId": 103,
+          "score": 4
+        },
+        {
+          "indicatorId": 104,
+          "score": 4
+        },
+        {
+          "indicatorId": 105,
+          "score": 4
+        },
+        {
+          "indicatorId": 106,
+          "score": 4
+        },
+        {
+          "indicatorId": 107,
+          "score": 4
+        },
+        {
+          "indicatorId": 108,
+          "score": 4
+        },
+        {
+          "indicatorId": 201,
+          "score": 4
+        },
+        {
+          "indicatorId": 202,
+          "score": 4
+        },
+        {
+          "indicatorId": 203,
+          "score": 4
+        },
+        {
+          "indicatorId": 204,
+          "score": 3
+        },
+        {
+          "indicatorId": 301,
+          "score": 4
+        },
+        {
+          "indicatorId": 302,
+          "score": 4
+        },
+        {
+          "indicatorId": 303,
+          "score": 4
+        },
+        {
+          "indicatorId": 304,
+          "score": 4
+        },
+        {
+          "indicatorId": 305,
+          "score": 4
+        },
+        {
+          "indicatorId": 306,
+          "score": 4
+        },
+        {
+          "indicatorId": 307,
+          "score": 1
+        },
+        {
+          "indicatorId": 308,
+          "score": 1
+        },
+        {
+          "indicatorId": 309,
+          "score": 2
+        },
+        {
+          "indicatorId": 401,
+          "score": 2
+        },
+        {
+          "indicatorId": 402,
+          "score": 2
+        },
+        {
+          "indicatorId": 403,
+          "score": 4
+        },
+        {
+          "indicatorId": 404,
+          "score": 3
+        },
+        {
+          "indicatorId": 405,
+          "score": 4
+        }
+      ],
+      "flags": {}
+    },
+    "expect": {
+      "totalScore": 89,
+      "preliminaryLevel": 1,
+      "level": 1,
+      "levelChangeReason": null
+    }
+  },
+  {
+    "id": "N090",
+    "title": "总分 90 边界",
+    "category": "boundary",
+    "description": "无特殊标志，总分=90",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 4
+        },
+        {
+          "indicatorId": 102,
+          "score": 4
+        },
+        {
+          "indicatorId": 103,
+          "score": 4
+        },
+        {
+          "indicatorId": 104,
+          "score": 4
+        },
+        {
+          "indicatorId": 105,
+          "score": 4
+        },
+        {
+          "indicatorId": 106,
+          "score": 4
+        },
+        {
+          "indicatorId": 107,
+          "score": 4
+        },
+        {
+          "indicatorId": 108,
+          "score": 4
+        },
+        {
+          "indicatorId": 201,
+          "score": 4
+        },
+        {
+          "indicatorId": 202,
+          "score": 4
+        },
+        {
+          "indicatorId": 203,
+          "score": 4
+        },
+        {
+          "indicatorId": 204,
+          "score": 3
+        },
+        {
+          "indicatorId": 301,
+          "score": 4
+        },
+        {
+          "indicatorId": 302,
+          "score": 4
+        },
+        {
+          "indicatorId": 303,
+          "score": 4
+        },
+        {
+          "indicatorId": 304,
+          "score": 4
+        },
+        {
+          "indicatorId": 305,
+          "score": 4
+        },
+        {
+          "indicatorId": 306,
+          "score": 4
+        },
+        {
+          "indicatorId": 307,
+          "score": 1
+        },
+        {
+          "indicatorId": 308,
+          "score": 1
+        },
+        {
+          "indicatorId": 309,
+          "score": 2
+        },
+        {
+          "indicatorId": 401,
+          "score": 2
+        },
+        {
+          "indicatorId": 402,
+          "score": 2
+        },
+        {
+          "indicatorId": 403,
+          "score": 4
+        },
+        {
+          "indicatorId": 404,
+          "score": 3
+        },
+        {
+          "indicatorId": 405,
+          "score": 4
+        }
+      ],
+      "flags": {}
+    },
+    "expect": {
+      "totalScore": 90,
+      "preliminaryLevel": 0,
+      "level": 0,
+      "levelChangeReason": null
+    }
+  },
+  {
+    "id": "S01",
+    "title": "昏迷直判 L4",
+    "category": "special-boundary",
+    "description": "昏迷直判 L4（L0→L4 变化，reason=coma）",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 4
+        },
+        {
+          "indicatorId": 102,
+          "score": 4
+        },
+        {
+          "indicatorId": 103,
+          "score": 4
+        },
+        {
+          "indicatorId": 104,
+          "score": 4
+        },
+        {
+          "indicatorId": 105,
+          "score": 4
+        },
+        {
+          "indicatorId": 106,
+          "score": 4
+        },
+        {
+          "indicatorId": 107,
+          "score": 4
+        },
+        {
+          "indicatorId": 108,
+          "score": 4
+        },
+        {
+          "indicatorId": 201,
+          "score": 4
+        },
+        {
+          "indicatorId": 202,
+          "score": 4
+        },
+        {
+          "indicatorId": 203,
+          "score": 4
+        },
+        {
+          "indicatorId": 204,
+          "score": 3
+        },
+        {
+          "indicatorId": 301,
+          "score": 4
+        },
+        {
+          "indicatorId": 302,
+          "score": 4
+        },
+        {
+          "indicatorId": 303,
+          "score": 4
+        },
+        {
+          "indicatorId": 304,
+          "score": 4
+        },
+        {
+          "indicatorId": 305,
+          "score": 4
+        },
+        {
+          "indicatorId": 306,
+          "score": 4
+        },
+        {
+          "indicatorId": 307,
+          "score": 1
+        },
+        {
+          "indicatorId": 308,
+          "score": 1
+        },
+        {
+          "indicatorId": 309,
+          "score": 2
+        },
+        {
+          "indicatorId": 401,
+          "score": 2
+        },
+        {
+          "indicatorId": 402,
+          "score": 2
+        },
+        {
+          "indicatorId": 403,
+          "score": 4
+        },
+        {
+          "indicatorId": 404,
+          "score": 3
+        },
+        {
+          "indicatorId": 405,
+          "score": 4
+        }
+      ],
+      "flags": {
+        "coma": true
+      }
+    },
+    "expect": {
+      "totalScore": 90,
+      "preliminaryLevel": 0,
+      "level": 4,
+      "levelChangeReason": "coma"
+    }
+  },
+  {
+    "id": "S02",
+    "title": "昏迷直判 L4",
+    "category": "special",
+    "description": "昏迷直判 L4（L3→L4 变化）",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 0
+        },
+        {
+          "indicatorId": 102,
+          "score": 0
+        },
+        {
+          "indicatorId": 103,
+          "score": 0
+        },
+        {
+          "indicatorId": 104,
+          "score": 0
+        },
+        {
+          "indicatorId": 105,
+          "score": 0
+        },
+        {
+          "indicatorId": 106,
+          "score": 0
+        },
+        {
+          "indicatorId": 107,
+          "score": 0
+        },
+        {
+          "indicatorId": 108,
+          "score": 0
+        },
+        {
+          "indicatorId": 201,
+          "score": 0
+        },
+        {
+          "indicatorId": 202,
+          "score": 0
+        },
+        {
+          "indicatorId": 203,
+          "score": 0
+        },
+        {
+          "indicatorId": 204,
+          "score": 2
+        },
+        {
+          "indicatorId": 301,
+          "score": 4
+        },
+        {
+          "indicatorId": 302,
+          "score": 4
+        },
+        {
+          "indicatorId": 303,
+          "score": 4
+        },
+        {
+          "indicatorId": 304,
+          "score": 4
+        },
+        {
+          "indicatorId": 305,
+          "score": 4
+        },
+        {
+          "indicatorId": 306,
+          "score": 4
+        },
+        {
+          "indicatorId": 307,
+          "score": 1
+        },
+        {
+          "indicatorId": 308,
+          "score": 1
+        },
+        {
+          "indicatorId": 309,
+          "score": 2
+        },
+        {
+          "indicatorId": 401,
+          "score": 2
+        },
+        {
+          "indicatorId": 402,
+          "score": 2
+        },
+        {
+          "indicatorId": 403,
+          "score": 4
+        },
+        {
+          "indicatorId": 404,
+          "score": 3
+        },
+        {
+          "indicatorId": 405,
+          "score": 4
+        }
+      ],
+      "flags": {
+        "coma": true
+      }
+    },
+    "expect": {
+      "totalScore": 45,
+      "preliminaryLevel": 3,
+      "level": 4,
+      "levelChangeReason": "coma"
+    }
+  },
+  {
+    "id": "S03",
+    "title": "昏迷但原已 L4",
+    "category": "special",
+    "description": "昏迷但原已 L4（等级未变，reason=null，trace 留痕）",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 0
+        },
+        {
+          "indicatorId": 102,
+          "score": 0
+        },
+        {
+          "indicatorId": 103,
+          "score": 0
+        },
+        {
+          "indicatorId": 104,
+          "score": 0
+        },
+        {
+          "indicatorId": 105,
+          "score": 0
+        },
+        {
+          "indicatorId": 106,
+          "score": 0
+        },
+        {
+          "indicatorId": 107,
+          "score": 0
+        },
+        {
+          "indicatorId": 108,
+          "score": 0
+        },
+        {
+          "indicatorId": 201,
+          "score": 0
+        },
+        {
+          "indicatorId": 202,
+          "score": 0
+        },
+        {
+          "indicatorId": 203,
+          "score": 0
+        },
+        {
+          "indicatorId": 204,
+          "score": 0
+        },
+        {
+          "indicatorId": 301,
+          "score": 0
+        },
+        {
+          "indicatorId": 302,
+          "score": 0
+        },
+        {
+          "indicatorId": 303,
+          "score": 0
+        },
+        {
+          "indicatorId": 304,
+          "score": 0
+        },
+        {
+          "indicatorId": 305,
+          "score": 0
+        },
+        {
+          "indicatorId": 306,
+          "score": 1
+        },
+        {
+          "indicatorId": 307,
+          "score": 1
+        },
+        {
+          "indicatorId": 308,
+          "score": 1
+        },
+        {
+          "indicatorId": 309,
+          "score": 2
+        },
+        {
+          "indicatorId": 401,
+          "score": 2
+        },
+        {
+          "indicatorId": 402,
+          "score": 2
+        },
+        {
+          "indicatorId": 403,
+          "score": 4
+        },
+        {
+          "indicatorId": 404,
+          "score": 3
+        },
+        {
+          "indicatorId": 405,
+          "score": 4
+        }
+      ],
+      "flags": {
+        "coma": true
+      }
+    },
+    "expect": {
+      "totalScore": 20,
+      "preliminaryLevel": 4,
+      "level": 4,
+      "levelChangeReason": null
+    }
+  },
+  {
+    "id": "S04",
+    "title": "确诊痴呆升级 L1→L2",
+    "category": "special",
+    "description": "确诊痴呆升级 L1→L2",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 0
+        },
+        {
+          "indicatorId": 102,
+          "score": 0
+        },
+        {
+          "indicatorId": 103,
+          "score": 0
+        },
+        {
+          "indicatorId": 104,
+          "score": 0
+        },
+        {
+          "indicatorId": 105,
+          "score": 0
+        },
+        {
+          "indicatorId": 106,
+          "score": 4
+        },
+        {
+          "indicatorId": 107,
+          "score": 4
+        },
+        {
+          "indicatorId": 108,
+          "score": 4
+        },
+        {
+          "indicatorId": 201,
+          "score": 4
+        },
+        {
+          "indicatorId": 202,
+          "score": 4
+        },
+        {
+          "indicatorId": 203,
+          "score": 4
+        },
+        {
+          "indicatorId": 204,
+          "score": 3
+        },
+        {
+          "indicatorId": 301,
+          "score": 4
+        },
+        {
+          "indicatorId": 302,
+          "score": 4
+        },
+        {
+          "indicatorId": 303,
+          "score": 4
+        },
+        {
+          "indicatorId": 304,
+          "score": 4
+        },
+        {
+          "indicatorId": 305,
+          "score": 4
+        },
+        {
+          "indicatorId": 306,
+          "score": 4
+        },
+        {
+          "indicatorId": 307,
+          "score": 1
+        },
+        {
+          "indicatorId": 308,
+          "score": 1
+        },
+        {
+          "indicatorId": 309,
+          "score": 2
+        },
+        {
+          "indicatorId": 401,
+          "score": 2
+        },
+        {
+          "indicatorId": 402,
+          "score": 2
+        },
+        {
+          "indicatorId": 403,
+          "score": 4
+        },
+        {
+          "indicatorId": 404,
+          "score": 3
+        },
+        {
+          "indicatorId": 405,
+          "score": 4
+        }
+      ],
+      "flags": {
+        "dementia": true
+      }
+    },
+    "expect": {
+      "totalScore": 70,
+      "preliminaryLevel": 1,
+      "level": 2,
+      "levelChangeReason": "dementia"
+    }
+  },
+  {
+    "id": "S05",
+    "title": "痴呆但原已 L4",
+    "category": "special",
+    "description": "痴呆但原已 L4（未变，reason=null）",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 0
+        },
+        {
+          "indicatorId": 102,
+          "score": 0
+        },
+        {
+          "indicatorId": 103,
+          "score": 0
+        },
+        {
+          "indicatorId": 104,
+          "score": 0
+        },
+        {
+          "indicatorId": 105,
+          "score": 0
+        },
+        {
+          "indicatorId": 106,
+          "score": 0
+        },
+        {
+          "indicatorId": 107,
+          "score": 0
+        },
+        {
+          "indicatorId": 108,
+          "score": 0
+        },
+        {
+          "indicatorId": 201,
+          "score": 0
+        },
+        {
+          "indicatorId": 202,
+          "score": 0
+        },
+        {
+          "indicatorId": 203,
+          "score": 0
+        },
+        {
+          "indicatorId": 204,
+          "score": 0
+        },
+        {
+          "indicatorId": 301,
+          "score": 0
+        },
+        {
+          "indicatorId": 302,
+          "score": 0
+        },
+        {
+          "indicatorId": 303,
+          "score": 0
+        },
+        {
+          "indicatorId": 304,
+          "score": 2
+        },
+        {
+          "indicatorId": 305,
+          "score": 4
+        },
+        {
+          "indicatorId": 306,
+          "score": 4
+        },
+        {
+          "indicatorId": 307,
+          "score": 1
+        },
+        {
+          "indicatorId": 308,
+          "score": 1
+        },
+        {
+          "indicatorId": 309,
+          "score": 2
+        },
+        {
+          "indicatorId": 401,
+          "score": 2
+        },
+        {
+          "indicatorId": 402,
+          "score": 2
+        },
+        {
+          "indicatorId": 403,
+          "score": 4
+        },
+        {
+          "indicatorId": 404,
+          "score": 3
+        },
+        {
+          "indicatorId": 405,
+          "score": 4
+        }
+      ],
+      "flags": {
+        "dementia": true
+      }
+    },
+    "expect": {
+      "totalScore": 29,
+      "preliminaryLevel": 4,
+      "level": 4,
+      "levelChangeReason": null
+    }
+  },
+  {
+    "id": "S06",
+    "title": "精神障碍升级 L1→L2",
+    "category": "special",
+    "description": "精神障碍升级 L1→L2",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 0
+        },
+        {
+          "indicatorId": 102,
+          "score": 0
+        },
+        {
+          "indicatorId": 103,
+          "score": 0
+        },
+        {
+          "indicatorId": 104,
+          "score": 0
+        },
+        {
+          "indicatorId": 105,
+          "score": 0
+        },
+        {
+          "indicatorId": 106,
+          "score": 4
+        },
+        {
+          "indicatorId": 107,
+          "score": 4
+        },
+        {
+          "indicatorId": 108,
+          "score": 4
+        },
+        {
+          "indicatorId": 201,
+          "score": 4
+        },
+        {
+          "indicatorId": 202,
+          "score": 4
+        },
+        {
+          "indicatorId": 203,
+          "score": 4
+        },
+        {
+          "indicatorId": 204,
+          "score": 3
+        },
+        {
+          "indicatorId": 301,
+          "score": 4
+        },
+        {
+          "indicatorId": 302,
+          "score": 4
+        },
+        {
+          "indicatorId": 303,
+          "score": 4
+        },
+        {
+          "indicatorId": 304,
+          "score": 4
+        },
+        {
+          "indicatorId": 305,
+          "score": 4
+        },
+        {
+          "indicatorId": 306,
+          "score": 4
+        },
+        {
+          "indicatorId": 307,
+          "score": 1
+        },
+        {
+          "indicatorId": 308,
+          "score": 1
+        },
+        {
+          "indicatorId": 309,
+          "score": 2
+        },
+        {
+          "indicatorId": 401,
+          "score": 2
+        },
+        {
+          "indicatorId": 402,
+          "score": 2
+        },
+        {
+          "indicatorId": 403,
+          "score": 4
+        },
+        {
+          "indicatorId": 404,
+          "score": 3
+        },
+        {
+          "indicatorId": 405,
+          "score": 4
+        }
+      ],
+      "flags": {
+        "mentalDisorder": true
+      }
+    },
+    "expect": {
+      "totalScore": 70,
+      "preliminaryLevel": 1,
+      "level": 2,
+      "levelChangeReason": "mental_disorder"
+    }
+  },
+  {
+    "id": "S07",
+    "title": "近30天≥2次风险事件升级 L1→L2",
+    "category": "special",
+    "description": "近30天≥2次风险事件升级 L1→L2",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 0
+        },
+        {
+          "indicatorId": 102,
+          "score": 0
+        },
+        {
+          "indicatorId": 103,
+          "score": 0
+        },
+        {
+          "indicatorId": 104,
+          "score": 0
+        },
+        {
+          "indicatorId": 105,
+          "score": 0
+        },
+        {
+          "indicatorId": 106,
+          "score": 4
+        },
+        {
+          "indicatorId": 107,
+          "score": 4
+        },
+        {
+          "indicatorId": 108,
+          "score": 4
+        },
+        {
+          "indicatorId": 201,
+          "score": 4
+        },
+        {
+          "indicatorId": 202,
+          "score": 4
+        },
+        {
+          "indicatorId": 203,
+          "score": 4
+        },
+        {
+          "indicatorId": 204,
+          "score": 3
+        },
+        {
+          "indicatorId": 301,
+          "score": 4
+        },
+        {
+          "indicatorId": 302,
+          "score": 4
+        },
+        {
+          "indicatorId": 303,
+          "score": 4
+        },
+        {
+          "indicatorId": 304,
+          "score": 4
+        },
+        {
+          "indicatorId": 305,
+          "score": 4
+        },
+        {
+          "indicatorId": 306,
+          "score": 4
+        },
+        {
+          "indicatorId": 307,
+          "score": 1
+        },
+        {
+          "indicatorId": 308,
+          "score": 1
+        },
+        {
+          "indicatorId": 309,
+          "score": 2
+        },
+        {
+          "indicatorId": 401,
+          "score": 2
+        },
+        {
+          "indicatorId": 402,
+          "score": 2
+        },
+        {
+          "indicatorId": 403,
+          "score": 4
+        },
+        {
+          "indicatorId": 404,
+          "score": 3
+        },
+        {
+          "indicatorId": 405,
+          "score": 4
+        }
+      ],
+      "flags": {
+        "riskEventCount": 2
+      }
+    },
+    "expect": {
+      "totalScore": 70,
+      "preliminaryLevel": 1,
+      "level": 2,
+      "levelChangeReason": "risk_event"
+    }
+  },
+  {
+    "id": "S08",
+    "title": "多升级规则命中仍 +1",
+    "category": "special",
+    "description": "多升级规则命中仍 +1（不叠加）L2→L3",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 0
+        },
+        {
+          "indicatorId": 102,
+          "score": 0
+        },
+        {
+          "indicatorId": 103,
+          "score": 0
+        },
+        {
+          "indicatorId": 104,
+          "score": 0
+        },
+        {
+          "indicatorId": 105,
+          "score": 0
+        },
+        {
+          "indicatorId": 106,
+          "score": 0
+        },
+        {
+          "indicatorId": 107,
+          "score": 0
+        },
+        {
+          "indicatorId": 108,
+          "score": 0
+        },
+        {
+          "indicatorId": 201,
+          "score": 1
+        },
+        {
+          "indicatorId": 202,
+          "score": 4
+        },
+        {
+          "indicatorId": 203,
+          "score": 4
+        },
+        {
+          "indicatorId": 204,
+          "score": 3
+        },
+        {
+          "indicatorId": 301,
+          "score": 4
+        },
+        {
+          "indicatorId": 302,
+          "score": 4
+        },
+        {
+          "indicatorId": 303,
+          "score": 4
+        },
+        {
+          "indicatorId": 304,
+          "score": 4
+        },
+        {
+          "indicatorId": 305,
+          "score": 4
+        },
+        {
+          "indicatorId": 306,
+          "score": 4
+        },
+        {
+          "indicatorId": 307,
+          "score": 1
+        },
+        {
+          "indicatorId": 308,
+          "score": 1
+        },
+        {
+          "indicatorId": 309,
+          "score": 2
+        },
+        {
+          "indicatorId": 401,
+          "score": 2
+        },
+        {
+          "indicatorId": 402,
+          "score": 2
+        },
+        {
+          "indicatorId": 403,
+          "score": 4
+        },
+        {
+          "indicatorId": 404,
+          "score": 3
+        },
+        {
+          "indicatorId": 405,
+          "score": 4
+        }
+      ],
+      "flags": {
+        "dementia": true,
+        "mentalDisorder": true
+      }
+    },
+    "expect": {
+      "totalScore": 55,
+      "preliminaryLevel": 2,
+      "level": 3,
+      "levelChangeReason": "dementia,mental_disorder"
+    }
+  },
+  {
+    "id": "S09",
+    "title": "痴呆+风险事件 L2→L3",
+    "category": "special",
+    "description": "痴呆+风险事件 L2→L3",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 0
+        },
+        {
+          "indicatorId": 102,
+          "score": 0
+        },
+        {
+          "indicatorId": 103,
+          "score": 0
+        },
+        {
+          "indicatorId": 104,
+          "score": 0
+        },
+        {
+          "indicatorId": 105,
+          "score": 0
+        },
+        {
+          "indicatorId": 106,
+          "score": 0
+        },
+        {
+          "indicatorId": 107,
+          "score": 0
+        },
+        {
+          "indicatorId": 108,
+          "score": 0
+        },
+        {
+          "indicatorId": 201,
+          "score": 1
+        },
+        {
+          "indicatorId": 202,
+          "score": 4
+        },
+        {
+          "indicatorId": 203,
+          "score": 4
+        },
+        {
+          "indicatorId": 204,
+          "score": 3
+        },
+        {
+          "indicatorId": 301,
+          "score": 4
+        },
+        {
+          "indicatorId": 302,
+          "score": 4
+        },
+        {
+          "indicatorId": 303,
+          "score": 4
+        },
+        {
+          "indicatorId": 304,
+          "score": 4
+        },
+        {
+          "indicatorId": 305,
+          "score": 4
+        },
+        {
+          "indicatorId": 306,
+          "score": 4
+        },
+        {
+          "indicatorId": 307,
+          "score": 1
+        },
+        {
+          "indicatorId": 308,
+          "score": 1
+        },
+        {
+          "indicatorId": 309,
+          "score": 2
+        },
+        {
+          "indicatorId": 401,
+          "score": 2
+        },
+        {
+          "indicatorId": 402,
+          "score": 2
+        },
+        {
+          "indicatorId": 403,
+          "score": 4
+        },
+        {
+          "indicatorId": 404,
+          "score": 3
+        },
+        {
+          "indicatorId": 405,
+          "score": 4
+        }
+      ],
+      "flags": {
+        "dementia": true,
+        "riskEventCount": 2
+      }
+    },
+    "expect": {
+      "totalScore": 55,
+      "preliminaryLevel": 2,
+      "level": 3,
+      "levelChangeReason": "dementia,risk_event"
+    }
+  },
+  {
+    "id": "S10",
+    "title": "三规则全中仍 +1 L2→L3",
+    "category": "special",
+    "description": "三规则全中仍 +1 L2→L3",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 0
+        },
+        {
+          "indicatorId": 102,
+          "score": 0
+        },
+        {
+          "indicatorId": 103,
+          "score": 0
+        },
+        {
+          "indicatorId": 104,
+          "score": 0
+        },
+        {
+          "indicatorId": 105,
+          "score": 0
+        },
+        {
+          "indicatorId": 106,
+          "score": 0
+        },
+        {
+          "indicatorId": 107,
+          "score": 0
+        },
+        {
+          "indicatorId": 108,
+          "score": 0
+        },
+        {
+          "indicatorId": 201,
+          "score": 1
+        },
+        {
+          "indicatorId": 202,
+          "score": 4
+        },
+        {
+          "indicatorId": 203,
+          "score": 4
+        },
+        {
+          "indicatorId": 204,
+          "score": 3
+        },
+        {
+          "indicatorId": 301,
+          "score": 4
+        },
+        {
+          "indicatorId": 302,
+          "score": 4
+        },
+        {
+          "indicatorId": 303,
+          "score": 4
+        },
+        {
+          "indicatorId": 304,
+          "score": 4
+        },
+        {
+          "indicatorId": 305,
+          "score": 4
+        },
+        {
+          "indicatorId": 306,
+          "score": 4
+        },
+        {
+          "indicatorId": 307,
+          "score": 1
+        },
+        {
+          "indicatorId": 308,
+          "score": 1
+        },
+        {
+          "indicatorId": 309,
+          "score": 2
+        },
+        {
+          "indicatorId": 401,
+          "score": 2
+        },
+        {
+          "indicatorId": 402,
+          "score": 2
+        },
+        {
+          "indicatorId": 403,
+          "score": 4
+        },
+        {
+          "indicatorId": 404,
+          "score": 3
+        },
+        {
+          "indicatorId": 405,
+          "score": 4
+        }
+      ],
+      "flags": {
+        "dementia": true,
+        "mentalDisorder": true,
+        "riskEventCount": 3
+      }
+    },
+    "expect": {
+      "totalScore": 55,
+      "preliminaryLevel": 2,
+      "level": 3,
+      "levelChangeReason": "dementia,mental_disorder,risk_event"
+    }
+  },
+  {
+    "id": "S11",
+    "title": "痴呆升级 L1→L2 边界",
+    "category": "special-boundary",
+    "description": "痴呆升级 L1→L2 边界",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 3
+        },
+        {
+          "indicatorId": 102,
+          "score": 4
+        },
+        {
+          "indicatorId": 103,
+          "score": 4
+        },
+        {
+          "indicatorId": 104,
+          "score": 4
+        },
+        {
+          "indicatorId": 105,
+          "score": 4
+        },
+        {
+          "indicatorId": 106,
+          "score": 4
+        },
+        {
+          "indicatorId": 107,
+          "score": 4
+        },
+        {
+          "indicatorId": 108,
+          "score": 4
+        },
+        {
+          "indicatorId": 201,
+          "score": 4
+        },
+        {
+          "indicatorId": 202,
+          "score": 4
+        },
+        {
+          "indicatorId": 203,
+          "score": 4
+        },
+        {
+          "indicatorId": 204,
+          "score": 3
+        },
+        {
+          "indicatorId": 301,
+          "score": 4
+        },
+        {
+          "indicatorId": 302,
+          "score": 4
+        },
+        {
+          "indicatorId": 303,
+          "score": 4
+        },
+        {
+          "indicatorId": 304,
+          "score": 4
+        },
+        {
+          "indicatorId": 305,
+          "score": 4
+        },
+        {
+          "indicatorId": 306,
+          "score": 4
+        },
+        {
+          "indicatorId": 307,
+          "score": 1
+        },
+        {
+          "indicatorId": 308,
+          "score": 1
+        },
+        {
+          "indicatorId": 309,
+          "score": 2
+        },
+        {
+          "indicatorId": 401,
+          "score": 2
+        },
+        {
+          "indicatorId": 402,
+          "score": 2
+        },
+        {
+          "indicatorId": 403,
+          "score": 4
+        },
+        {
+          "indicatorId": 404,
+          "score": 3
+        },
+        {
+          "indicatorId": 405,
+          "score": 4
+        }
+      ],
+      "flags": {
+        "dementia": true
+      }
+    },
+    "expect": {
+      "totalScore": 89,
+      "preliminaryLevel": 1,
+      "level": 2,
+      "levelChangeReason": "dementia"
+    }
+  },
+  {
+    "id": "S12",
+    "title": "精神障碍升级 L1→L2 边界",
+    "category": "special-boundary",
+    "description": "精神障碍升级 L1→L2 边界",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 0
+        },
+        {
+          "indicatorId": 102,
+          "score": 0
+        },
+        {
+          "indicatorId": 103,
+          "score": 0
+        },
+        {
+          "indicatorId": 104,
+          "score": 0
+        },
+        {
+          "indicatorId": 105,
+          "score": 0
+        },
+        {
+          "indicatorId": 106,
+          "score": 0
+        },
+        {
+          "indicatorId": 107,
+          "score": 4
+        },
+        {
+          "indicatorId": 108,
+          "score": 4
+        },
+        {
+          "indicatorId": 201,
+          "score": 4
+        },
+        {
+          "indicatorId": 202,
+          "score": 4
+        },
+        {
+          "indicatorId": 203,
+          "score": 4
+        },
+        {
+          "indicatorId": 204,
+          "score": 3
+        },
+        {
+          "indicatorId": 301,
+          "score": 4
+        },
+        {
+          "indicatorId": 302,
+          "score": 4
+        },
+        {
+          "indicatorId": 303,
+          "score": 4
+        },
+        {
+          "indicatorId": 304,
+          "score": 4
+        },
+        {
+          "indicatorId": 305,
+          "score": 4
+        },
+        {
+          "indicatorId": 306,
+          "score": 4
+        },
+        {
+          "indicatorId": 307,
+          "score": 1
+        },
+        {
+          "indicatorId": 308,
+          "score": 1
+        },
+        {
+          "indicatorId": 309,
+          "score": 2
+        },
+        {
+          "indicatorId": 401,
+          "score": 2
+        },
+        {
+          "indicatorId": 402,
+          "score": 2
+        },
+        {
+          "indicatorId": 403,
+          "score": 4
+        },
+        {
+          "indicatorId": 404,
+          "score": 3
+        },
+        {
+          "indicatorId": 405,
+          "score": 4
+        }
+      ],
+      "flags": {
+        "mentalDisorder": true
+      }
+    },
+    "expect": {
+      "totalScore": 66,
+      "preliminaryLevel": 1,
+      "level": 2,
+      "levelChangeReason": "mental_disorder"
+    }
+  },
+  {
+    "id": "S13",
+    "title": "风险事件升级 L2→L3 边界",
+    "category": "special-boundary",
+    "description": "风险事件升级 L2→L3 边界",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 0
+        },
+        {
+          "indicatorId": 102,
+          "score": 0
+        },
+        {
+          "indicatorId": 103,
+          "score": 0
+        },
+        {
+          "indicatorId": 104,
+          "score": 0
+        },
+        {
+          "indicatorId": 105,
+          "score": 0
+        },
+        {
+          "indicatorId": 106,
+          "score": 0
+        },
+        {
+          "indicatorId": 107,
+          "score": 3
+        },
+        {
+          "indicatorId": 108,
+          "score": 4
+        },
+        {
+          "indicatorId": 201,
+          "score": 4
+        },
+        {
+          "indicatorId": 202,
+          "score": 4
+        },
+        {
+          "indicatorId": 203,
+          "score": 4
+        },
+        {
+          "indicatorId": 204,
+          "score": 3
+        },
+        {
+          "indicatorId": 301,
+          "score": 4
+        },
+        {
+          "indicatorId": 302,
+          "score": 4
+        },
+        {
+          "indicatorId": 303,
+          "score": 4
+        },
+        {
+          "indicatorId": 304,
+          "score": 4
+        },
+        {
+          "indicatorId": 305,
+          "score": 4
+        },
+        {
+          "indicatorId": 306,
+          "score": 4
+        },
+        {
+          "indicatorId": 307,
+          "score": 1
+        },
+        {
+          "indicatorId": 308,
+          "score": 1
+        },
+        {
+          "indicatorId": 309,
+          "score": 2
+        },
+        {
+          "indicatorId": 401,
+          "score": 2
+        },
+        {
+          "indicatorId": 402,
+          "score": 2
+        },
+        {
+          "indicatorId": 403,
+          "score": 4
+        },
+        {
+          "indicatorId": 404,
+          "score": 3
+        },
+        {
+          "indicatorId": 405,
+          "score": 4
+        }
+      ],
+      "flags": {
+        "riskEventCount": 2
+      }
+    },
+    "expect": {
+      "totalScore": 65,
+      "preliminaryLevel": 2,
+      "level": 3,
+      "levelChangeReason": "risk_event"
+    }
+  },
+  {
+    "id": "S14",
+    "title": "昏迷直判 L4",
+    "category": "special-boundary",
+    "description": "昏迷直判 L4（L1→L4 边界）",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 0
+        },
+        {
+          "indicatorId": 102,
+          "score": 0
+        },
+        {
+          "indicatorId": 103,
+          "score": 0
+        },
+        {
+          "indicatorId": 104,
+          "score": 0
+        },
+        {
+          "indicatorId": 105,
+          "score": 0
+        },
+        {
+          "indicatorId": 106,
+          "score": 0
+        },
+        {
+          "indicatorId": 107,
+          "score": 4
+        },
+        {
+          "indicatorId": 108,
+          "score": 4
+        },
+        {
+          "indicatorId": 201,
+          "score": 4
+        },
+        {
+          "indicatorId": 202,
+          "score": 4
+        },
+        {
+          "indicatorId": 203,
+          "score": 4
+        },
+        {
+          "indicatorId": 204,
+          "score": 3
+        },
+        {
+          "indicatorId": 301,
+          "score": 4
+        },
+        {
+          "indicatorId": 302,
+          "score": 4
+        },
+        {
+          "indicatorId": 303,
+          "score": 4
+        },
+        {
+          "indicatorId": 304,
+          "score": 4
+        },
+        {
+          "indicatorId": 305,
+          "score": 4
+        },
+        {
+          "indicatorId": 306,
+          "score": 4
+        },
+        {
+          "indicatorId": 307,
+          "score": 1
+        },
+        {
+          "indicatorId": 308,
+          "score": 1
+        },
+        {
+          "indicatorId": 309,
+          "score": 2
+        },
+        {
+          "indicatorId": 401,
+          "score": 2
+        },
+        {
+          "indicatorId": 402,
+          "score": 2
+        },
+        {
+          "indicatorId": 403,
+          "score": 4
+        },
+        {
+          "indicatorId": 404,
+          "score": 3
+        },
+        {
+          "indicatorId": 405,
+          "score": 4
+        }
+      ],
+      "flags": {
+        "coma": true
+      }
+    },
+    "expect": {
+      "totalScore": 66,
+      "preliminaryLevel": 1,
+      "level": 4,
+      "levelChangeReason": "coma"
+    }
+  },
+  {
+    "id": "S15",
+    "title": "痴呆升级 L3→L4 边界",
+    "category": "special-boundary",
+    "description": "痴呆升级 L3→L4 边界",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 0
+        },
+        {
+          "indicatorId": 102,
+          "score": 0
+        },
+        {
+          "indicatorId": 103,
+          "score": 0
+        },
+        {
+          "indicatorId": 104,
+          "score": 0
+        },
+        {
+          "indicatorId": 105,
+          "score": 0
+        },
+        {
+          "indicatorId": 106,
+          "score": 0
+        },
+        {
+          "indicatorId": 107,
+          "score": 0
+        },
+        {
+          "indicatorId": 108,
+          "score": 0
+        },
+        {
+          "indicatorId": 201,
+          "score": 0
+        },
+        {
+          "indicatorId": 202,
+          "score": 0
+        },
+        {
+          "indicatorId": 203,
+          "score": 0
+        },
+        {
+          "indicatorId": 204,
+          "score": 0
+        },
+        {
+          "indicatorId": 301,
+          "score": 0
+        },
+        {
+          "indicatorId": 302,
+          "score": 0
+        },
+        {
+          "indicatorId": 303,
+          "score": 0
+        },
+        {
+          "indicatorId": 304,
+          "score": 3
+        },
+        {
+          "indicatorId": 305,
+          "score": 4
+        },
+        {
+          "indicatorId": 306,
+          "score": 4
+        },
+        {
+          "indicatorId": 307,
+          "score": 1
+        },
+        {
+          "indicatorId": 308,
+          "score": 1
+        },
+        {
+          "indicatorId": 309,
+          "score": 2
+        },
+        {
+          "indicatorId": 401,
+          "score": 2
+        },
+        {
+          "indicatorId": 402,
+          "score": 2
+        },
+        {
+          "indicatorId": 403,
+          "score": 4
+        },
+        {
+          "indicatorId": 404,
+          "score": 3
+        },
+        {
+          "indicatorId": 405,
+          "score": 4
+        }
+      ],
+      "flags": {
+        "dementia": true
+      }
+    },
+    "expect": {
+      "totalScore": 30,
+      "preliminaryLevel": 3,
+      "level": 4,
+      "levelChangeReason": "dementia"
+    }
+  },
+  {
+    "id": "S16",
+    "title": "风险事件升级 L2→L3 边界",
+    "category": "special-boundary",
+    "description": "风险事件升级 L2→L3 边界",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 0
+        },
+        {
+          "indicatorId": 102,
+          "score": 0
+        },
+        {
+          "indicatorId": 103,
+          "score": 0
+        },
+        {
+          "indicatorId": 104,
+          "score": 0
+        },
+        {
+          "indicatorId": 105,
+          "score": 0
+        },
+        {
+          "indicatorId": 106,
+          "score": 0
+        },
+        {
+          "indicatorId": 107,
+          "score": 0
+        },
+        {
+          "indicatorId": 108,
+          "score": 0
+        },
+        {
+          "indicatorId": 201,
+          "score": 0
+        },
+        {
+          "indicatorId": 202,
+          "score": 0
+        },
+        {
+          "indicatorId": 203,
+          "score": 0
+        },
+        {
+          "indicatorId": 204,
+          "score": 3
+        },
+        {
+          "indicatorId": 301,
+          "score": 4
+        },
+        {
+          "indicatorId": 302,
+          "score": 4
+        },
+        {
+          "indicatorId": 303,
+          "score": 4
+        },
+        {
+          "indicatorId": 304,
+          "score": 4
+        },
+        {
+          "indicatorId": 305,
+          "score": 4
+        },
+        {
+          "indicatorId": 306,
+          "score": 4
+        },
+        {
+          "indicatorId": 307,
+          "score": 1
+        },
+        {
+          "indicatorId": 308,
+          "score": 1
+        },
+        {
+          "indicatorId": 309,
+          "score": 2
+        },
+        {
+          "indicatorId": 401,
+          "score": 2
+        },
+        {
+          "indicatorId": 402,
+          "score": 2
+        },
+        {
+          "indicatorId": 403,
+          "score": 4
+        },
+        {
+          "indicatorId": 404,
+          "score": 3
+        },
+        {
+          "indicatorId": 405,
+          "score": 4
+        }
+      ],
+      "flags": {
+        "riskEventCount": 2
+      }
+    },
+    "expect": {
+      "totalScore": 46,
+      "preliminaryLevel": 2,
+      "level": 3,
+      "levelChangeReason": "risk_event"
+    }
+  },
+  {
+    "id": "S17",
+    "title": "精神障碍但原已 L4",
+    "category": "special",
+    "description": "精神障碍但原已 L4（未变，reason=null）",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 0
+        },
+        {
+          "indicatorId": 102,
+          "score": 0
+        },
+        {
+          "indicatorId": 103,
+          "score": 0
+        },
+        {
+          "indicatorId": 104,
+          "score": 0
+        },
+        {
+          "indicatorId": 105,
+          "score": 0
+        },
+        {
+          "indicatorId": 106,
+          "score": 0
+        },
+        {
+          "indicatorId": 107,
+          "score": 0
+        },
+        {
+          "indicatorId": 108,
+          "score": 0
+        },
+        {
+          "indicatorId": 201,
+          "score": 0
+        },
+        {
+          "indicatorId": 202,
+          "score": 0
+        },
+        {
+          "indicatorId": 203,
+          "score": 0
+        },
+        {
+          "indicatorId": 204,
+          "score": 0
+        },
+        {
+          "indicatorId": 301,
+          "score": 0
+        },
+        {
+          "indicatorId": 302,
+          "score": 0
+        },
+        {
+          "indicatorId": 303,
+          "score": 0
+        },
+        {
+          "indicatorId": 304,
+          "score": 0
+        },
+        {
+          "indicatorId": 305,
+          "score": 0
+        },
+        {
+          "indicatorId": 306,
+          "score": 0
+        },
+        {
+          "indicatorId": 307,
+          "score": 0
+        },
+        {
+          "indicatorId": 308,
+          "score": 0
+        },
+        {
+          "indicatorId": 309,
+          "score": 0
+        },
+        {
+          "indicatorId": 401,
+          "score": 0
+        },
+        {
+          "indicatorId": 402,
+          "score": 0
+        },
+        {
+          "indicatorId": 403,
+          "score": 0
+        },
+        {
+          "indicatorId": 404,
+          "score": 0
+        },
+        {
+          "indicatorId": 405,
+          "score": 0
+        }
+      ],
+      "flags": {
+        "mentalDisorder": true
+      }
+    },
+    "expect": {
+      "totalScore": 0,
+      "preliminaryLevel": 4,
+      "level": 4,
+      "levelChangeReason": null
+    }
+  },
+  {
+    "id": "S18",
+    "title": "痴呆升级 L0→L1 边界",
+    "category": "special-boundary",
+    "description": "痴呆升级 L0→L1 边界",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 4
+        },
+        {
+          "indicatorId": 102,
+          "score": 4
+        },
+        {
+          "indicatorId": 103,
+          "score": 4
+        },
+        {
+          "indicatorId": 104,
+          "score": 4
+        },
+        {
+          "indicatorId": 105,
+          "score": 4
+        },
+        {
+          "indicatorId": 106,
+          "score": 4
+        },
+        {
+          "indicatorId": 107,
+          "score": 4
+        },
+        {
+          "indicatorId": 108,
+          "score": 4
+        },
+        {
+          "indicatorId": 201,
+          "score": 4
+        },
+        {
+          "indicatorId": 202,
+          "score": 4
+        },
+        {
+          "indicatorId": 203,
+          "score": 4
+        },
+        {
+          "indicatorId": 204,
+          "score": 3
+        },
+        {
+          "indicatorId": 301,
+          "score": 4
+        },
+        {
+          "indicatorId": 302,
+          "score": 4
+        },
+        {
+          "indicatorId": 303,
+          "score": 4
+        },
+        {
+          "indicatorId": 304,
+          "score": 4
+        },
+        {
+          "indicatorId": 305,
+          "score": 4
+        },
+        {
+          "indicatorId": 306,
+          "score": 4
+        },
+        {
+          "indicatorId": 307,
+          "score": 1
+        },
+        {
+          "indicatorId": 308,
+          "score": 1
+        },
+        {
+          "indicatorId": 309,
+          "score": 2
+        },
+        {
+          "indicatorId": 401,
+          "score": 2
+        },
+        {
+          "indicatorId": 402,
+          "score": 2
+        },
+        {
+          "indicatorId": 403,
+          "score": 4
+        },
+        {
+          "indicatorId": 404,
+          "score": 3
+        },
+        {
+          "indicatorId": 405,
+          "score": 4
+        }
+      ],
+      "flags": {
+        "dementia": true
+      }
+    },
+    "expect": {
+      "totalScore": 90,
+      "preliminaryLevel": 0,
+      "level": 1,
+      "levelChangeReason": "dementia"
+    }
+  },
+  {
+    "id": "S19",
+    "title": "三规则全中 +1 L1→L2 边界",
+    "category": "special-boundary",
+    "description": "三规则全中 +1 L1→L2 边界",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 3
+        },
+        {
+          "indicatorId": 102,
+          "score": 4
+        },
+        {
+          "indicatorId": 103,
+          "score": 4
+        },
+        {
+          "indicatorId": 104,
+          "score": 4
+        },
+        {
+          "indicatorId": 105,
+          "score": 4
+        },
+        {
+          "indicatorId": 106,
+          "score": 4
+        },
+        {
+          "indicatorId": 107,
+          "score": 4
+        },
+        {
+          "indicatorId": 108,
+          "score": 4
+        },
+        {
+          "indicatorId": 201,
+          "score": 4
+        },
+        {
+          "indicatorId": 202,
+          "score": 4
+        },
+        {
+          "indicatorId": 203,
+          "score": 4
+        },
+        {
+          "indicatorId": 204,
+          "score": 3
+        },
+        {
+          "indicatorId": 301,
+          "score": 4
+        },
+        {
+          "indicatorId": 302,
+          "score": 4
+        },
+        {
+          "indicatorId": 303,
+          "score": 4
+        },
+        {
+          "indicatorId": 304,
+          "score": 4
+        },
+        {
+          "indicatorId": 305,
+          "score": 4
+        },
+        {
+          "indicatorId": 306,
+          "score": 4
+        },
+        {
+          "indicatorId": 307,
+          "score": 1
+        },
+        {
+          "indicatorId": 308,
+          "score": 1
+        },
+        {
+          "indicatorId": 309,
+          "score": 2
+        },
+        {
+          "indicatorId": 401,
+          "score": 2
+        },
+        {
+          "indicatorId": 402,
+          "score": 2
+        },
+        {
+          "indicatorId": 403,
+          "score": 4
+        },
+        {
+          "indicatorId": 404,
+          "score": 3
+        },
+        {
+          "indicatorId": 405,
+          "score": 4
+        }
+      ],
+      "flags": {
+        "dementia": true,
+        "mentalDisorder": true,
+        "riskEventCount": 2
+      }
+    },
+    "expect": {
+      "totalScore": 89,
+      "preliminaryLevel": 1,
+      "level": 2,
+      "levelChangeReason": "dementia,mental_disorder,risk_event"
+    }
+  },
+  {
+    "id": "S20",
+    "title": "昏迷直判 L4",
+    "category": "special-boundary",
+    "description": "昏迷直判 L4（L2→L4 边界）",
+    "input": {
+      "answers": [
+        {
+          "indicatorId": 101,
+          "score": 0
+        },
+        {
+          "indicatorId": 102,
+          "score": 0
+        },
+        {
+          "indicatorId": 103,
+          "score": 0
+        },
+        {
+          "indicatorId": 104,
+          "score": 0
+        },
+        {
+          "indicatorId": 105,
+          "score": 0
+        },
+        {
+          "indicatorId": 106,
+          "score": 0
+        },
+        {
+          "indicatorId": 107,
+          "score": 2
+        },
+        {
+          "indicatorId": 108,
+          "score": 4
+        },
+        {
+          "indicatorId": 201,
+          "score": 4
+        },
+        {
+          "indicatorId": 202,
+          "score": 4
+        },
+        {
+          "indicatorId": 203,
+          "score": 4
+        },
+        {
+          "indicatorId": 204,
+          "score": 3
+        },
+        {
+          "indicatorId": 301,
+          "score": 4
+        },
+        {
+          "indicatorId": 302,
+          "score": 4
+        },
+        {
+          "indicatorId": 303,
+          "score": 4
+        },
+        {
+          "indicatorId": 304,
+          "score": 4
+        },
+        {
+          "indicatorId": 305,
+          "score": 4
+        },
+        {
+          "indicatorId": 306,
+          "score": 4
+        },
+        {
+          "indicatorId": 307,
+          "score": 1
+        },
+        {
+          "indicatorId": 308,
+          "score": 1
+        },
+        {
+          "indicatorId": 309,
+          "score": 2
+        },
+        {
+          "indicatorId": 401,
+          "score": 2
+        },
+        {
+          "indicatorId": 402,
+          "score": 2
+        },
+        {
+          "indicatorId": 403,
+          "score": 4
+        },
+        {
+          "indicatorId": 404,
+          "score": 3
+        },
+        {
+          "indicatorId": 405,
+          "score": 4
+        }
+      ],
+      "flags": {
+        "coma": true
+      }
+    },
+    "expect": {
+      "totalScore": 64,
+      "preliminaryLevel": 2,
+      "level": 4,
+      "levelChangeReason": "coma"
+    }
+  }
+]

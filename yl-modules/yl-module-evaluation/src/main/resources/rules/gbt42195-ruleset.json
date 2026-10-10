@@ -1,0 +1,88 @@
+{
+  "standard": "GB/T 42195-2022",
+  "ruleVersion": "1.0.0",
+  "status": "released",
+  "dataKind": "authoritative",
+  "fullScore": 90,
+  "abstention": { "mode": "zero" },
+  "dimensions": [
+    { "code": "D1", "name": "自理能力", "fullScore": 32, "indicatorCount": 8 },
+    { "code": "D2", "name": "基础运动能力", "fullScore": 15, "indicatorCount": 4 },
+    { "code": "D3", "name": "精神状态", "fullScore": 28, "indicatorCount": 9 },
+    { "code": "D4", "name": "感知觉与社会参与", "fullScore": 15, "indicatorCount": 5 }
+  ],
+  "indicators": [
+    { "id": 101, "dimension": "D1", "name": "进食", "fullScore": 4 },
+    { "id": 102, "dimension": "D1", "name": "修饰", "fullScore": 4 },
+    { "id": 103, "dimension": "D1", "name": "洗澡", "fullScore": 4 },
+    { "id": 104, "dimension": "D1", "name": "穿/脱上衣", "fullScore": 4 },
+    { "id": 105, "dimension": "D1", "name": "穿/脱裤子和鞋袜", "fullScore": 4 },
+    { "id": 106, "dimension": "D1", "name": "小便控制", "fullScore": 4 },
+    { "id": 107, "dimension": "D1", "name": "大便控制", "fullScore": 4 },
+    { "id": 108, "dimension": "D1", "name": "如厕", "fullScore": 4 },
+    { "id": 201, "dimension": "D2", "name": "床上体位转移", "fullScore": 4 },
+    { "id": 202, "dimension": "D2", "name": "床椅转移", "fullScore": 4 },
+    { "id": 203, "dimension": "D2", "name": "平地行走", "fullScore": 4 },
+    { "id": 204, "dimension": "D2", "name": "上下楼梯", "fullScore": 3 },
+    { "id": 301, "dimension": "D3", "name": "时间定向", "fullScore": 4 },
+    { "id": 302, "dimension": "D3", "name": "空间定向", "fullScore": 4 },
+    { "id": 303, "dimension": "D3", "name": "人物定向", "fullScore": 4 },
+    { "id": 304, "dimension": "D3", "name": "记忆", "fullScore": 4 },
+    { "id": 305, "dimension": "D3", "name": "理解能力", "fullScore": 4 },
+    { "id": 306, "dimension": "D3", "name": "表达能力", "fullScore": 4 },
+    { "id": 307, "dimension": "D3", "name": "攻击行为", "fullScore": 1 },
+    { "id": 308, "dimension": "D3", "name": "抑郁症状", "fullScore": 1 },
+    { "id": 309, "dimension": "D3", "name": "意识水平", "fullScore": 2 },
+    { "id": 401, "dimension": "D4", "name": "视力", "fullScore": 2 },
+    { "id": 402, "dimension": "D4", "name": "听力", "fullScore": 2 },
+    { "id": 403, "dimension": "D4", "name": "执行日常事务", "fullScore": 4 },
+    { "id": 404, "dimension": "D4", "name": "使用交通工具外出", "fullScore": 3 },
+    { "id": 405, "dimension": "D4", "name": "社会交往能力", "fullScore": 4 }
+  ],
+  "levels": [
+    { "code": "L0", "name": "能力完好", "min": 90, "max": 90, "severity": 0 },
+    { "code": "L1", "name": "能力轻度受损（轻度失能）", "min": 66, "max": 89, "severity": 1 },
+    { "code": "L2", "name": "能力中度受损（中度失能）", "min": 46, "max": 65, "severity": 2 },
+    { "code": "L3", "name": "能力重度受损（重度失能）", "min": 30, "max": 45, "severity": 3 },
+    { "code": "L4", "name": "能力完全丧失（完全失能）", "min": 0, "max": 29, "severity": 4 }
+  ],
+  "specialRules": {
+    "maxLevel": 4,
+    "escalateMode": "any",
+    "overrides": [
+      {
+        "id": "coma",
+        "type": "direct",
+        "targetLevel": 4,
+        "priority": 100,
+        "description": "说明1：处于昏迷状态者，直接评定为能力完全丧失（等级4）；若意识状态改变应重新评估。"
+      }
+    ],
+    "escalations": [
+      {
+        "id": "dementia",
+        "type": "escalate",
+        "step": 1,
+        "priority": 10,
+        "description": "说明2①：确诊痴呆（ICD-10 F00~F03）。",
+        "match": { "flag": "dementia", "equals": true }
+      },
+      {
+        "id": "mental_disorder",
+        "type": "escalate",
+        "step": 1,
+        "priority": 10,
+        "description": "说明2②：精神科专科医生诊断的其他精神和行为障碍（ICD-10 F04~F99）。",
+        "match": { "flag": "mentalDisorder", "equals": true }
+      },
+      {
+        "id": "risk_event",
+        "type": "escalate",
+        "step": 1,
+        "priority": 10,
+        "description": "说明2③：近 30 天内发生过 ≥2 次照护风险事件（跌倒/噎食/自杀/自伤/走失等）。",
+        "match": { "flag": "riskEventCount", "op": "gte", "value": 2 }
+      }
+    ]
+  }
+}
