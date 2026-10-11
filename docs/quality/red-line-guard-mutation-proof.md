@@ -1,6 +1,6 @@
-# 合规红线守卫 · 突变反证门禁规矩（v1.4）
+# 合规红线守卫 · 突变反证门禁规矩（v1.5）
 
-> 文档编号 **YL-M2-QG-REDLINE-MUTATION**｜定稿 2026-10-10｜**v1.1 修订 2026-10-10（补第 4 种盲区形态：环节缺失）**｜**v1.2 修订 2026-10-10（补第 5 种盲区形态：本机门禁 ≠ CI 门禁）**｜**v1.3 修订 2026-10-10 晚（第 5 盲区收口补强：验证同源化 + 假 ready 真实化）**｜**v1.4 修订 2026-10-10 深夜（R15：探针结论必须有门禁消费）**｜状态：**✅ 生效**
+> 文档编号 **YL-M2-QG-REDLINE-MUTATION**｜定稿 2026-10-10｜**v1.1 修订 2026-10-10（补第 4 种盲区形态：环节缺失）**｜**v1.2 修订 2026-10-10（补第 5 种盲区形态：本机门禁 ≠ CI 门禁）**｜**v1.3 修订 2026-10-10 晚（第 5 盲区收口补强：验证同源化 + 假 ready 真实化）**｜**v1.4 修订 2026-10-10 深夜（R15：探针结论必须有门禁消费）**｜**v1.5 修订 2026-10-11（R5 补方向：防欠权——正向可达性断言）**｜状态：**✅ 生效**
 > 触发：**同一类缺陷已五次复发**（D5-R1 → P2-7-R6 → P2-8 M3/M4/M13 → **P2-8-R14** → **CI commit-lint/SpotBugs 红**），用户 2026-10-10 指令「第 3 步」＋ 同日指出 CI 缺「部署验证」环节，同日晚实测 main 上 CI 连续 failure 而本机四门禁全绿。
 > 关联：`scripts/verify-schema.sh`｜`scripts/verify-retention-chain.sh`｜`scripts/dev/*mutation*.py`｜`docs/quality/verify-schema-assertion-reconciliation.md`｜`.githooks/commit-msg`（与 CI 复用同一脚本）｜`scripts/verify-like-ci.sh`（本机验证同源化）
 
@@ -235,3 +235,15 @@ bash scripts/verify-like-ci.sh full     # build-and-test 作业同款：verify�
 1. **MSYS 路径转换吃掉 `docker ps -f "name=^/xxx$"` 锚点过滤器**（恒 0 匹配 ⇒ 误判「容器未能创建」、探活 0 秒即放弃）⇒ 脚本内 `export MSYS_NO_PATHCONV=1`（与 verify-like-ci.sh 的 `-v` 挂载同源坑，新证据：`docker ps -f` 参数同样中招）。
 2. **Windows Docker Desktop 的 `--network host` 不把容器端口发布到宿主 loopback**（CI Linux 无此问题）⇒ 容器内 127.0.0.1 连不上宿主 MySQL（`CONTAINER_DB_HOST=host.docker.internal` 覆盖）+ 宿主侧 curl 不到 8080（`BOOT_NETWORK=bridge` 覆盖，默认 host 保持 CI 判据不变）。
 3. 探活跑法（本机复刻，CI 不需要）：临时探针账号 + 一次性空库（`yl_prodshape`，规避 DevCredentialStartupGuard 对历史 dev 账号的**设计意图拒绝**），**用后即删零残留**。
+
+### 6.4 防欠权：正向可达性断言（v1.5，2026-10-11，D4-R7）
+
+> 背景（用户 2026-10-11 核实指认）：现有 R1–R8 红线的断言形态几乎全是 **COUNT(\*)…=0**（「某角色不得持有某权限码」）——门禁只防**越权**，不防**欠权**。越权是安全事故，审计能发现、突变能证明；欠权是静默的能力缺失，只有用户投诉才会暴露。实锤：**D4-R7 挂了六轮**——ELDER（核心用户，data_scope=1 本人）读不到自己的评估报告，全部门禁照常全绿，因为**没有任何一条断言会说「ELDER 应该能读自己的报告」**。与 §6.3 第 6 盲区同源：检测器只覆盖了一个方向。
+
+**★ 口径**：**关键角色 × 关键自有数据，必须有正向可达性断言**（如「ELDER 能读本人已发布报告 = 1」），与反越权断言成对出现；新增关键能力时同步新增其正向断言，否则视为「环节缺失」（第 4 盲区）同罪。
+
+**覆盖现状（2026-10-11 盘点）**：
+- ✅ 已成立：冒烟链 9.5「ELDER 自读老人列表（code=0，data_scope=1）」——ELDER 档案自见的正向断言已在 `smoke-report-review-chain.sh` 上真实执行（D-2 锚的欠权防线，防「锚列被误删/拦截器误收紧」的静默回归）。
+- 🔵 待补（D4-R7 卡验收项）：「ELDER 读本人已发布报告 = 1」，随 `docs/change/D4-R7-elder-report-self-read.md` 实现（2026-10-11 PM 裁决方案 A 窄开）入冒烟链 9.5 段（翻转 ★C3 注释）。
+
+**注意**：正向断言不是放松——它防的是「为修越权把能力一起修没了」的反向回归；越权侧断言（他人 reportNo → 10004）仍在，两者成对才完整。
