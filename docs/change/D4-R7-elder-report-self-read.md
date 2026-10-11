@@ -59,3 +59,9 @@
 - `supervise_report`：监管域报文，scope=1/5 维持显式禁（fail-closed）。
 - `eval_evidence` / `consent_record` / `elder_authorization` / `org_bed` / `care_task`：老人无读面需求，维持 `SELF_DENY_TABLES`。
 - 文件删除（`proof_cos_key` 生命周期）归 P2-7；PDF 渲染字体链已由 R15 收口。
+
+## 7. 地基核查结果（2026-10-11，详 `docs/reviews/D4-R7-foundation-check.md`）
+
+- **D1 落地口径锁定（PM 裁决 D1-a + D1-c）**：`eval_report` 走 `SELF_VIA_PARENT (elder_id, elder)`（与 `elder_family_bind` 同款，零 DDL）；`report_dimension_score` 保持 SELF_DENY、得分经报告聚合接口（D1-c）暴露；`eval_answer` **维持判死**（D3 主观作答不直陈本人）。
+- **★ 同批核查两发现**：① `elder` 档案自见**已闭合**（D-2 `user_id` 锚 + 冒烟 9.5 实证），PM 疑虑解除；② **R8 新洞**：`care_plan` 双层缺口——第二闸 ELDER 不持 2007/2008（2008 仅家属），第三闸 SELF_COLUMN `suggest_by` 锚致老人可见行恒空（"建议"= 空按钮）；补遗「仅可建议」与 RBAC 现状不一致。**R8 处置待 PM 裁决**（补遗口径是否算数 + scope=1 主体集合澄清），可随本卡同批或紧后。
+- **暗区盘点**：scope=1 未登记 11 表全为字典/规则表（gb_*、eval_item 等），无泄漏；测量时注意 SELF_DENY `Set.of` 串须并入"已登记"集，否则假报暗区。
