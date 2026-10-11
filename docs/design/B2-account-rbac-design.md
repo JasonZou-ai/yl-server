@@ -43,7 +43,7 @@
 | `evaluation:order:review` | 复核/发布报告 | evaluation | 0 | 行4 |
 | `evaluation:order:review:read` | 查看复核结果（只读） | evaluation | 0 | 行4👁 |
 | `care:plan:edit` | 编辑照护方案 | care | 0 | 行5 |
-| `care:plan:edit:suggest` | 提交照护建议（受限） | care | 0 | 行5🔶 |
+| `care:plan:edit:suggest` | 提交照护建议（受限） | care | 0 | 行5🔶（**ELDER 亦持本法，种子 id 3041 · D4-R7 R8 补授**） |
 | `account:org:manage` | 机构/人员管理 | account | 0 | 行6 |
 | `account:org:manage:read` | 查看机构/人员（只读） | account | 0 | 行6👁 |
 | `supervise:report:submit` | 监管数据上报 | supervise | 0 | 行7 |

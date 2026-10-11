@@ -49,8 +49,8 @@
 | 22 | `/evaluation/assessments/{orderId}/report` | GET | `report:view` | 五角色全 ✅（老人/家属仅**已发布**版） | org | — | ✅ |
 | 23 | `/evaluation/assessments/{orderId}/report/pdf` | POST | `report:view` | 评估员 / 机构管理员 / 监管 | org | — | ✅ |
 | 24 | `/evaluation/reports/{reportNo}/pdf` | GET | `report:view` | 五角色全 ✅（范围由 ③ 控制） | **relation** | — | ✅ |
-| 25 | `/evaluation/assessments/{orderId}/care-plan` | POST | `care:plan:edit` **|** `care:plan:edit:suggest` | 机构管理员 / 评估员🔶 | org | — | ✅ |
-| 26 | `/evaluation/assessments/{orderId}/care-plan` | GET | `report:view` **|** `care:plan:edit` **|** `:suggest` | 同上 + 只读方 | org | — | ✅ |
+| 25 | `/evaluation/assessments/{orderId}/care-plan` | POST | `care:plan:edit` **|** `care:plan:edit:suggest` | 机构管理员 / 评估员🔶 / **老人🔶〔D4-R7 R8 补授 id 3041；写范围由 ③ `self` 兜底〕** | **self**/org | — | ✅ |
+| 26 | `/evaluation/assessments/{orderId}/care-plan` | GET | `report:view` **|** `care:plan:edit` **|** `:suggest` | 同上 + 只读方（**老人持 `report:view` 早已过 ②，本轮补 ③ `self` 后方真正可读**） | self/org/relation/all | — | ✅ |
 | 27 | `/evaluation/assessments/{orderId}/care-plan/confirm` | POST | `care:plan:edit` | 机构管理员（须 ≠ 建议人） | org | — | ✅ |
 | 28 | `/rule/mapping` | GET | `rule:view` | 五角色全 ✅ | all | — | ✅ |
 | 29 | `/reports/verify` | GET | `none` | 公开（扫码验真，需限频） | public | — | ✅ |

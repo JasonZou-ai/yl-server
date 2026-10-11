@@ -2,6 +2,7 @@ package cn.yl.modules.account.security;
 
 import cn.yl.api.security.LoginUser;
 import cn.yl.modules.account.domain.DataScope;
+import cn.yl.modules.account.domain.RoleCode;
 import com.baomidou.mybatisplus.extension.plugins.handler.MultiDataPermissionHandler;
 import java.util.ArrayList;
 import java.util.List;
@@ -138,7 +139,8 @@ public class DataScopePermissionHandler implements MultiDataPermissionHandler {
                     Map.entry("eval_order", "assessor_id"),
                     Map.entry("eval_task", "assessor_id"),
                     Map.entry("eval_review_log", "operator_id"),
-                    Map.entry("care_plan", "suggest_by"),
+                    // D4-R7（R8）：care_plan 已从本集合迁出 —— suggest_by 是「操作者」语义，老人恒不是建议人，
+                    // 留在此处会让老人查到的方案恒空（欠权）。改按归属收口，见 SELF_VIA_PARENT。
                     Map.entry("care_task_log", "operator_id"),
                     // D-2 裁决二·方案 A：elder 新增自见锚列 user_id（老人本人的登录账号）。
                     // scope=1（ELDER）下 elder 渲染为 (elder.user_id = <我>)；未绑定时 user_id 为 NULL，
@@ -161,7 +163,30 @@ public class DataScopePermissionHandler implements MultiDataPermissionHandler {
      * DDL，经 {@code elder.user_id} 收口。
      */
     private static final Map<String, RelationAnchor> SELF_VIA_PARENT =
-            Map.ofEntries(Map.entry("elder_family_bind", new RelationAnchor("elder_id", "elder")));
+            Map.ofEntries(
+                    Map.entry("elder_family_bind", new RelationAnchor("elder_id", "elder")),
+                    // D4-R7（R7 本体）：老人读自己的评估报告。父表 elder 已在 SELF_COLUMN（user_id），零 DDL。
+                    // 维度得分仍由 report_dimension_score 维持判死、经报告聚合接口（dimScores）暴露（D1-c）。
+                    Map.entry("eval_report", new RelationAnchor("elder_id", "elder")),
+                    // D4-R7（R8 读路径）：照护方案按老人归属收口（自 SELF_COLUMN 的 suggest_by 迁来）。
+                    Map.entry("care_plan", new RelationAnchor("elder_id", "elder")));
+
+    /**
+     * 老人（scope=1）**专属**归属反查锚 —— D4-R7 F2 方案 A「入口角色分叉」。
+     *
+     * <p>为何单独一张表而不直接并入 {@link #SELF_VIA_PARENT}：本集合<b>只对 ELDER 生效</b>，员工即便日后落入 scope=1 （例如 {@code
+     * dataScope} 聚合由 max 改为 min，或引入单角色员工态）也仍走 {@link #SELF_COLUMN} 的操作者语义 （{@code
+     * assessor_id}），不会被收口成"我作为老人"而静默恒空。这是 A 相对 B（直接并入）多出来的那部分保险。
+     *
+     * <p><b>判定顺序</b>：本集合在 {@link #getSqlSegment} 中<b>先于</b> {@code SELF_COLUMN} 命中 —— {@code
+     * eval_order} 同时存在于两处（此处按归属、彼处按操作者），若不前置，老人会先撞上 {@code assessor_id} 而恒空。
+     *
+     * <p>不变式前提（由 {@code AccountAggregateServiceTest} 锁定）：scope=1 只可能是纯 ELDER 账号。
+     */
+    private static final Map<String, RelationAnchor> ELDER_SELF_ANCHOR =
+            Map.ofEntries(
+                    Map.entry("eval_order", new RelationAnchor("elder_id", "elder")),
+                    Map.entry("eval_task", new RelationAnchor("elder_id", "elder")));
 
     /**
      * 需行级过滤但**无"本人"列可表达**的表（scope=1 → 恒假，失败即拒）。
@@ -256,6 +281,15 @@ public class DataScopePermissionHandler implements MultiDataPermissionHandler {
         }
         if (scope == DataScope.FAMILY.code()) {
             return relationSegment(table, tableName, user.userId());
+        }
+        // D4-R7（F2 方案 A·入口角色分叉）：老人是唯一的「归属对象型」角色，评估单/任务须按 elder_id 归属收口，
+        // 而不是 SELF_COLUMN 里的操作者列 assessor_id（老人恒不是录入人 ⇒ 恒空 = 欠权）。
+        // 仅对 ELDER 生效，且必须**先于** SELF_COLUMN 命中（eval_order 两处都有登记）。
+        if (user.hasAnyRole(RoleCode.ELDER.code())) {
+            RelationAnchor elderAnchor = ELDER_SELF_ANCHOR.get(tableName);
+            if (elderAnchor != null) {
+                return selfViaParentCondition(table, elderAnchor, user.userId());
+            }
         }
         String column = SELF_COLUMN.get(tableName);
         if (column != null) {

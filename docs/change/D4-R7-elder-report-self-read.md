@@ -77,3 +77,72 @@
 | R8 缺口位置 | 「双层缺口」 | 补充精确口径：读端点 `GET /{orderId}/care-plan` 为 OR{2001,2007,2008}，老人持 2001 ⇒ **第二闸可过**，缺口**仅在第三闸**（`care_plan→suggest_by` 恒空）。⇒ 若 PM 选「给老人授权」，**第二闸与第三闸必须同批修**，否则得到"能提交建议、自己读不到"的半成品 |
 | 前置项「scope=1 主体集合澄清」（原列为本卡前置） | 待澄清，疑含员工态 | **已澄清：不含员工态**。`AccountAggregateService` 取多角色**最宽值（max）**，账号持任一员工角色即被抬到 2/4/5，**永不落 scope=1**；落 scope=1 者必为**纯 ELDER 单角色账号** |
 | 由此派生的谨慎理由 | 「改锚会破坏评估员 scope=1 操作者视图」 | **不成立**：员工永不落 scope=1，改锚对员工零影响。**新前置**改为：先加不变式单测锁定 max 语义（`ELDER 单角色 ⇒ scope=1`；`ELDER+任一员工角色 ⇒ scope≠1`）——该行为目前是实现细节、无契约保护 |
+
+---
+
+## 9. PM 裁决登记与实施状态（2026-10-11 裁决，2026-10-12 实施）
+
+> 本节只登记**裁决结果**与**落地位置**，不改 §0-§8 任何原文。
+> §8 的三条事实订正已生效 —— 裁决是在订正后的口径上作出的，读本节前须先读 §8。
+
+### 9.1 五条裁决（PM 签发，红线解除）
+
+| # | 议题 | PM 裁决 | 依据 |
+|:--:|---|---|---|
+| 1 | **R8 写路径口径** | **选项 A —— 补授**：给 ELDER 补授 `care:plan:edit:suggest`(2008) | §8 订正①（2008 属评估员非家属）+ 补遗「老人 🔶 仅可建议」 |
+| 2 | **F2 `eval_order` 修复路径** | **方案 A —— 角色分叉**（非直改 `SELF_COLUMN`） | §8 订正④（谨慎理由换代为「max 语义未锁定」）|
+| 3 | **修复范围** | **同批**：R7 本体 + R8 读 + F2 三者一起 | §7.1 / §6.2 根因同一性（同一类缺陷的三个实例）|
+| 4 | **PRD 治理 G1** | **① 移植横幅至 v1.2** | `docs/prd/README.md` §3 G1 |
+| 5 | **R7 本体可否开工** | **知悉确认，不受 CCB 阻塞** | R7 本体属缺陷修复，非权限矩阵变更 ⇒ 无需 CCB |
+
+> ⚠️ 裁决 1（2008 补授）属**权限矩阵变更**，仍须随 CR-M2-001 走 CCB 追认；裁决 5 仅解除 R7 本体的开工阻塞，
+> 二者不可混为一谈 —— **R7/R8/F2 的代码与第三闸可即时落地，但 2008 授权是 CCB 待追认项**（限 **2026-10-17**）。
+
+### 9.2 落地位置（2026-10-12）
+
+| 裁决 | 落地文件 | 改动 |
+|---|---|---|
+| ③ R7 本体 | `DataScopePermissionHandler` | `eval_report` 登记入 `SELF_VIA_PARENT`（锚 `elder_id→elder.user_id`）；单测改**正向可达断言**（原测试把「欠权」固化为正确行为，已订正） |
+| ③ R8 读 | `DataScopePermissionHandler` | `care_plan` **自 `SELF_COLUMN` 迁出**（原锚 `suggest_by` 对老人恒空）→ 登记入 `SELF_VIA_PARENT`（锚 `elder_id`） |
+| ② F2 角色分叉 | `DataScopePermissionHandler` | 新增 `ELDER_SELF_ANCHOR`（`eval_order` / `eval_task` 锚 `elder_id`）；`getSqlSegment` 中**先于** `SELF_COLUMN` 命中 —— 员工角色仍走操作者锚 `assessor_id`，双方互不干扰 |
+| ② 不变式锁定 | `AccountAggregateServiceTest`（新建，6 例） | 锁定「多角色 `dataScope` 取 **max**」语义：纯 ELDER ⇒ 1；ELDER+任一员工角色 ⇒ ≠1；员工单角色永不落 1 |
+| ① R8 写补授 | `03_seed_rbac.sql` | 新增 `(3041, 1001, 2008)`；授权总数 **40 → 41** |
+| ① 四处同步 | `verify-schema.sh` / `B2-permission-point-catalog.md` / `B2-account-rbac-design.md` / `B2-permission-api-matrix.md` / `openapi/yl-api.yaml` | 授权断言 40→41；清单 L46、矩阵行 5 补「老人 🔶」；契约 care-plan POST 补 `ELDER: self` + `via: care_plan.elder_id` |
+| ④ G1 横幅 | `docs/prd/PRD_YL-PRD-v1.2.md` + `README.md` + **CR-M2-008** | 文首移植三段横幅 + §1.3 追加「治理追加 · **不升版**」行；v1.2 md5 更新为 `3c416935916e31e06c3f91d3bf26f076` |
+
+### 9.3 ★ 推翻初判：R8 写路径**不需**补服务层归属校验
+
+初判（§7 / 征询稿口径）认为须在 `CarePlanService.generate` 补归属校验。**2026-10-12 实证推翻**：
+
+```
+CarePlanService.generate(orderId, operatorId)
+  └─ reportService.findReport(orderId)
+       └─ reportMapper.selectOne(QueryWrapper<EvalReport>().eq("order_id", orderId))
+            └─ ★ 受第三闸 DataScopePermissionHandler 收口
+                 （YlApplication @SpringBootApplication(scanBasePackages="cn.yl") 全局生效，
+                   MybatisPlusConfig 注册 DataPermissionInterceptor）
+```
+
+⇒ 老人传**非本人** `orderId` 时报告查不到 → `NOT_FOUND`，**写越权边界已由第三闸保证**，补冗余校验属重复实现。
+
+**但这构成一个强耦合约束**：该写授权 (`3041`) 与第三闸 `eval_report` 锚**必须同批变更、禁止单独回滚任一处**。
+（若锚登记回退而授权保留 ⇒ 老人可给他人写建议 = 写越权。）此约束已写入 `B2-permission-point-catalog.md` §3 表下。
+
+### 9.4 回归结果（2026-10-12）
+
+| 作业 | 结果 |
+|---|---|
+| 全模块单测 | ✅ **311 例全绿**（account 92 / evaluation 74 / archive 90 / supervise 10 / report 22 / bootstrap 23） |
+| Checkstyle | ✅ 通过 |
+| 契约门禁 `verify-openapi.sh` | ✅ 通过 8 项 / 失败 0 项 |
+| Java 权威契约测试 `OpenApiContractTest` | ✅ 6/6 |
+| schema 门禁 `verify-schema.sh` | ⏳ **须连 MySQL，沙箱无 DB，待本地/CI 复核**（授权断言已同步为 41） |
+
+> **环境噪声说明**：首次全量跑时 evaluation 报 4 例 `ReportPdfServiceTest` 失败（`UnsupportedOperation OTF fonts do not have a glyf table`）。
+> 经**基线工作树（HEAD 干净代码）对照验证，失败完全一致** ⇒ 属沙箱缺中文字体的**既有环境缺陷**，与本次改动无关；
+> 装 `fonts-wqy-zenhei` 后该模块 74/74 全过（测试注释亦载明 CI runner 预装该字体）。
+
+### 9.5 开裂/关闭边界
+
+- **本卡关闭条件**：上述六项作业全绿 + CCB 追认落地（`2026-10-17` 前）。
+- **不开裂**：`care_plan` **确认**端点（须 ≠ 建议人）不在本卡范围；`report_dimension_score` 仍判死，走 D1-c 聚合接口暴露。

@@ -118,8 +118,21 @@ INSERT IGNORE INTO `sys_role_permission` (`id`, `role_id`, `perm_id`) VALUES
   -- 国标规则只读：五角色全授予（登录即可读）
   (3036, 1001, 2022), (3037, 1002, 2022), (3038, 1003, 2022), (3039, 1004, 2022), (3040, 1005, 2022);
 
--- ---------- 5) 自检（可选，正常返回 5 / 22 / 40，敏感点 4） ----------
+-- ---------- 6) D4-R7 · R8 写路径补授（PM 裁决 2026-10-11 · 须随 CR-M2-001 走 CCB 追认） ----------
+-- 真源：docs/change/D4-R7-elder-report-self-read.md §8（裁决落地）、
+--       docs/reviews/D4-R7-foundation-check.md v1.2 §7.1（事实订正：2008 原持者是评估员，非家属）
+-- 背景：补遗 CR-M2-001 描述老人「🔶 仅可建议照护方案」，但 care:plan:edit:suggest(2008) 原只授评估员(1002)，
+--       ELDER(1001) 零照护权限码 ⇒ 建议端点 POST /{orderId}/care-plan（OR{2007,2008}）对老人 403。
+-- PM 裁决：选项 A —— 给老人补授 2008，与评估员并列持受限建议权。
+-- ⚠️ 必须与下列改动同批落地，否则得到"老人能提交建议、自己读不到"的半成品：
+--     第三闸 care_plan 由操作者锚 suggest_by 迁为归属锚 elder_id（见 DataScopePermissionHandler）。
+-- 写越权边界：老人虽持 2008，但写入入口 CarePlanService.generate 先经 reportService.findReport(orderId)
+--     查询 eval_report —— 该查询受第三闸归属条件收口 ⇒ 他人报告查不到 ⇒ NOT_FOUND，无法给别人写建议。
+INSERT IGNORE INTO `sys_role_permission` (`id`, `role_id`, `perm_id`) VALUES
+  (3041, 1001, 2008);
+
+-- ---------- 7) 自检（可选，正常返回 5 / 22 / 41，敏感点 4） ----------
 -- SELECT (SELECT COUNT(*) FROM sys_role)                                    AS roles_expected_5,
 --        (SELECT COUNT(*) FROM sys_permission WHERE deleted=0)              AS perms_expected_22,
---        (SELECT COUNT(*) FROM sys_role_permission)                         AS grants_expected_40,
+--        (SELECT COUNT(*) FROM sys_role_permission)                         AS grants_expected_41,
 --        (SELECT COUNT(*) FROM sys_permission WHERE need_second_verify = 1) AS sensitive_expected_4;

@@ -1161,10 +1161,20 @@ paths:
     post:
       tags: [evaluation]
       summary: 生成照护方案（按等级匹配模板；无匹配降级通用建议）
-      description: 建议人取登录态；评估员持 `care:plan:edit:suggest`、机构管理员持 `care:plan:edit`，二者任一可生成。
+      description: >-
+        建议人取登录态；评估员持 `care:plan:edit:suggest`、机构管理员持 `care:plan:edit`，二者任一可生成。
+        **D4-R7 R8（PM 裁决①）**：老人（ELDER）补授 `care:plan:edit:suggest`（种子 id 3041），
+        可对**本人**评估单提交建议；写越权由第三闸兜底见 `x-data-scope`。
       operationId: carePlanGenerate
       x-required-permission: care:plan:edit | care:plan:edit:suggest
-      x-data-scope: { mode: org, by-role: { ASSESSOR: org, ORG_ADMIN: org } }
+      x-data-scope:
+        mode: org
+        by-role: { ELDER: self, ASSESSOR: org, ORG_ADMIN: org }
+        via: care_plan.elder_id
+        note: >-
+          ELDER 虽持 2008，但写入入口 `CarePlanService.generate` 先经 `reportService.findReport(orderId)`
+          的 `selectOne` —— 该查询同受第三闸收口 ⇒ 他人报告查不到 ⇒ NOT_FOUND。
+          即写越权边界由第三闸保证，服务层无需冗余归属校验。
       x-status: implemented
       parameters:
         - { $ref: '#/components/parameters/OrderId' }

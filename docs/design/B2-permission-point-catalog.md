@@ -1,6 +1,6 @@
 # 银龄守护 · 权限点清单（RBAC Permission Catalog）
 
-> 编号 **YL-M2-RBAC-CATALOG-v1.1**｜编制 2026-09-22｜v1.1 更新 2026-09-24（D-1 契约冻结 + 数据域扩档）｜产出人：研发侧｜状态：**✅ 已落地（五处对齐）**
+> 编号 **YL-M2-RBAC-CATALOG-v1.2**｜编制 2026-09-22｜v1.1 更新 2026-09-24（D-1 契约冻结 + 数据域扩档）｜**v1.2 更新 2026-10-12（D4-R7 R8 补授 `care:plan:edit:suggest` → 老人，授权 40→41）**｜产出人：研发侧｜状态：**✅ 已落地（五处对齐）**
 > 口径真源（唯一权威，按优先级）：`docker/mysql/init/03_seed_rbac.sql` → `docs/change/CR-M2-001-permission-matrix-gap.md` → PRD v1.2 §2.2
 > 代码孪生：`PermissionCode`（22 常量）+ `SensitivePermissions`（4 敏感点）+ `ArchiveAccessRateGuard`（行为告警）
 > 契约孪生：`openapi/yl-api.yaml` **v1.1.0**（43 操作 `x-required-permission` + `x-data-scope`，0 处 `pending-cr`）
@@ -15,7 +15,7 @@
 |---|---:|---|
 | 角色 | **5** | 不变（ELDER / ASSESSOR / FAMILY / ORG_ADMIN / SUPERVISOR，不得增删） |
 | 权限点 | **22** | 16 → 22（+6，id 2017–2022） |
-| 授权（角色×权限点） | **40** | 23 → 40（+17，id 3024–3040） |
+| 授权（角色×权限点） | **41** | 23 → 40 → **41**（+17 id 3024–3040，**+1 id 3041 = D4-R7 R8 补授**） |
 | 敏感权限点（`need_second_verify=1`） | **4** | 3 → 4（+`data:reveal`） |
 | 契约权限点明确率 | **100%**（43/43 操作带鉴权口径） | 68%（15/22，7 处 `pending-cr`） |
 | 敏感数据域（`data_scope`） | 5 档：1/2/**5**/2/4 | 1/2/1/2/4（FAMILY 为 1，家属恒查不到数据） |
@@ -43,7 +43,7 @@
 | 5 | 2005 | `evaluation:order:review` | 复核/发布报告 | evaluation | — | 机构管理员 | `POST /eval/orders/{orderId}/review`、`POST /reports/{reportId}/generate` |
 | 6 | 2006 | `evaluation:order:review:read` | 查看复核结果（只读） | evaluation | — | 监管 | 由 `POST /eval/orders/{orderId}/review` 只读态承载 |
 | 7 | 2007 | `care:plan:edit` | 编辑照护方案 | care | — | 机构管理员 | 待补登（C/D 模块） |
-| 8 | 2008 | `care:plan:edit:suggest` | 提交照护建议（受限） | care | — | 评估员 | 待补登（C/D 模块） |
+| 8 | 2008 | `care:plan:edit:suggest` | 提交照护建议（受限） | care | — | 评估员、**老人**〔**D4-R7 R8 补授**〕 | `POST /eval/orders/{orderId}/care-plan` |
 | 9 | 2009 | `account:org:manage` | 机构/人员管理 | account | — | 机构管理员 | 待补登（C/D 模块） |
 | 10 | 2010 | `account:org:manage:read` | 查看机构/人员（只读） | account | — | 监管 | 待补登（C/D 模块） |
 | 11 | 2011 | `supervise:report:submit` | 监管数据上报 | supervise | — | 机构管理员、监管 | `POST /supervise/report` |
@@ -89,7 +89,8 @@
 | `evaluation:order:review` | ⛔ | ⛔ | ⛔ | ✅ | ⛔ |
 | `evaluation:order:review:read` | ⛔ | ⛔ | ⛔ | ⛔ | 👁 |
 | `care:plan:edit` | ⛔ | ⛔ | ⛔ | ✅ | ⛔ |
-| `care:plan:edit:suggest` | ⛔ | 🔶 | ⛔ | ⛔ | ⛔ |
+| `care:plan:edit:suggest` | 🔶〔**R8 补授**〕 | 🔶 | ⛔ | ⛔ | ⛔ |
+
 | `account:org:manage` | ⛔ | ⛔ | ⛔ | ✅ | ⛔ |
 | `account:org:manage:read` | ⛔ | ⛔ | ⛔ | ⛔ | 👁 |
 | `supervise:report:submit` | ⛔ | ⛔ | ⛔ | ✅ | ✅ |
@@ -104,10 +105,16 @@
 | `evaluation:task:read` | ⛔ | ✅ | ⛔ | ✅ | 👁 |
 | `data:reveal` **〔敏感〕** | ⛔ | ⛔ | ⛔ | ✅ | ⛔ |
 | `rule:view` | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **合计（该角色持有）** | **4** | **8** | **6** | **14** | **8** |
+| **合计（该角色持有）** | **5** | **8** | **6** | **14** | **8** |
 
-> 角色持有合计 **4+8+6+14+8 = 40**，与种子 `sys_role_permission` 的 **40 条记录逐一对应**（上表每个 ✅/🔶/👁 格对应 1 条授权记录；
+> 角色持有合计 **5+8+6+14+8 = 41**，与种子 `sys_role_permission` 的 **41 条记录逐一对应**（上表每个 ✅/🔶/👁 格对应 1 条授权记录；
 > 受限态与只读态同样是独立授权记录）。校验方式见 §7.2。
+>
+> **🔶 老人持有 `care:plan:edit:suggest`（id 3041，D4-R7 R8 补授）的前提** —— **仅靠权限点不构成放行**：
+> 第二闸放行后，写路径 `CarePlanService.generate(orderId, operatorId)` 内部经 `reportService.findReport(orderId)`
+> 的 `reportMapper.selectOne` 已被**第三闸 `DataScopePermissionHandler`** 收口：`eval_report` 锚 `elder_id → elder.user_id`，
+> 老人传入**非本人** `orderId` 时查询即落空 → `NOT_FOUND`，**无需再补服务层冗余归属校验**。
+> 若第三闸锚登记回退，则该授权立刻退化为**写越权**，此二者必须**同批变更、不得单独回滚任一处**。
 
 ### 3.1 数据域（第三闸 `data_scope`）
 
@@ -222,9 +229,9 @@
 
 | 位置 | 文件 | 现状 |
 |---|---|---|
-| 种子（权威） | `docker/mysql/init/03_seed_rbac.sql` §2 / §4 | 22 权限点 + 40 授权 |
+| 种子（权威） | `docker/mysql/init/03_seed_rbac.sql` §2 / §4 / §6 | 22 权限点 + **41** 授权（含 D4-R7 R8 补授 id 3041） |
 | 代码常量 | `PermissionCode` / `SensitivePermissions` | 22 常量 + 4 敏感点 |
-| 门禁断言 | `scripts/verify-schema.sh` | 权限点 = 22、授权 = 40、敏感点 = 4、五角色 = 5、矩阵红线 8 条 |
+| 门禁断言 | `scripts/verify-schema.sh` | 权限点 = 22、授权 = **41**、敏感点 = 4、五角色 = 5、矩阵红线 8 条 |
 | 契约标注 | `openapi/yl-api.yaml` | 22 操作 100% `x-required-permission`，0 处 `pending-cr` |
 
 ### 7.2 自检 SQL（与种子 §5 一致）
@@ -232,7 +239,7 @@
 ```sql
 SELECT (SELECT COUNT(*) FROM sys_role)                                    AS roles_expected_5,
        (SELECT COUNT(*) FROM sys_permission WHERE deleted = 0)            AS perms_expected_22,
-       (SELECT COUNT(*) FROM sys_role_permission)                         AS grants_expected_40,
+       (SELECT COUNT(*) FROM sys_role_permission)                         AS grants_expected_41,
        (SELECT COUNT(*) FROM sys_permission WHERE need_second_verify = 1) AS sensitive_expected_4;
 ```
 
@@ -259,4 +266,5 @@ mvn -Pfast verify                                 # 期望：格式 + 编译 + �
 | 2026-09-22 | **告警响应 SOP v1.0** | ✅ `docs/design/B2-archive-access-alert-sop.md`（分级 + SLA + 灰度路径） | 研发侧 |
 | 2026-09-22 | **前端权限码常量** | ✅ `docs/design/B2-frontend-permission-codes.ts`（22 码 + 未实现 8 码 + 敏感 4 码） | 研发侧 |
 | — | 落地清单 #5（回写 PRD §2.2 + 修订记录） | ⏳ 待办（须 CCB 追认）。**2026-10-11 进展**：横幅已挂且限期经 2026-10-10 订正段顺延至 **2026-10-17**（原 2026-09-24 届满未获追认）；盘上 md/html/补遗三件已重推（新 file_id，见 `CR-M1-002-scope-clearing.md` 订正注）。**10-17 前仍须 CCB 实际追认，逾期须重提 CCB 排期、不得续挂** | 产品 |
+| 2026-10-12 | **D4-R7 R8 写路径补授（PM 裁决①选项 A）** | ✅ 种子新增 `(3041, 1001, 2008)`；授权 40→**41**；本清单 L46 / §3 矩阵 / §7.1 / §7.2 / `verify-schema.sh` 五处同步。**须与第三闸 `eval_report` 锚同批改，禁止单独回滚** | 研发侧（PM 裁决） |
 | — | 反向缺口 6 类补登契约 | ⏳ 待办（随 C/D 模块，不阻塞本 CR） | 研发 |

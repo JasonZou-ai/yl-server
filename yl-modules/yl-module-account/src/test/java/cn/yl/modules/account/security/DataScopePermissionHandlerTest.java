@@ -80,14 +80,84 @@ class DataScopePermissionHandlerTest {
         assertEquals("(sys_user.id = 900000000000000001)", expr.toString());
     }
 
-    /** 关键回归：评估报告无"本人"列可表达（user↔elder 链路未落地）→ 恒假，不得放行。 */
+    /**
+     * D4-R7（R7 本体）：评估报告改为按老人归属收口 —— 老人可读<b>自己的</b>报告。
+     *
+     * <p>本用例此前断言 {@code (1 = 0)}（恒假），那是把"欠权"当成正确行为固化：老人读不到自己的报告，而六项作业全绿不报红。 修复后改为<b>正向可达</b>断言——这是
+     * R5「防欠权」的要求：只测越权不够，必须同时证明"该读的读得到"。
+     *
+     * <p>越权方向由 {@code elder_id IN (我作为老人的 id)} 天然保证：他人的报告行不在集合内 ⇒ 查不到。
+     */
     @Test
-    void selfScopeFailsClosedOnEvalReport() {
+    void selfScopeReadsOwnReportByElderAnchor() {
         login(900000000000000001L, List.of(1L), 1);
 
         Expression expr = handler.getSqlSegment(new Table("eval_report"), null, "ms");
 
-        assertEquals("(1 = 0)", expr.toString(), "scope=1 不得读到他人评估报告");
+        assertEquals(
+                "(eval_report.elder_id IN (SELECT p.id FROM elder p WHERE p.user_id ="
+                        + " 900000000000000001))",
+                expr.toString(),
+                "scope=1 须按老人归属收口：自己的报告可读、他人的不可读");
+    }
+
+    /** D4-R7（R8 读路径）：照护方案自操作者列 suggest_by 迁出，改为按归属收口（老人不再看到空白方案）。 */
+    @Test
+    void selfScopeReadsOwnCarePlanByElderAnchor() {
+        login(900000000000000001L, List.of(1L), 1);
+
+        Expression expr = handler.getSqlSegment(new Table("care_plan"), null, "ms");
+
+        assertEquals(
+                "(care_plan.elder_id IN (SELECT p.id FROM elder p WHERE p.user_id ="
+                        + " 900000000000000001))",
+                expr.toString(),
+                "care_plan 不得再按 suggest_by（操作者）收口 —— 老人恒不是建议人，会恒空");
+    }
+
+    /**
+     * D4-R7（F2 方案 A·入口角色分叉）：ELDER 角色落 scope=1 时，评估单按<b>归属</b>收口（elder_id）， 而不是操作者列
+     * assessor_id（老人恒不是录入人 ⇒ 恒空）。
+     */
+    @Test
+    void elderRoleReadsOwnEvalOrderByElderAnchor() {
+        login(900000000000000002L, List.of(), 1, List.of("ELDER"));
+
+        Expression expr = handler.getSqlSegment(new Table("eval_order"), null, "ms");
+
+        assertEquals(
+                "(eval_order.elder_id IN (SELECT p.id FROM elder p WHERE p.user_id ="
+                        + " 900000000000000002))",
+                expr.toString(),
+                "ELDER 的评估单须按归属收口（契约 openapi:864 assessmentGet 声明 ELDER: self）");
+    }
+
+    /**
+     * ★ 方案 A 的另一半：员工（ASSESSOR）即便落 scope=1，<b>仍走操作者列</b> assessor_id，不被归属锚收口。
+     *
+     * <p>钉死这条，是为了保证"入口角色分叉"真的是分叉——若将来 dataScope 聚合语义变化导致员工掉进 scope=1，
+     * 员工看到的是自己录入的单（符合预期），而不是被收口成"我作为老人"而静默恒空。
+     */
+    @Test
+    void assessorWithSelfScopeStillUsesOperatorAnchor() {
+        login(900000000000000003L, List.of(), 1, List.of("ASSESSOR"));
+
+        Expression expr = handler.getSqlSegment(new Table("eval_order"), null, "ms");
+
+        assertEquals(
+                "(eval_order.assessor_id = 900000000000000003)",
+                expr.toString(),
+                "员工态不得被归属锚收口（角色分叉的边界）");
+    }
+
+    /** D4-R7 边界：作答明细 eval_answer 维持判死，不因同批改锚而放开。 */
+    @Test
+    void evalAnswerStillDeniedForSelfScope() {
+        login(900000000000000001L, List.of(1L), 1);
+
+        Expression expr = handler.getSqlSegment(new Table("eval_answer"), null, "ms");
+
+        assertEquals("(1 = 0)", expr.toString(), "eval_answer 维持 SELF_DENY_TABLES 判死");
     }
 
     /**
@@ -254,14 +324,19 @@ class DataScopePermissionHandlerTest {
         assertNull(handler.getSqlSegment(new Table("eval_item"), null, "ms"));
     }
 
-    /** 未知/越界 scope 值一律落到最严格的"本人"分支，不得放行。 */
+    /**
+     * 未知/越界 scope 值一律落到最严格的"本人"分支，不得放行。
+     *
+     * <p>探针改用 {@code eval_answer}：D4-R7 后 {@code eval_report} 在本人分支已<b>可达</b>（按归属收口）， 用它再断言 {@code
+     * (1 = 0)} 会误报。判死语义请用仍然 fail-closed 的表来钉。
+     */
     @Test
     void unknownScopeFallsBackToStrictestBranch() {
         login(900000000000000009L, List.of(), 99);
 
         assertEquals(
                 "(1 = 0)",
-                handler.getSqlSegment(new Table("eval_report"), null, "ms").toString(),
+                handler.getSqlSegment(new Table("eval_answer"), null, "ms").toString(),
                 "未知 scope 不得退化为不加限");
     }
 
@@ -308,8 +383,16 @@ class DataScopePermissionHandlerTest {
     }
 
     private void login(long userId, List<Long> orgIds, int dataScope) {
-        LoginUser user =
-                new LoginUser(userId, 1L, List.of("ASSESSOR"), List.of(), orgIds, dataScope);
+        login(userId, orgIds, dataScope, List.of("ASSESSOR"));
+    }
+
+    /**
+     * 带角色码的登录（D4-R7 F2 方案 A「入口角色分叉」所需）。
+     *
+     * <p>默认重载固定为 ASSESSOR —— 这正好用来钉死另一半语义：<b>员工即便落 scope=1 也仍走操作者列</b>，不被归属锚收口。
+     */
+    private void login(long userId, List<Long> orgIds, int dataScope, List<String> roles) {
+        LoginUser user = new LoginUser(userId, 1L, roles, List.of(), orgIds, dataScope);
         SecurityContextHolder.getContext()
                 .setAuthentication(new UsernamePasswordAuthenticationToken(user, null, List.of()));
     }
