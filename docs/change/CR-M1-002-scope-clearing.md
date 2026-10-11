@@ -98,6 +98,8 @@ ER 三方评审（2026-09-18，结论「有条件通过」）对「本期范围�
 | PRD html | `PRD_YL-PRD-v1.1.html` · file_id `NrYReGHGkuUk` · 102,776 → **104,961 B** · md5 `EB1A37F9491C1060F06E2477F898174C` |
 | 回写方式 | 就地覆盖（**file_id 不变**）；PUT 返回 200 后**重新下载盘内件算 md5 与本地逐字节一致** |
 | 位置 | 驱动盘 `M1交付物/A1_需求冻结/` |
+
+> **⚠ 2026-10-11 订正（file_id 失效）**：本表所记 `NzTjFwEBKZOk`(md)/`NrYReGHGkuUk`(html) 已于 2026-10-11 因 CCB 追认横幅限期订正（2026-09-24 → 2026-10-17，含 2026-10-10 订正段）重推**删除**，新真源为 md `NhLijxUxNkRC`(23,960 B, md5 `c92715bb…`) / html `NzoQmxEjDMaY`(106,654 B, md5 `adfe9352…`)。该网盘通道**不支持原地覆盖**（upload 必新建副本），本表「file_id 不变」仅对当时通道成立；后续凡引用 PRD 盘件一律以新 file_id 为准。
 | 评审依据 | `stage3_开发/yl-server/docs/reviews/ER-Review-20260918.md` |
 | DDL 补丁 | `docs/reviews/ER-20260918-DDL-Patch-Proposal.sql`（已应用，commit `75b704a`） |
 

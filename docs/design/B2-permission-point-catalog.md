@@ -258,5 +258,5 @@ mvn -Pfast verify                                 # 期望：格式 + 编译 + �
 | 2026-09-22 | **告警 `mode` 配置项** | ✅ `ArchiveAccessGuardMode`（off/audit/alert/enforce，默认 alert），12 例单测 | 研发侧 |
 | 2026-09-22 | **告警响应 SOP v1.0** | ✅ `docs/design/B2-archive-access-alert-sop.md`（分级 + SLA + 灰度路径） | 研发侧 |
 | 2026-09-22 | **前端权限码常量** | ✅ `docs/design/B2-frontend-permission-codes.ts`（22 码 + 未实现 8 码 + 敏感 4 码） | 研发侧 |
-| — | 落地清单 #5（回写 PRD §2.2 + 修订记录） | ⏳ 待办（须 CCB 追认，**建议限时 2026-09-24，逾期先加横幅**） | 产品 |
+| — | 落地清单 #5（回写 PRD §2.2 + 修订记录） | ⏳ 待办（须 CCB 追认）。**2026-10-11 进展**：横幅已挂且限期经 2026-10-10 订正段顺延至 **2026-10-17**（原 2026-09-24 届满未获追认）；盘上 md/html/补遗三件已重推（新 file_id，见 `CR-M1-002-scope-clearing.md` 订正注）。**10-17 前仍须 CCB 实际追认，逾期须重提 CCB 排期、不得续挂** | 产品 |
 | — | 反向缺口 6 类补登契约 | ⏳ 待办（随 C/D 模块，不阻塞本 CR） | 研发 |
