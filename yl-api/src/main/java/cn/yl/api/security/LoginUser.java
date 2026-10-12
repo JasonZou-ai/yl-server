@@ -23,6 +23,9 @@ public record LoginUser(
         List<Long> orgIds,
         int dataScope) {
 
+    /** data_scope=1（本人）码值：与 account 模块 {@code DataScope.SELF} 同义，枚举不在本模块故以常量承载。 */
+    private static final int SCOPE_SELF = 1;
+
     /** 紧凑构造器：对角色/权限/机构集合做不可变拷贝，外部可变集合无法再影响鉴权判定。 */
     public LoginUser {
         roles = roles == null ? List.of() : List.copyOf(roles);
@@ -59,6 +62,18 @@ public record LoginUser(
     /** 归属机构 ID 集合（不可变视图）。 */
     public List<Long> orgIds() {
         return Collections.unmodifiableList(orgIds);
+    }
+
+    /**
+     * 是否「本人域（data_scope=1）」视角 —— D4-R7 状态闸的判定入口。
+     *
+     * <p>为什么不判 {@code hasAnyRole("ELDER")}：角色码常量在 account 模块，业务模块引用会形成跨模块依赖； 且按 {@code
+     * docs/change/D4-R7-elder-report-self-read.md} §8 实证，多角色账号取的是 <b>最宽值（max）</b>——持任一员工角色即被抬到
+     * 2/4/5，故 <b>落 scope=1 者必为纯 ELDER 单角色账号</b>。 该不变式已由 {@code AccountAggregateServiceTest} 锁定，故
+     * {@code dataScope == 1} 与「老人自读」等价且有契约保护。
+     */
+    public boolean isSelfScope() {
+        return dataScope == SCOPE_SELF;
     }
 
     /** 是否拥有任一角色。 */

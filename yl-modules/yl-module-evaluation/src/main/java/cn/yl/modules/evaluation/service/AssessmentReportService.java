@@ -1,5 +1,7 @@
 package cn.yl.modules.evaluation.service;
 
+import cn.yl.api.security.LoginUser;
+import cn.yl.api.security.SecurityUtils;
 import cn.yl.common.exception.BizException;
 import cn.yl.common.exception.ErrorCode;
 import cn.yl.modules.evaluation.domain.RetentionPolicy;
@@ -92,8 +94,35 @@ public class AssessmentReportService {
         if (report == null) {
             throw new BizException(ErrorCode.NOT_FOUND, "报告尚未生成: orderId=" + orderId);
         }
+        assertPublishedToSelf(report);
         EvalOrder order = orderMapper.selectById(orderId);
         return toResponse(report, order);
+    }
+
+    /**
+     * D4-R7 状态闸（开卡 §2.3）：<b>老人视角只读 status=1（已发布/有效）</b>。
+     *
+     * <p>为什么落在服务层：状态是<b>业务语义</b>，不是数据域语义——第三闸只负责「这行是不是我的」，无权表达 「已作废的不给看」。故本卡 §2.3 决议：锚（数据域）+
+     * 状态闸（服务层）双保险，各司其职。
+     *
+     * <p>只对<b>本人域（data_scope=1）</b>生效：评估员/机构管理员在复核链路中<b>必须</b>能看到 {@code status=0}（生成中）与 {@code
+     * status=2}（已作废）的报告，否则复核与作废流程无从操作—— 收紧老人视角时不能顺带把员工视角一起收紧（那是另一种欠权）。
+     *
+     * <p>错误码取 {@link ErrorCode#NOT_FOUND}（10004）而非 {@link ErrorCode#FORBIDDEN}：与 「他人
+     * reportNo」同码，避免用错误码差异枚举出「存在但未发布」这一事实（开卡 §4.2·M2 同码口径）。
+     *
+     * <p>由 {@code getReport} 与 {@code ReportPdfService#requireVisible} 共用（报告详情与 PDF 下载两处读面
+     * 必须同口径，否则「详情看不到、PDF 能下载」即为绕过）。
+     */
+    public void assertPublishedToSelf(EvalReport report) {
+        LoginUser user = SecurityUtils.currentUserOrNull();
+        if (user == null || !user.isSelfScope() || report.getStatus() == null) {
+            return;
+        }
+        if (report.getStatus() != REPORT_VALID) {
+            throw new BizException(
+                    ErrorCode.NOT_FOUND, "报告未发布或已作废: orderId=" + report.getOrderId());
+        }
     }
 
     /** 复核发布：报告转「有效」并记录发布时间（PRD P02：仅已发布展示等级卡片）。 */

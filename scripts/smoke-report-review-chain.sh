@@ -38,7 +38,10 @@
 # 2026-09-28 D-3 新增「报表与监管域」段（第 [8/8] 段：B6/B7/B8/B9/B10 + R6 + 未认证 401 + 跨机构收口）。
 # 2026-09-29 D-4 新增「家属域」段（第 [9/9] 段：绑定五态 + 家属读三端点 + elder↔user 绑定 + ★C1/C3 + authLogout 黑名单六步）。
 #   · 需 04_seed_dev_accounts.sql 含 elder_dev/family_dev；需后端配置 SENSITIVE_FIELD_KEY（否则申请返回 40001）。
-#   · 解绑「带凭据 → code=0」需设 SECOND_VERIFY_DEV_CODE；★C3：ELDER E2E 不覆盖报告读取（D4-R7 恒假）。
+#   · 解绑「带凭据 → code=0」需设 SECOND_VERIFY_DEV_CODE。
+# 2026-10-13 D4-R7 ★C3 声明翻转：ELDER E2E **已覆盖**报告读取（原「D4-R7 恒假」不再成立）——9.5b 段新增 5 条断言：
+#   本人已发布报告 code=0 + status=1 / 他人或不存在 orderId → 10004 / 本人已作废报告 → 10004（状态闸 M3）/ 夹具还原。
+#   ⚠ 断言总数 119 → **124** 系按新增条数推算，**尚未实跑校准**（实跑需 dev 口令 + 运行中的服务 + MySQL）。
 # 2026-09-30 D-4a 收尾（R-1/R-2）：[9/9] 增 9.4b/9.6b/9.7b —— ★R-2 重新申请复用活性行（拒绝/解绑后 → code=0 且 status∈{0,1} 且 id 不变；status∈{0,1,2} 重复申请 → 10005）。
 # 2026-10-10 P2-8-R12/SMOKE-R1：口令改由 DEV_LOGIN_PASSWORD 注入（明文全部出仓）；清理凭据 fail-closed；新增开跑前"前清"使套件幂等。
 # =============================================================================
@@ -768,7 +771,40 @@ fi
 # ---- 9.5 ELDER 段（★C3 覆盖声明）：GET /elders 自读 → code=0（elder.user_id=me） ----
 ELDER_SELF=$(api_as "$ELDER_TOKEN" -X GET "$ELDER_API?pageNum=1&pageSize=5")
 check "ELDER 自读老人列表（code=0，data_scope=1）" "$(code_of "$ELDER_SELF")" "0"
-echo "    （★C3 声明：ELDER E2E 不覆盖报告读取 —— D4-R7 恒假，ELDER 无关系级链路）"
+
+# ---- 9.5b D4-R7（已修复）：ELDER 读**本人已发布**报告 → code=0（★C3 声明翻转，原「恒假」不再成立） ----
+# 夹具说明：主流程评估单 $ORDER 的老人是种子老人（id=$ELDER），其报告已在 [5/6] 复核发布为 status=1。
+#   为使「本人已发布报告」这一前提成立，此处把该老人**临时**绑为 elder_dev 本人，段末按原值还原
+#   （含报告 status 原值）——不还原会污染下一次运行，即 SMOKE-R1 已实证过的假红来源。
+if [ -n "$ORDER" ] && [ -n "$ELDER_TOKEN" ] && [ -n "$ELDER_UID" ]; then
+    ORIG_ELDER_UID=$("$MYSQL_BIN" $MYSQL_CONN yl_evaluation -N -B -e \
+        "SELECT IFNULL(user_id, 'NULL') FROM elder WHERE id = $ELDER" 2>/dev/null)
+    ORIG_STATUS=$("$MYSQL_BIN" $MYSQL_CONN yl_evaluation -N -B -e \
+        "SELECT IFNULL(status, 0) FROM eval_report WHERE order_id = $ORDER" 2>/dev/null)
+    "$MYSQL_BIN" $MYSQL_CONN yl_evaluation >/dev/null 2>&1 <<SQL
+UPDATE elder SET user_id = $ELDER_UID WHERE id = $ELDER;
+SQL
+    SELF_REPORT=$(api_as "$ELDER_TOKEN" -X GET "$API/assessments/$ORDER/report")
+    check "D4-R7 ELDER 读本人已发布报告（code=0）" "$(code_of "$SELF_REPORT")" "0"
+    check "D4-R7 本人报告状态（1=已发布）" "$(str_field "$SELF_REPORT" status)" "1"
+    # 越权方向：他人/不存在的 orderId → 同码 10004（不泄露存在性，与家属域口径一致）
+    CROSS_ORDER=$(api_as "$ELDER_TOKEN" -X GET "$API/assessments/999000000000000999/report")
+    check "D4-R7 ELDER 读他人/不存在报告（业务码 10004）" "$(code_of "$CROSS_ORDER")" "10004"
+    # 状态闸：本人报告临时置 status=2（已作废）→ 老人须读不到（同码 10004，M3）
+    "$MYSQL_BIN" $MYSQL_CONN yl_evaluation >/dev/null 2>&1 <<SQL
+UPDATE eval_report SET status = 2 WHERE order_id = $ORDER;
+SQL
+    VOID_SELF=$(api_as "$ELDER_TOKEN" -X GET "$API/assessments/$ORDER/report")
+    check "D4-R7 状态闸：本人已作废报告不可读（业务码 10004）" "$(code_of "$VOID_SELF")" "10004"
+    # 还原（先报告状态、后老人绑定）
+    "$MYSQL_BIN" $MYSQL_CONN yl_evaluation >/dev/null 2>&1 <<SQL
+UPDATE eval_report SET status = $ORIG_STATUS WHERE order_id = $ORDER;
+UPDATE elder SET user_id = $ORIG_ELDER_UID WHERE id = $ELDER;
+SQL
+    pass "D4-R7 夹具已还原（报告 status=$ORIG_STATUS、种子老人 user_id=$ORIG_ELDER_UID）"
+else
+    skip "D4-R7 ELDER 自读报告（需主流程 ORDER + 老人令牌 + 老人 userId）"
+fi
 
 # ---- 9.6 家属申请 + 机构审核 + 家属读三端点（另起一个无登录账号的老人 E2） ----
 ID2="53010219900307$(( (RANDOM % 9000) + 1000 ))"

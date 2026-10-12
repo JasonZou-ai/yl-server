@@ -161,6 +161,8 @@ public class ReportPdfService {
         if (visible == null) {
             throw new BizException(ErrorCode.NOT_FOUND, "报告不存在或无权访问: reportNo=" + reportNo);
         }
+        // D4-R7 状态闸（与报告详情同口径）：老人视角不下载未发布/已作废报告，否则「详情 10004、PDF 能下载」即为绕过。
+        reportService.assertPublishedToSelf(visible);
     }
 
     private List<CarePlanItem> loadCareItems(Long orderId) {

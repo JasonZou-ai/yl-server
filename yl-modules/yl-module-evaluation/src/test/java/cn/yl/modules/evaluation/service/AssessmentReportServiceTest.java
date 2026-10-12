@@ -9,7 +9,9 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import cn.yl.api.security.LoginUser;
 import cn.yl.common.exception.BizException;
+import cn.yl.common.exception.ErrorCode;
 import cn.yl.modules.evaluation.domain.entity.EvalOrder;
 import cn.yl.modules.evaluation.domain.entity.EvalReport;
 import cn.yl.modules.evaluation.domain.entity.GbRuleVersion;
@@ -24,6 +26,7 @@ import cn.yl.modules.evaluation.mapper.ReportDimensionScoreMapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
 import java.math.BigDecimal;
 import java.util.List;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -32,6 +35,8 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 
 /**
  * 评估报告服务测试（C3 / PRD §1.4）：验证报告绑定「初判 + 终判 + 变化原因 + 规则版本」。
@@ -62,6 +67,12 @@ class AssessmentReportServiceTest {
                         itemMapper,
                         dimScoreMapper,
                         new AssessmentGradingService());
+    }
+
+    /** 登录态是线程本地状态，用例间必须清理，否则状态闸判定会串味（D4-R7 M3）。 */
+    @AfterEach
+    void clearSecurityContext() {
+        SecurityContextHolder.clearContext();
     }
 
     @Test
@@ -138,6 +149,75 @@ class AssessmentReportServiceTest {
     void getReportThrowsWhenAbsent() {
         when(reportMapper.selectOne(any(QueryWrapper.class))).thenReturn(null);
         assertThrows(BizException.class, () -> service.getReport(8004L));
+    }
+
+    // ---------------- D4-R7 状态闸（开卡 §2.3 / 验收 §4.2 M3） ----------------
+
+    /**
+     * 正向可达（R5 防欠权）：老人读<b>本人已发布</b>报告须成功。
+     *
+     * <p>只测「越权被拒」不够——若把状态闸写成无条件拒绝，越权断言依然全绿，但老人永远读不到自己的报告。
+     */
+    @Test
+    void elderReadsOwnPublishedReport() {
+        loginAs(900000000000000001L, 1, List.of("ELDER"));
+        when(reportMapper.selectOne(any(QueryWrapper.class))).thenReturn(existingReport(8101L));
+        when(orderMapper.selectById(8101L)).thenReturn(submittedOrder(8101L));
+
+        EvalReportResponse resp = service.getReport(8101L);
+
+        assertEquals("RP-EXISTING", resp.getReportNo());
+    }
+
+    /** M3-a：status=0（生成中）本人报告对老人不可读。 */
+    @Test
+    void elderCannotReadGeneratingReport() {
+        loginAs(900000000000000001L, 1, List.of("ELDER"));
+        EvalReport generating = existingReport(8102L);
+        generating.setStatus(0);
+        when(reportMapper.selectOne(any(QueryWrapper.class))).thenReturn(generating);
+
+        BizException ex = assertThrows(BizException.class, () -> service.getReport(8102L));
+
+        assertEquals(
+                ErrorCode.NOT_FOUND.getCode(),
+                ex.getCode(),
+                "生成中报告对老人须不可读；且与「他人报告」同码 10004，不泄露存在性");
+    }
+
+    /** M3-b：status=2（已作废）本人报告对老人不可读（PRD P02：作废报告不得再展示等级卡片）。 */
+    @Test
+    void elderCannotReadVoidReport() {
+        loginAs(900000000000000001L, 1, List.of("ELDER"));
+        EvalReport voided = existingReport(8103L);
+        voided.setStatus(2);
+        when(reportMapper.selectOne(any(QueryWrapper.class))).thenReturn(voided);
+
+        BizException ex = assertThrows(BizException.class, () -> service.getReport(8103L));
+
+        assertEquals(ErrorCode.NOT_FOUND.getCode(), ex.getCode(), "已作废报告对老人须不可读");
+    }
+
+    /**
+     * 反向边界（防过度收紧）：机构管理员<b>必须</b>仍能读 status=2 报告 —— 复核/作废链路依赖该读面。
+     *
+     * <p>状态闸若写成无条件拒绝，本例立即变红：那是把「收紧老人」误做成「收紧所有人」，属另一方向的欠权。
+     */
+    @Test
+    void orgAdminStillReadsVoidReport() {
+        loginAs(900000000000000004L, 2, List.of("ORG_ADMIN"));
+        EvalReport voided = existingReport(8104L);
+        voided.setStatus(2);
+        when(reportMapper.selectOne(any(QueryWrapper.class))).thenReturn(voided);
+        when(orderMapper.selectById(8104L)).thenReturn(submittedOrder(8104L));
+
+        assertEquals("RP-EXISTING", service.getReport(8104L).getReportNo());
+    }
+
+    private void loginAs(long userId, int dataScope, List<String> roles) {
+        LoginUser user = new LoginUser(userId, 1L, roles, List.of(), List.of(1L), dataScope);
+        SecurityContextHolder.getContext()
+                .setAuthentication(new UsernamePasswordAuthenticationToken(user, null, List.of()));
     }
 
     private EvalOrder submittedOrder(Long id) {

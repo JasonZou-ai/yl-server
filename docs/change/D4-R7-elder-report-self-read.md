@@ -146,3 +146,48 @@ CarePlanService.generate(orderId, operatorId)
 
 - **本卡关闭条件**：上述六项作业全绿 + CCB 追认落地（`2026-10-17` 前）。
 - **不开裂**：`care_plan` **确认**端点（须 ≠ 建议人）不在本卡范围；`report_dimension_score` 仍判死，走 D1-c 聚合接口暴露。
+
+---
+
+## 10. M3 状态闸补落地（2026-10-13 —— 验收 §4.2 中唯一未闭合项）
+
+> §9 的六项作业全绿**不等于本卡验收闭合**：0005 只落了「锚」（第三闸），**状态闸未落**。本节登记补做内容。
+
+### 10.1 缺口实证
+
+`AssessmentReportService.getReport`（2026-10-12 落地版）无任何 `status` 过滤 ⇒ 老人可读到**本人** `status=0`（生成中）与 `status=2`（已作废）报告，直接违反 §2.3「ELDER 读面只放 status=1」。
+
+### 10.2 落地位置
+
+| 位置 | 改动 |
+|---|---|
+| `yl-api` `LoginUser#isSelfScope()` | 新增 `dataScope == 1` 判定。**为什么不判 `hasAnyRole("ELDER")`**：角色码常量在 account 模块，业务模块引用会形成跨模块依赖；且 §8 已实证「落 scope=1 者必为**纯 ELDER 单角色账号**」（多角色取 max，员工永不落 1），该不变式由 `AccountAggregateServiceTest` 锁定 ⇒ `dataScope==1` 与「老人自读」等价且有契约保护 |
+| `AssessmentReportService#assertPublishedToSelf(EvalReport)` | 新增 public 方法，`getReport` 调用：本人域 + `status != 1` ⇒ `BizException(NOT_FOUND)` |
+| `ReportPdfService#requireVisible` | 复用同一方法（报告详情与 PDF 下载**必须同口径**，否则「详情 10004、PDF 能下载」即为绕过） |
+
+**为什么落在服务层**：状态是**业务语义**而非数据域语义——第三闸只表达「这行是不是我的」，无权表达「已作废的不给看」。故 §2.3 决议「锚（数据域）+ 状态闸（服务层）双保险」在此落实。
+
+**错误码取 10004 而非 10003**：与「他人 reportNo」同码，避免用错误码差异枚举出「存在但未发布」这一事实（§4.2·M2 同码口径）。
+
+### 10.3 ★ 反向边界：只对本人域生效
+
+`orgAdminStillReadsVoidReport` 单测钉死「机构管理员仍可读 `status=2` 报告」——复核/作废链路依赖该读面。
+状态闸若写成无条件拒绝，该例立即变红：那是把「收紧老人」误做成「收紧所有人」，属**另一方向的欠权**。
+
+### 10.4 突变反证（QA 三连之 M3）
+
+| 突变 | 结果 |
+|---|---|
+| `if (report.getStatus() != REPORT_VALID)` → `if (false)` | **正好 2 条变红**：`elderCannotReadGeneratingReport` / `elderCannotReadVoidReport`；正向可达（`elderReadsOwnPublishedReport`）与防过度收紧（`orgAdminStillReadsVoidReport`）**不受影响** ⇒ 闸承重，非"加了但没人验证" |
+
+突变后已还原（源文件 `grep -c MUTATION` = 0）。
+
+### 10.5 E2E 冒烟覆盖翻转（★C3 声明）
+
+`scripts/smoke-report-review-chain.sh`：
+
+- **删除**原声明「★C3：ELDER E2E 不覆盖报告读取（D4-R7 恒假）」——修复后该前提不再成立。
+- **新增 9.5b 段 5 条断言**：本人已发布报告 `code=0` + `status=1` ／ 他人或不存在 `orderId` → `10004` ／ 本人已作废报告 → `10004`（状态闸）／ 夹具还原。
+- **夹具**：主流程 `$ORDER` 的报告已发布，故把**种子老人临时绑为 `elder_dev` 本人**使「本人已发布报告」成立；段末按**原值**还原（`eval_report.status` 与 `elder.user_id`）——不还原会污染下一次运行（SMOKE-R1 已实证的假红来源）。
+
+> ⚠ 断言总数 **119 → 124** 系按新增条数**推算，尚未实跑校准**（实跑需 dev 口令 + 运行中的服务 + MySQL）。实跑后请回填本节并把本提示删除。
