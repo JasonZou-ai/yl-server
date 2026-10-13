@@ -773,16 +773,17 @@ ELDER_SELF=$(api_as "$ELDER_TOKEN" -X GET "$ELDER_API?pageNum=1&pageSize=5")
 check "ELDER 自读老人列表（code=0，data_scope=1）" "$(code_of "$ELDER_SELF")" "0"
 
 # ---- 9.5b D4-R7（已修复）：ELDER 读**本人已发布**报告 → code=0（★C3 声明翻转，原「恒假」不再成立） ----
-# 夹具说明：主流程评估单 $ORDER 的老人是种子老人（id=$ELDER），其报告已在 [5/6] 复核发布为 status=1。
-#   为使「本人已发布报告」这一前提成立，此处把该老人**临时**绑为 elder_dev 本人，段末按原值还原
-#   （含报告 status 原值）——不还原会污染下一次运行，即 SMOKE-R1 已实证过的假红来源。
-if [ -n "$ORDER" ] && [ -n "$ELDER_TOKEN" ] && [ -n "$ELDER_UID" ]; then
-    ORIG_ELDER_UID=$("$MYSQL_BIN" $MYSQL_CONN yl_evaluation -N -B -e \
-        "SELECT IFNULL(user_id, 'NULL') FROM elder WHERE id = $ELDER" 2>/dev/null)
+# 夹具说明（2026-10-13 实跑订正）：主流程评估单 $ORDER 的 elder_id=$ELDER（种子 id，dev 库**无该行**——
+#   种子仅含账号不含老人档案，直绑 user_id 匹配 0 行 → 锚子查询恒空 → 假 10004，SMOKE-1013 实证）。
+#   改为把报告 elder_id **临时**改指 [7/7] 建档老人 E1（id=$ELDER_ID，其 user_id 已在 9.2 经服务端绑定为
+#   elder_dev 本人、加密字段齐全），段末按原值还原 elder_id 与报告 status——不还原会污染下一次运行（SMOKE-R1 同源）。
+if [ -n "$ORDER" ] && [ -n "$ELDER_TOKEN" ] && [ -n "$ELDER_ID" ]; then
+    ORIG_REPORT_ELDER=$("$MYSQL_BIN" $MYSQL_CONN yl_evaluation -N -B -e \
+        "SELECT IFNULL(elder_id, 0) FROM eval_report WHERE order_id = $ORDER" 2>/dev/null)
     ORIG_STATUS=$("$MYSQL_BIN" $MYSQL_CONN yl_evaluation -N -B -e \
         "SELECT IFNULL(status, 0) FROM eval_report WHERE order_id = $ORDER" 2>/dev/null)
     "$MYSQL_BIN" $MYSQL_CONN yl_evaluation >/dev/null 2>&1 <<SQL
-UPDATE elder SET user_id = $ELDER_UID WHERE id = $ELDER;
+UPDATE eval_report SET elder_id = $ELDER_ID WHERE order_id = $ORDER;
 SQL
     SELF_REPORT=$(api_as "$ELDER_TOKEN" -X GET "$API/assessments/$ORDER/report")
     check "D4-R7 ELDER 读本人已发布报告（code=0）" "$(code_of "$SELF_REPORT")" "0"
@@ -796,14 +797,13 @@ UPDATE eval_report SET status = 2 WHERE order_id = $ORDER;
 SQL
     VOID_SELF=$(api_as "$ELDER_TOKEN" -X GET "$API/assessments/$ORDER/report")
     check "D4-R7 状态闸：本人已作废报告不可读（业务码 10004）" "$(code_of "$VOID_SELF")" "10004"
-    # 还原（先报告状态、后老人绑定）
+    # 还原（elder_id 与 status 一并还原）
     "$MYSQL_BIN" $MYSQL_CONN yl_evaluation >/dev/null 2>&1 <<SQL
-UPDATE eval_report SET status = $ORIG_STATUS WHERE order_id = $ORDER;
-UPDATE elder SET user_id = $ORIG_ELDER_UID WHERE id = $ELDER;
+UPDATE eval_report SET status = $ORIG_STATUS, elder_id = $ORIG_REPORT_ELDER WHERE order_id = $ORDER;
 SQL
-    pass "D4-R7 夹具已还原（报告 status=$ORIG_STATUS、种子老人 user_id=$ORIG_ELDER_UID）"
+    pass "D4-R7 夹具已还原（报告 status=$ORIG_STATUS、elder_id=$ORIG_REPORT_ELDER）"
 else
-    skip "D4-R7 ELDER 自读报告（需主流程 ORDER + 老人令牌 + 老人 userId）"
+    skip "D4-R7 ELDER 自读报告（需主流程 ORDER + 老人令牌 + [7/7] 建档老人）"
 fi
 
 # ---- 9.6 家属申请 + 机构审核 + 家属读三端点（另起一个无登录账号的老人 E2） ----
