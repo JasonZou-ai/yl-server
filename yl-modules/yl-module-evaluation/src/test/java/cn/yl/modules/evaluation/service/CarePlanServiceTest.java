@@ -127,6 +127,23 @@ class CarePlanServiceTest {
         assertThrows(BizException.class, () -> service.generate(5008L, null));
     }
 
+    /**
+     * W2（CR-M2-009）：老人构造<b>他人</b> orderId 提交建议。
+     *
+     * <p>第三闸（DataPermissionInterceptor）按 {@code elder.user_id} 反查锚过滤 {@code eval_report}，他人报告在 SQL
+     * 改写后不可见 → {@code findReport} 返回 null（本用例模拟该收口结果）。钉两条：① 错误码必须收敛为 {@code
+     * NOT_FOUND(10004)}（与「不存在」同码，不泄露存在性），而非 20003/500；② fail-closed——拒绝路径绝不落任何 照护方案行。
+     */
+    @Test
+    void generateCrossElderOrderIsNotFoundAndWritesNothing() {
+        when(reportService.findReport(5009L)).thenReturn(null);
+
+        BizException ex = assertThrows(BizException.class, () -> service.generate(5009L, 1001L));
+
+        assertEquals(10004, ex.getCode(), "跨 elder_id 写建议必须收敛为 NOT_FOUND，不泄露存在性");
+        verify(planMapper, never()).insert(any(CarePlan.class));
+    }
+
     private EvalReport report(String gradeCode) {
         EvalReport report = new EvalReport();
         report.setId(4001L);
