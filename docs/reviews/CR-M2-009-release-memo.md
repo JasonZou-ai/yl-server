@@ -52,7 +52,7 @@
 | `rGn0xU` schema 门禁授权断言 41 | ✅ **完成** | `verify-schema.sh` 实跑 **86/0/0**，判据「角色-权限授权 sys_role_permission = 41」通过；关联 CI run 38504018842。 |
 | `rR1a6L` 四端 F1 ELDER 角色 + 兜底路由 | ⏳ 待交付验收 | **2008 写权限唯一剩余前置**；验收判据 `docs/reviews/CR-M2-009-rR1a6L-acceptance-checklist.md`。 |
 | `rqZ0a3` 四端合规止血补丁 B1–B5 | ⏳ P0 待落地验收 | 完整生产包发布阻断项，与本 CR 管线独立。 |
-| `rpAkOA` E8-8 CCB 横幅关闭 + 目录回填 | 🔄 running | 10-17 硬截止：PRD 横幅下线、`docs/design/B2-permission-point-catalog.md` CCB #5 行回填（当前已记 2026-10-17）。 |
+| `rpAkOA` E8-8 CCB 横幅关闭 + 目录回填 | ✅ **已完成（2026-10-14，提前于 10-17）** | PRD 文首横幅已改「✅ 已 CCB 追认」并留痕；§2.2 已实质并入（9→15 行 + `perm_code` + §2.2.1~§2.2.3）；`B2-permission-point-catalog.md` #5 置 ✅ 并回填归档 SHA `a0bf97f0…`；README 权威位声明（PM 拍板 A）。执行记录：`docs/change/CR-M2-009-prd-section-2.2-merge.md`。⚠ 遗留：会签栏签署日 2026-10-15 晚于执行日，待 PM/CCB 确认。 |
 
 ## 五、10-17 硬截止收口判定口径
 
