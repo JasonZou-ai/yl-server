@@ -75,3 +75,19 @@
 - **2008 写权限保持冻结**（开关 B 关闭）；
 - **读路径（开关 A）不受影响**，继续可用 —— 二者解耦，不得因四端未验收而阻塞读路径上线；
 - 在 `docs/change/CR-M2-009-ccb-ratification-2008-prd-writeback.md` 登记逾期记录与重新约定的验收期限。
+
+---
+
+## 六、补充判据（2026-10-14 核查新增，**源自实测发现，验收时须一并核**）
+
+> 依据：[`rR1a6L-precheck-verification-2026-10-14.md`](./rR1a6L-precheck-verification-2026-10-14.md)
+
+| # | 补充项 | 可执行判据 |
+|:--:|---|---|
+| S-1 | **B-1 覆盖面扩充（★ 原判据不足）** | `role.ts` 内 `role === 'FAMILY' ? … : …` 形式的三元**共 5 处**（`:42` `homeRouteOf`、`:54` `displayNameOf`、`:61` `avatarOf`、`:130` `tabsOf`、`:134`）必须**全部替换为白名单分发**；判据：该文件 grep 该模式 = **0 命中**，且未知/空角色 → `ROUTE.login`。**只改 `homeRouteOf` 会让老人显示为「评估员」、拿到评估员 TabBar（半成品）。** |
+| S-2 | **与 `rqZ0a3` 的写冲突纪律** | `login.vue`（B5 热线 vs A-1 老人选项）、`MockApiClient.kt`（B2 PII vs B-2 兜底角色）**两卡同时触及** ⇒ **不得并行改同一文件**；须串行或同批，并在同批后**重新比对三端 md5**。 |
+| S-3 | **锚点订正** | Kotlin 实际包路径为 `android-native/app/src/main/java/com/yl/shouhu/util/FamilyUtils.kt`（清单省略了 `com/yl/shouhu`）；`ApiClient.kt:16` 注释 `ADMIN` 应订正为 `ORG_ADMIN`（实现无 ADMIN 角色码）。 |
+| S-4 | **C-4 不变式不得被破坏** | M3 状态闸依赖「`data_scope=1` ⇔ 纯 ELDER 单角色」（`LoginUser#isSelfScope` + `AccountAggregateService` `max()` + `AccountAggregateServiceTest` 锁定）。**任何把 ASSESSOR 记为 scope=1 的改动都会使评估员读不到 `status=0/2` 报告（欠权）** ⇒ 回归用例必须保留；同步见 PRD §2.2.1 订正注（`data_scope` 权威值 **1/2/5/2/4**）。 |
+| S-5 | **激活前置顺序** | 先做 A 组（角色枚举）再做 D 组实机；**无 ELDER 则 D-1/D-2 前置条件无法构造**，不得以源码检查代替实机实测。 |
+
+> ⚠ 本清单**改造前核查结论（2026-10-14）：未通过**（A/B/C 组 8 项未通过、C-4 机制已具备、D 组不可执行）⇒ **2008 继续冻结**；改造完成后须**重跑全部判据**（含改造后 `file:line` + 三端 md5），本清单不得据「源码看起来对」勾选。
