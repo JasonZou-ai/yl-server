@@ -46,15 +46,17 @@ CR-M2-001 已经 CCB **会签并落地**（代码、种子、契约、文档四�
 
 ### 2.1 数据域 `data_scope`（补）
 
+> ⚠ **M-3 订正（2026-10-14，实测发现本表原值与权威清单/实现不一致）**：本表原写 **ELDER 1 / ASSESSOR 1 / FAMILY 2 / ORG_ADMIN 2 / SUPERVISOR 4**，与 `docs/design/B2-permission-point-catalog.md` §3.1 及实现 `RoleCode`（**ELDER 1 / ASSESSOR 2 / FAMILY 5 / ORG_ADMIN 2 / SUPERVISOR 4**）**不符**（差在 ASSESSOR 与 FAMILY）。下表**已按权威清单订正**；并入主文档时亦按订正后取值（见 `docs/change/CR-M2-009-prd-section-2.2-merge.md` §四 **D-8**）。**照抄旧值会与 D4-R7 状态闸的「scope=1 ⇒ 纯 ELDER」不变式冲突，使评估员读不到 `status=0/2` 报告（欠权）**。
+
 权限点回答「**能不能做**」，数据域回答「**能看到谁的数据**」。二者分离，避免为「本人 / 绑定对象 / 本机构 / 全量」各分裂一套权限点。
 
 | 角色 | `data_scope` | 可见范围 |
 |---|:--:|---|
 | 老人 ELDER | 1 本人 | 仅本人档案与评估数据 |
-| 评估员 ASSESSOR | 1 本人 | 仅本人承接的评估任务及其对象 |
-| 家属 FAMILY | 2 绑定对象 | 已绑定老人的已发布数据 |
+| 评估员 ASSESSOR | **2 本机构** | 本机构下其承接的评估任务及其对象 |
+| 家属 FAMILY | **5 关系级** | 仅经 `elder_family_bind` 生效绑定可达的老人 |
 | 机构管理员 ORG_ADMIN | 2 本机构 | 本机构下全部老人与人员 |
-| 监管 SUPERVISOR | 4 全量 | 全量（写入动作默认拒绝） |
+| 监管 SUPERVISOR | 4 只读全局 | 全量（写入动作默认拒绝） |
 
 > 数据域由第四闸 `DataPermissionInterceptor` 在 SQL 层自动追加过滤，**不依赖业务代码自觉**；`data_scope = 4` 的写入动作默认拒绝。
 

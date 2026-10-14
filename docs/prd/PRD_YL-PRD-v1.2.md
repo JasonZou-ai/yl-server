@@ -119,11 +119,15 @@
 
 | 角色 | `data_scope` | 可见范围 |
 |---|:--:|---|
-| 老人 ELDER | 1 本人 | 仅本人档案与评估数据 |
-| 评估员 ASSESSOR | 1 本人 | 仅本人承接的评估任务及其对象 |
-| 家属 FAMILY | 2 绑定对象 | 已绑定老人的已发布数据 |
+| 老人 ELDER | 1 本人 | 仅本人档案与评估数据（档案域锚列 `elder.user_id`） |
+| 评估员 ASSESSOR | **2 本机构** | 本机构下其承接的评估任务及其对象 |
+| 家属 FAMILY | **5 关系级** | 仅经 `elder_family_bind` **生效**绑定可达的老人（含其评估单/报告/照护方案） |
 | 机构管理员 ORG_ADMIN | 2 本机构 | 本机构下全部老人与人员 |
-| 监管 SUPERVISOR | 4 全量 | 全量（写入动作默认拒绝） |
+| 监管 SUPERVISOR | 4 只读全局 | 全量（写入动作默认拒绝） |
+
+> ⚠ **并入订正（2026-10-14，重要）**：CR-M2-001 补遗件 §2.1 原表为 **`1 / 1 / 2 / 2 / 4`**，与**权威清单** `docs/design/B2-permission-point-catalog.md` §3.1 及**实现**（`RoleCode`：ELDER 1 / ASSESSOR 2 / FAMILY 5 / ORG_ADMIN 2 / SUPERVISOR 4）**不一致**（差在 **ASSESSOR 与 FAMILY 两行**）。依补遗件自身「二者不一致时以清单为准」的口径，并入时**按清单订正为上表 `1 / 2 / 5 / 2 / 4`**。
+> **影响说明（为何不能照抄旧表）**：D4-R7 的 M3 状态闸以「`data_scope = 1` ⇒ 纯 ELDER 单角色账号」为不变式（多角色取最宽值，见 `LoginUser#isSelfScope` 与 `AccountAggregateServiceTest`）。若把 **ASSESSOR 记为 scope=1**，评估员将被状态闸误判为「老人本人域」⇒ **无法查看 `status=0`（生成中）/ `status=2`（已作废）报告**，复核与作废流程直接失效（属欠权缺陷）。
+> ⚠ **数值大小 ≠ 可见范围大小**：`5 关系级` 比 `2 本机构` **更窄**，第三闸必须**按枚举逐值分支**，**禁止**写成 `scope >= ALL.code()`（否则家属会被当作「不加限」而获全库可见性）。
 
 > 数据域由第四闸 `DataPermissionInterceptor` 在 SQL 层自动追加过滤，**不依赖业务代码自觉**；`data_scope = 4` 的写入动作默认拒绝。
 
