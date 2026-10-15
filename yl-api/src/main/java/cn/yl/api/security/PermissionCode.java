@@ -61,4 +61,20 @@ public final class PermissionCode {
 
     /** 国标规则只读 / 条款回溯（矩阵行 14）。 */
     public static final String RULE_VIEW = "rule:view";
+
+    // ---------- CR-M2-009 B-1-a 补齐（id 2023，1 个） ----------
+
+    /**
+     * 查看<b>所属机构公开联系方式</b>（{@code rqZ0a3}-B5 / {@code rR1a6L} 残留⑥，五角色全授予）。
+     *
+     * <p><b>为什么不复用 {@link #ACCOUNT_ORG_MANAGE_READ}</b>：该码语义是「机构管理」，授予 ELDER/FAMILY 会把管理语义外泄 ——
+     * 本项目既有教训：<b>权限码被多角色共享而语义只属其一 ⇒ 应改权限码，而不是改授权</b>。故新增本窄语义只读码。
+     *
+     * <p><b>可见范围不靠权限点区分</b>：端点<b>不接受 {@code orgId}</b>（{@code org} 表只登记 {@code
+     * ORG_COLUMN}，scope=1/5 下第三闸走「未登记 → 放行」暗区，一旦接受参数即成跨机构读），归属由登录态自证，见 {@code OrgContactService}。
+     *
+     * <p><b>最小字段集</b>：只返回机构名 / 联系人 / 地址；<b>不含</b> {@code contact_phone_enc}（密文列，{@code OrgView}
+     * 亦刻意不返回，避免泄露可解密线索）。非敏感点 ⇒ 不要求二次验证。
+     */
+    public static final String ORG_CONTACT_READ = "org:contact:read";
 }

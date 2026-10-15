@@ -184,6 +184,20 @@ components:
         totalScore: { type: number, nullable: true }
       required: [reportNo, elderId, gradeCode]
 
+    OrgContactView:
+      type: object
+      description: |
+        所属机构**公开**联系方式（`GET /api/v1/orgs/current/contact`，CR-M2-009 B-1-a）—— **最小字段集**。
+        只下发机构名 / 联系人 / 地址，**不含** `contact_phone_enc`（机构电话密文列，与 `OrgView` 同口径：
+        不返回密文，避免泄露可解密线索），亦不含 `orgCode` / `orgType` / `regionCode` / `status` 等管理字段
+        （老人 / 家属拿到内部字段没有业务意义）。
+      properties:
+        id: { type: integer, format: int64, description: 机构 id（登录态所属机构，非请求参数） }
+        orgName: { type: string, description: 机构名称 }
+        contactName: { type: string, nullable: true, description: 联系人姓名（公开字段） }
+        address: { type: string, nullable: true, description: 机构地址 }
+      required: [id, orgName]
+
     LoginRequest:
       type: object
       description: 登录请求体（渠道由路径 `{channel}` 承载，不再放在 body 内）
@@ -1186,6 +1200,49 @@ paths:
                               list:
                                 type: array
                                 items: { $ref: '#/components/schemas/ReportListItem' }
+
+  /api/v1/orgs/current/contact:
+    get:
+      tags: [account]
+      summary: 所属机构公开联系方式
+      description: |
+        **「所属机构公开联系方式」**（CR-M2-009 B-1-a）：补齐 `rqZ0a3`-B5 与 `rR1a6L` 残留⑥ 的**同一缺口**
+        —— 端侧原先没有机构联系方式来源，止血后只能留空占位「以机构实际公告为准」（止血前为虚假热线
+        `400-000-0000`，属缺陷），本端点提供真实机构名 / 联系人 / 地址。
+
+        **零参数**：**不接受 `orgId`**。`org` 表只登记 `ORG_COLUMN`，在 scope=1/5（老人 / 家属）下落不到
+        任何归属条件，第三闸走「未登记 → 放行」暗区 —— 一旦接受 orgId 参数即成**任意机构可读的跨机构读面**。
+        故归属由登录态 `orgId` / `orgIds` **自证**（服务层另校验 `orgId ∈ orgIds`，防装配异常退化）。
+
+        **为什么不复用 `account:org:manage:read`**：该码语义是「机构管理」，授予老人 / 家属会把管理语义
+        外泄；本项目既有教训是**权限码被多角色共享而语义只属其一 ⇒ 改权限码，而不是改授权**。故新增窄语义
+        只读码 `org:contact:read`（2023，五角色全授予；可见范围不靠权限点区分）。
+
+        **最小字段集**：只下发机构名 / 联系人 / 地址；**不含** `contact_phone_enc`（机构电话密文列）。
+        机构电话若要明文展示，须另立「对公公开热线」明文列并走 DDL 授权（本轮未做）。
+
+        **错误语义**：无所属机构与机构不存在**同码**（`R.code=10004`，不泄露存在性）；HTTP 状态码仍为 200。
+      operationId: orgCurrentContact
+      x-required-permission: org:contact:read
+      x-data-scope:
+        mode: self
+        by-role: { ELDER: self, ASSESSOR: self, FAMILY: self, ORG_ADMIN: self, SUPERVISOR: self }
+        via: 登录态 orgId / orgIds（不接受 orgId 参数，归属自证）
+        extra: >-
+          各角色取到的都是**自己所属机构**的联系方式（`by-role` 按「五角色实际落点」列全，与
+          `GET /elders`、`reportPdfGenerate` 同惯例）。无所属机构（如机构集合为空）落 `R.code=10004`，
+          与「机构不存在」同码。非敏感点 ⇒ 不要求二次验证。
+      x-status: implemented
+      responses:
+        '200':
+          description: 所属机构公开联系方式（最小字段集 `OrgContactView`）
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/R'
+                  - properties:
+                      data: { $ref: '#/components/schemas/OrgContactView' }
 
   /api/v1/evaluation/reports/{reportNo}/pdf:
     get:

@@ -131,8 +131,22 @@ INSERT IGNORE INTO `sys_role_permission` (`id`, `role_id`, `perm_id`) VALUES
 INSERT IGNORE INTO `sys_role_permission` (`id`, `role_id`, `perm_id`) VALUES
   (3041, 1001, 2008);
 
--- ---------- 7) 自检（可选，正常返回 5 / 22 / 41，敏感点 4） ----------
+-- ---------- 6-b) CR-M2-009 B-1-a：机构公开联系方式（权限点 2023，五角色全授予） ----------
+-- 背景：`rqZ0a3`-B5 与 `rR1a6L` 残留⑥ 是同一缺口 —— 端侧无机构联系方式来源，止血后只能留空占位
+--       「以机构实际公告为准」（止血前为虚假热线 `400-000-0000`，属缺陷）。
+-- 为什么**不复用** `account:org:manage:read`：该码语义是「机构管理」，授予 ELDER/FAMILY 会把管理语义
+--       外泄（本项目既有教训：权限码被多角色共享而语义只属其一 ⇒ **改权限码，不是改授权**）。
+-- 故新增窄语义只读码 `org:contact:read`：只返回**公开字段**（机构名 / 联系人 / 地址），
+--       不含 `contact_phone_enc`（机构电话密文列；`OrgView` 亦刻意不返回，避免泄露可解密线索）。
+-- 可见范围不靠权限点区分：端点**不接受 orgId**，由登录态 `orgId`/`orgIds` 自证归属（见 `OrgContactService`）。
+INSERT IGNORE INTO `sys_permission` (`id`, `perm_code`, `perm_name`, `module`, `need_second_verify`, `deleted`) VALUES
+  (2023, 'org:contact:read', '查看所属机构公开联系方式', 'org', 0, 0);
+
+INSERT IGNORE INTO `sys_role_permission` (`id`, `role_id`, `perm_id`) VALUES
+  (3042, 1001, 2023), (3043, 1002, 2023), (3044, 1003, 2023), (3045, 1004, 2023), (3046, 1005, 2023);
+
+-- ---------- 7) 自检（可选，正常返回 5 / 23 / 46，敏感点 4） ----------
 -- SELECT (SELECT COUNT(*) FROM sys_role)                                    AS roles_expected_5,
---        (SELECT COUNT(*) FROM sys_permission WHERE deleted=0)              AS perms_expected_22,
---        (SELECT COUNT(*) FROM sys_role_permission)                         AS grants_expected_41,
+--        (SELECT COUNT(*) FROM sys_permission WHERE deleted=0)              AS perms_expected_23,
+--        (SELECT COUNT(*) FROM sys_role_permission)                         AS grants_expected_46,
 --        (SELECT COUNT(*) FROM sys_permission WHERE need_second_verify = 1) AS sensitive_expected_4;

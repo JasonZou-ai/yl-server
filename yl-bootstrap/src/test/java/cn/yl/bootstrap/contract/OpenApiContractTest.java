@@ -8,6 +8,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import cn.yl.api.health.HealthController;
 import cn.yl.api.security.PermissionCode;
 import cn.yl.modules.account.controller.AuthController;
+import cn.yl.modules.account.controller.OrgContactController;
 import cn.yl.modules.account.controller.OrgController;
 import cn.yl.modules.account.controller.SmsController;
 import cn.yl.modules.archive.controller.DataRevealController;
@@ -80,6 +81,8 @@ class OpenApiContractTest {
                     SuperviseReportController.class,
                     // D-4 家属域（9 端点）：新增 1 个控制器
                     FamilyBindingController.class,
+                    // CR-M2-009 B-1-a：所属机构公开联系方式（契约 49→50）
+                    OrgContactController.class,
                     // P2-8-A 短信核身通道（3 端点，未登录前置）
                     SmsController.class,
                     // rR1a6L B5-后端：本人报告列表（1 端点）——新增控制器必须显式登记，否则双向漂移断言红
