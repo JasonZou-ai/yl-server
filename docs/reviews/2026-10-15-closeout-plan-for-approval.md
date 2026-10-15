@@ -42,7 +42,7 @@
 
 | # | 缺口 | 风险 | 说明 |
 |---|---|---|---|
-| B-1 🟠 | **机构联系方式端点**（热线/机构名/顾问） | 同时卡住 `rqZ0a3`-B5 与 `rR1a6L`-残留⑥ | 端侧现**留空占位**「以机构实际公告为准」；**一处分担两张卡** |
+| B-1 🟠 | **机构联系方式端点**（热线/机构名/顾问） | 同时卡住 `rqZ0a3`-B5 与 `rR1a6L`-残留⑥ | **后端 ✅ 已上线**（`org:contact:read` id 2023，见 §八 B-1-a）· **端侧 ✅ 已接真、⏳ 待 A 组验收**（2026-10-15 17:2x，见 §十二）· **⚠ 残留：热线一项仍无来源**（密文列 + 无明文列 ⇒ 需 a1/a2 单独授权，见 §八 P-1 遗留分支） |
 | B-2 🟠 | **报告详情 / PDF 供给**（端点不含 `orderId`） | ELDER 报告详情**不可达** ⇒ PDF 轴 + 维度空态 | 需契约新增/扩字段 |
 | B-3 🟡 | `GET /api/v1/elders?keyword=` **未联调** | `keyword` 仅支持姓名/档案号、不含手机号（与「手机号搜索不开放」一致） | 联调即可，无口径冲突 |
 
@@ -264,7 +264,57 @@ verify(orgMapper).selectById(ORG_ID);
 | **R-FIX** | 🟡 **夹具卫生** | `eval_report` 表**无 `updated_at`**（`elder`/`eval_order` 有） | 造数前先 `DESC` 回验库内真实列，别照 DDL 想当然；夹具 id 固定段 + 清理回验，防污染下一轮 |
 | **R-CI** | 🔴 **登记双轨** | `OpenApiContractTest` 用硬编码 `CONTROLLERS`，与 `verify-openapi.sh` 自动发现**不是同一套** | 新增控制器**两处都要登记**，否则契约门禁绿而 `mvn verify` 红 |
 
+| **R-CI** | 🔴 **登记双轨** | `OpenApiContractTest` 用硬编码 `CONTROLLERS`，与 `verify-openapi.sh` 自动发现**不是同一套** | 新增控制器**两处都要登记**，否则契约门禁绿而 `mvn verify` 红 |
+| **R-B1A-1** | 🟠 **判据不成立** | 端侧「三端产物 md5 对齐」**在本项目结构性不成立** | 三端 `.env` 分别注入 `VITE_LOGIN_CHANNEL=WECHAT/DOUYIN/IOS`（chunk 内容不同 ⇒ 文件名内容哈希不同），且 `ios-app/pages.json` 仅 20 页（weixin/douyin 23 页）⇒ 产物集合本就不同。等价判据 = **源码 md5 三端一致 + 产物关键特征三端一致**（见 §十二） |
+| **R-B1A-2** | 🟡 **端侧无 VCS** | `2026-09-08-13-00-34` 及三个 app 均**非 git 仓库** | 「确认远端 SHA / 拉取主分支 / 提交推送 / SHA 内容级比对」**一律无法执行** ⇒ 改为 **zip + md5 全表**交付；与本卡「B1/B2 独立 commit」偏差同源 |
+| **R-B1A-3** | 🟠 **兜底边界** | 令牌失效时 `utils/request.ts` 全局 `forceRelogin()` 会跳转登录页 | 属**全局既有行为、非本页引入**；若要求本页 401 下完全静默，须改全局封装（影响面远超本轮）⇒ **本轮不做，登记待裁** |
+
 > 台账用途：后续同类评审（尤其「只断言 code」的越权用例）**必须先过 R-D2** 再判绿。
+
+---
+
+## §十二 端侧 B-1-a 最小改造实施记录（2026-10-15 17:2x）
+
+> 授权：**PM 会签 Q-B ✅**（端侧对接 `org:contact:read`）。范围：用户拍板 **①最小面**
+> （仅三端 uni-app `family-care.vue` + 数据层必要一处）；`login.vue` / `protocol.vue` /
+> 安卓 `AgreementScreen.kt` → **P2 Backlog，本轮不改**。
+> **本节只登记事实与判据，不含验收结论** —— `rqZ0a3` 清单 B5 栏位仍为 ☐。
+
+### 12.1 改了什么（2 文件 × 3 端）
+
+| 文件 | 改前 md5 | 改后 md5 | 改动 |
+|---|---|---|---|
+| `src/pages/family-care/family-care.vue` | `60bde38a74b2d1cf253c01e425c445ba` | `93127f487ec884b09e2fa66afe79c795` | `ORG_NAME/ORG_ADVISOR` 常量 → `orgName/contactName/orgAddress` 三个 `ref`；`onLoad` 并发 `getOrgContact()`；失败静默置空串；新增「机构地址」行 |
+| `src/utils/real-api.ts` | `5be75b69a3e7b9f608d9f667bb9e638e` | `b65ac35172dbc403a2077f7a213bfaf5` | 新增 `ORG_PATH='/orgs'` + `OrgContact` 类型 + `getOrgContact()`（`silent: true`，**不导出 `id`，规避雪花截断**） |
+
+**`ORG_HOTLINE` 保持空串常量并注释冻结**（红线 3）：后端 `OrgContactView` 不含任何电话字段。
+
+**⚠ 对方案的一处偏差（请裁定）**：方案写「仅修改 `family-care.vue`」，但项目既有口径要求
+「页面一律从 `utils/api` 门面导入」（`utils/api.ts:4`）⇒ 数据层必加一个函数，否则页面要内联 `uni.request`
+破坏分层。已按**最小必要**处理，未触碰其它任何端侧文件。
+
+### 12.2 判据与结果
+
+| 判据 | 结果 |
+|---|---|
+| 🔴1 三端 `family-care.vue` / `real-api.ts` md5 一致 | ✅ weixin = douyin = ios（逐端实算） |
+| 🔴2 产物 `400-000-0000` / `facePassed` / 手机号正则 | ✅ 三端 **均 0 命中** |
+| 🔴3 不读取不渲染机构热线 | ✅ 后端不返回电话字段；前端恒空串 |
+| 🟠4 失败静默回落 | ✅ `silent: true` + `try/catch` 置空串 + 渲染层 `\|\|` 兜底 |
+| 构建 | ✅ 三端 `npm run build:h5` 均 `DONE Build complete.`（exit 0） |
+| 正向特征（产物） | ✅ 三端均含 `orgs/current/contact`、family-care chunk 含兜底文案与「机构地址」 |
+| 后端未认证拦截 | ✅ HTTP **401** + `code=10002` |
+| DB 侧正向数据 | ✅ `elder_dev`(userId `900000000000000003`) → `org(id=1)`：`org_name=联调演示机构`（非空）、`contact_name` 空、`address` 空、`contact_phone_enc=NULL` |
+
+### 12.3 未执行 / 待 A 组
+
+1. **ELDER 登录级浏览器实测未做** —— 本机会话无 `DEV_LOGIN_PASSWORD`（dev 口令仅存本机未跟踪文件）。
+   「登录展示真实机构名 / 令牌失效回落 / 接口异常回落」三项**由 A 组在验收时执行**。
+   DB 侧数据（12.2 末行）已可预判：机构名显示「联调演示机构」，顾问/地址/电话三行回落占位。
+2. 产物 md5 三端全等 —— 判据不成立，见 **R-B1A-1**。
+3. 提交/推送/SHA 比对 —— 端侧非 git 仓库，见 **R-B1A-2**（改为 zip + md5 全表）。
+
+> 无论 A 组结论如何：**2008 写权限（开关 B）继续冻结**；机构热线明文（a1/a2）维持搁置。
 
 > ⚠ 仅为模板，复制后务必本地复测，严禁直接粘贴到生产环境执行。
 > ⚠ AI 推演辅助输出，文档/代码仅供参考；正式会签、代码落地、上线、回滚必须由研发/PM/测试/合规真人复核执行。
