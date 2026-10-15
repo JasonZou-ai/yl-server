@@ -61,6 +61,7 @@
 | 「scope=1 ⇔ 纯 ELDER」不变式 | `LoginUser.java:70-73` 注释 + `AccountAggregateService.java:48-49` **按角色取 `max()`**（默认 ELDER 的 scope）+ `AccountAggregateServiceTest.java:58/64-67/73-77` **逐条锁定**（ELDER=1；ELDER∪ASSESSOR=2；ELDER∪ORG_ADMIN=2；ELDER∪SUPERVISOR=4；ELDER∪FAMILY=5） |
 | 角色→scope 权威取值 | `yl-module-account/…/domain/RoleCode.java:13-17`：`ELDER=1 / ASSESSOR=2 / FAMILY=5 / ORG_ADMIN=2 / SUPERVISOR=4` |
 | 结论 | **机构管理员（2）与评估员（2）均不受状态闸约束 ⇒ 仍可读 `status=0`（生成中）与 `status=2`（已作废）报告**，复核/作废链路不受影响；状态闸**只**收口纯 ELDER 单角色。**C-4 满足，且无需改动**（改为全局拦截才是缺陷）。 |
+| **★ 回归实测（2026-10-15，独立复跑）** | `mvn -o -B -pl yl-modules/yl-module-evaluation,yl-modules/yl-module-account -am test -Dtest=AssessmentReportServiceTest,AccountAggregateServiceTest,DataScopePermissionHandlerTest -Dsurefire.failIfNoSpecifiedTests=false` ⇒ **BUILD SUCCESS**：`DataScopePermissionHandlerTest` **26/0/0/0**、`AccountAggregateServiceTest` **6/0/0/0**（锁定「scope=1 ⇔ 纯 ELDER」不变式）、`AssessmentReportServiceTest` **9/0/0/0**（M3 状态闸）。**C-4 的回归由既有测试套件持续守住**；改造方**不得**顺手收紧为全局拦截（S-4）。 |
 | ⚠ 前置依赖 | 该结论**依赖**「ASSESSOR 不在 scope=1」。同日已发现 PRD §2.2.1 并入的补遗件旧表把 **ASSESSOR 记为 1**，与实现冲突 ⇒ 已按权威清单订正为 `1/2/5/2/4` 并留痕（`docs/change/CR-M2-009-prd-section-2.2-merge.md` §四 **D-8**）。**若照旧表落地实现，C-4 会被破坏（评估员读不到作废报告 = 欠权）。** |
 
 ### D. 实机项 —— ⏸ 不可执行（诚实登记）
