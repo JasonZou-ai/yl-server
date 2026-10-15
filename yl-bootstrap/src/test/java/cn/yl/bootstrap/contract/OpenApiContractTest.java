@@ -18,6 +18,7 @@ import cn.yl.modules.evaluation.controller.EvalTaskController;
 import cn.yl.modules.evaluation.controller.EvaluationItemController;
 import cn.yl.modules.evaluation.controller.GradingController;
 import cn.yl.modules.evaluation.controller.ReportController;
+import cn.yl.modules.evaluation.controller.ReportListController;
 import cn.yl.modules.evaluation.controller.ReportVerifyController;
 import cn.yl.modules.evaluation.controller.RuleMappingController;
 import cn.yl.modules.report.controller.SuperviseExportController;
@@ -80,7 +81,9 @@ class OpenApiContractTest {
                     // D-4 家属域（9 端点）：新增 1 个控制器
                     FamilyBindingController.class,
                     // P2-8-A 短信核身通道（3 端点，未登录前置）
-                    SmsController.class);
+                    SmsController.class,
+                    // rR1a6L B5-后端：本人报告列表（1 端点）——新增控制器必须显式登记，否则双向漂移断言红
+                    ReportListController.class);
 
     /** 5 个 HTTP 动词在 OpenAPI 里的键名。 */
     private static final List<String> METHODS = List.of("get", "post", "put", "delete", "patch");

@@ -16,6 +16,7 @@ import cn.yl.modules.evaluation.controller.EvalTaskController;
 import cn.yl.modules.evaluation.controller.EvaluationItemController;
 import cn.yl.modules.evaluation.controller.GradingController;
 import cn.yl.modules.evaluation.controller.ReportController;
+import cn.yl.modules.evaluation.controller.ReportListController;
 import cn.yl.modules.evaluation.controller.ReportVerifyController;
 import cn.yl.modules.evaluation.controller.RuleMappingController;
 import cn.yl.modules.report.controller.SuperviseExportController;
@@ -74,7 +75,9 @@ class ControllerAuthorizationCoverageTest {
                     // D-4 家属域（9 端点）：新增 1 个控制器
                     FamilyBindingController.class,
                     // P2-8-A 短信核身通道（3 端点，未登录前置）
-                    SmsController.class);
+                    SmsController.class,
+                    // rR1a6L B5-后端：本人报告列表（1 端点，须挂 @RequiresPermission）
+                    ReportListController.class);
 
     /** 允许无第二闸的端点（显式豁免，见类注释的四类理由）。 */
     private static final Set<String> NO_PERMISSION_WHITELIST =

@@ -97,9 +97,49 @@
 
 | # | 事项 | 类别 | 状态 |
 |:--:|---|---|:--:|
-| 1 | **方案 A**：新增 `GET /api/v1/evaluation/reports`（含契约/权限/数据域登记与门禁全套） | 🔴 后端数据域 + 契约（高风险） | ⏸ **待明确授权** |
-| 2 | 一并补 `/family/bindings*` 的 `by-role` 标 `ELDER` | 🔴 后端数据域 | ⏸ 待确认是否需要（老人域读面不经过该路径，**建议不做**） |
-| 3 | D-1~D-3 真机验收排期 | 🟡 协调 | ⏸ 需真实设备与账号（本轮已出执行单） |
-| 4 | 回滚脚本模板（D）/ Secret 轮换（E） | 🔴 / 🟠 | ⏸ 仍未授权 |
+| 1 | **方案 A**：新增 `GET /api/v1/evaluation/reports`（含契约/权限/数据域登记与门禁全套） | 🔴 后端数据域 + 契约（高风险） | ✅ **已实施（2026-10-15）**，见 §六 |
+| 2 | 一并补 `/family/bindings*` 的 `by-role` 标 `ELDER` | 🔴 后端数据域 | ✅ **已实施（4 个端点；3 个未补并逐条给理由）**，见 §六 |
+| 3 | D-1~D-3 真机验收排期 | 🟡 协调 | ⏸ 需真实设备与账号（执行单见 §四；后端阻塞项已解除） |
+| 4 | 回滚脚本模板（D）/ Secret 轮换（E） | 🔴 / 🟠 | ✅ 已交付（模板 + 轮换步骤；**均不入库**） |
 | 5 | 会签栏签署日（10-15）晚于执行日（10-14）口径 | 🟠 PM/CCB | ⏸ 待拍板 |
 | 6 | CR-M2-008 遗留「并入后升 v1.3」vs 本次同版不升版 | 🟠 PM/CCB | ⏸ 待拍板 |
+
+---
+
+## 六、实施结果与 Lead 独立复核（2026-10-15）
+
+> 授权：用户 2026-10-15 明确授权 **A + B**（多选确认）。实施方：后端子代理；**复核方：Lead（全部亲自复算）**。
+
+### 6.1 交付内容
+
+| 项 | 内容 |
+|---|---|
+| 契约 | `openapi/yl-api.yaml` 新增 `GET /api/v1/evaluation/reports`（`operationId: reportList`、`report:view`、`x-data-scope.mode: self` + `by-role` 五角色 + `via`、`x-status: implemented`）+ schema `ReportListItem`（**恰 6 字段**，无敏感明文、无维度分）。**操作数 48 → 49** |
+| 实现 | `ReportListController.java`（`@RequiresPermission(REPORT_VIEW)`）+ `AssessmentReportService#listReports`：**只经 Mapper 走第三闸**（服务层零归属条件）、`status=1 && deleted=0`、`published_at DESC, id DESC`、分页缺省 1/20 上限 100、无数据 → **空列表 + code 0**（不泄露存在性） |
+| B | 4 个端点补 `by-role`：`/{id}/reject`(2014 仅 ELDER)、`/{relationId}/reports`、`/reports/{reportId}`、`/trend`；**未补 3 个**：`GET /bindings`(2013 老人不持 ⇒ 稳定 20003，补即过度承诺)、`/approve`(2009 机构独占)、`/unbind`(老人两码均不持 + 写端点) |
+| 测试 | 新增 `ReportListControllerTest`(2)、`ReportListSecondGateTest`(3)、`AssessmentReportServiceTest` 增 6 例、`DataScopePermissionHandlerTest#elderRoleListsOnlyOwnBindings`；覆盖 4 类负例（他人 elder → 空、VOID 不出现、缺 `report:view` → **20003**、ORG_ADMIN 不受影响） |
+| 冒烟 | `smoke-report-review-chain.sh` 增 6 条 rR1a6L 断言 |
+
+### 6.2 Lead 独立复核（不看自报）
+
+| # | 项 | 我的方法 | 结果 |
+|:--:|---|---|:--:|
+| 1 | 权威门禁 | **我亲自** `mvn -o -B verify` | ✅ **BUILD SUCCESS**，聚合 **366 / 0 / 0 （Skipped 1）**，Checkstyle 0、SpotBugs 0 |
+| 2 | 契约门禁 | **我亲自** `bash scripts/verify-openapi.sh` | ✅ **8/8**，契约操作 **49**（implemented 49 / planned 0），双向漂移 0 |
+| 3 | 契约测试 | 我亲自 `mvn -pl yl-bootstrap -am test -Dtest=OpenApiContractTest,ControllerAuthorizationCoverageTest` | ✅ 6/0 与 2/0，BUILD SUCCESS |
+| 4 | **端到端冒烟** | **我亲自把 8080 切到新 jar**（旧 jar 备份 `%TEMP%\d4-run\yl-bootstrap-OLD-20261013.jar`）后在 8080 上跑冒烟 | ✅ **通过 127 / 失败 0 / 跳过 1，exit=0**；6 条新断言全绿；夹具自清理（剩余业务数据 0 行） |
+| 5 | 未认证面 | `curl` 未带令牌直连新端点 | ✅ **HTTP 401 + code=10002**（**绝非 200 放行**） |
+| 6 | 实现是否绕闸 | 读 `listReports` 与控制器源码 | ✅ 服务层**无** `elder_id`/`org_id`/`assessor_id` 条件；仅 `reportMapper` 走第三闸 |
+| 7 | 服务可用性 | 重启后健康检查 | ✅ `status=UP`、`reportFont=ready`（约 12s 起） |
+
+### 6.3 Lead 的两处修正 / 教训
+
+1. **契约保真度（我改了）**：新端点 `by-role` 原**漏列 FAMILY**。契约头约定 `by-role` 列各角色**实际落点**（`GET /elders`/`reportPdfGenerate` 均列全五角色），而 FAMILY 持 `report:view`、第三闸落 `relation` ⇒ **已补 `FAMILY: relation`** 并在 `extra` 注明「家属读面推荐仍走 `/family/bindings/{relationId}/reports`」。
+2. **★ 假红教训（我踩的）**：`mvn -pl yl-bootstrap test`（**不带 `-am`**）会从 m2 取**旧**的 `yl-module-evaluation` 构件 ⇒ `ClassNotFoundException: ReportListController`，看起来像「契约测试挂了」。带 `-am` 即绿。**判据：凡跨模块测试必须 `-am`；见到 NoClassDefFound 先怀疑构件来源，不要怀疑代码。**
+3. **基线口径订正**：`mvn verify` 基线今日实测为 **356/0/0(+1)**（不是文档旧记的 341/0）；本次改动后 **366/0/0(+1)** —— 「只升不降」按今日实测判定。
+
+### 6.4 仍未做（诚实登记）
+
+- **真机 D-1~D-3** 未跑（无设备/账号）；
+- 本端点**突变反证**（如把 `status=1` 改坏应否变红）未跑；
+- 后端已可供端侧 `getMyReportsAsElder()` 消费，但**端侧尚未改为消费该端点**（端侧当前仍走显式抛错路径；改一行即可接通，属端侧任务）。

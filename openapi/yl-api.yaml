@@ -169,6 +169,21 @@ components:
         pageSize: { type: integer }
         pages: { type: integer }
 
+    ReportListItem:
+      type: object
+      description: |
+        「本人报告列表」行（`GET /api/v1/evaluation/reports`，`rR1a6L` B5-后端）—— **最小字段集**。
+        不含姓名 / 身份证 / 手机号等敏感字段明文，**也不含维度分**（维度分只走报告详情聚合 `dimScores`），
+        故本端点不构成新的敏感面。
+      properties:
+        reportNo: { type: string, description: 报告编号（读取/分发轴，可携至 PDF 下载与扫码验真） }
+        elderId: { type: integer, format: int64 }
+        publishedAt: { type: string, format: date-time, description: 发布时间（列表按此倒序） }
+        gradeCode: { type: string, description: 终判等级码（GRADE_*） }
+        finalLevelCode: { type: string, nullable: true, description: 终判等级码 L0~L4 }
+        totalScore: { type: number, nullable: true }
+      required: [reportNo, elderId, gradeCode]
+
     LoginRequest:
       type: object
       description: 登录请求体（渠道由路径 `{channel}` 承载，不再放在 body 内）
@@ -1123,6 +1138,55 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/R' }
 
+  /api/v1/evaluation/reports:
+    get:
+      tags: [report]
+      summary: 本人/本机构报告列表（老人自读仅返回已发布）
+      description: |
+        「本人报告列表」（`rR1a6L` B5-后端）：登录态数据域自动过滤，**不需要** `orderId` / `reportNo`
+        —— 端侧据此自助拿到清单，再按 `reportNo` 走 PDF 下载或按 `orderId` 走报告详情。
+
+        **状态闸与详情同口径**：只返回 `status = 1`（已发布/有效）且 `deleted = 0` 的报告，与
+        `AssessmentReportService#assertPublishedToSelf`（详情 / PDF 读面）一致 —— 否则会出现
+        「列表里有、详情读不到」的口径分裂（PRD P02：未发布不展示等级卡片）。
+
+        **最小字段集**：不下发姓名 / 身份证 / 手机号等敏感字段明文，**亦不下发维度分**
+        （维度分只走报告详情聚合 `dimScores`）。**不泄露存在性**：无数据返回空列表
+        （HTTP 200 + `code=0`），不以错误码差异暴露「存在但不可见」。
+      operationId: reportList
+      x-required-permission: report:view
+      x-data-scope:
+        mode: self
+        by-role: { ELDER: self, ASSESSOR: org, FAMILY: relation, ORG_ADMIN: org, SUPERVISOR: all }
+        via: eval_report.elder_id → elder.user_id
+        extra: >-
+          行级范围由第三闸自动收口（`eval_report` 登记在 `SELF_VIA_PARENT`，父表 `elder.user_id`），
+          服务层**不写任何归属条件**（无 elder_id/org_id/assessor_id，避免绕闸）。`by-role` 按「五角色
+          **实际落点**」列全（与 `GET /elders`、`reportPdfGenerate` 同惯例）：家属（scope=5）持
+          `report:view`，第三闸落 relation（= 其生效绑定老人的已发布报告）；家属读面**推荐**仍走
+          `/family/bindings/{relationId}/reports`（语义更明确，且带 relationId 归属校验）。
+          <!-- 2026-10-15 Lead 复核补充：原 by-role 漏列 FAMILY，与「列全」惯例不符，按实现补齐 -->
+      x-status: implemented
+      parameters:
+        - { $ref: '#/components/parameters/PageNum' }
+        - { $ref: '#/components/parameters/PageSize' }
+      responses:
+        '200':
+          description: 分页结果（元素为最小字段集 `ReportListItem`）
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/R'
+                  - properties:
+                      data:
+                        allOf:
+                          - $ref: '#/components/schemas/PageResult'
+                          - properties:
+                              list:
+                                type: array
+                                items: { $ref: '#/components/schemas/ReportListItem' }
+
   /api/v1/evaluation/reports/{reportNo}/pdf:
     get:
       tags: [report]
@@ -1338,9 +1402,10 @@ paths:
       x-required-permission: account:family:bind:reject
       x-data-scope:
         mode: self
+        by-role: { ELDER: self }
         via: elder
         condition: "elder_family_bind.elder_id IN (SELECT id FROM elder WHERE elder.user_id = 登录用户)"
-        extra: 仅绑定关系中的老人本人可拒绝（经 elder.user_id 反查锚，★F1）
+        extra: 仅绑定关系中的老人本人可拒绝（经 elder.user_id 反查锚，★F1）；权限码 account:family:bind:reject(2014) 仅授予 ELDER ⇒ by-role 只有 ELDER 一格（显式登记，非新增可达性）
       x-status: implemented
       parameters:
         - name: id
@@ -1394,9 +1459,13 @@ paths:
       x-required-permission: report:view
       x-data-scope:
         mode: relation
+        by-role: { ELDER: self }
         via: elder_family_bind
         condition: "status=2 AND deleted=0 AND (auth_end_at IS NULL OR auth_end_at > NOW())"
-        extra: 仅 status=PUBLISHED 的报告；relationId 必须是本人名下的绑定关系
+        extra: >-
+          仅 status=PUBLISHED 的报告；relationId 必须是本人名下的绑定关系。
+          ELDER(scope=1) 持 report:view(2001)，第三闸落 self：`elder_family_bind`（★F1 锚）与
+          `eval_report`（D4-R7 R7 锚）均经 `elder.user_id` 收口 ⇒ 只可能命中「本人老人」的绑定行与本人的报告行。
       x-sensitive-fields: [gradeCode, totalScore]
       x-status: implemented
       parameters:
@@ -1422,9 +1491,12 @@ paths:
       x-required-permission: report:view
       x-data-scope:
         mode: relation
+        by-role: { ELDER: self }
         via: elder_family_bind
         condition: "status=2 AND deleted=0 AND (auth_end_at IS NULL OR auth_end_at > NOW())"
-        extra: 仅 status=PUBLISHED；他人 reportId 在数据域层即被拒（反查锚）
+        extra: >-
+          仅 status=PUBLISHED；他人 reportId 在数据域层即被拒（反查锚）。
+          ELDER(scope=1) 持 report:view(2001)，第三闸落 self（同 familyReportList）：本人老人的绑定行 + 本人报告行。
       x-sensitive-fields: [gradeCode, totalScore, dimensionScores, careItems]
       x-status: implemented
       parameters:
@@ -1444,9 +1516,12 @@ paths:
       x-required-permission: report:view
       x-data-scope:
         mode: relation
+        by-role: { ELDER: self }
         via: elder_family_bind
         condition: "status=2 AND deleted=0 AND (auth_end_at IS NULL OR auth_end_at > NOW())"
-        extra: 仅 status=PUBLISHED；按 published_at 升序
+        extra: >-
+          仅 status=PUBLISHED；按 published_at 升序。
+          ELDER(scope=1) 持 report:view(2001)，第三闸落 self（同 familyReportList）：本人老人的绑定行 + 本人报告行。
       x-sensitive-fields: [gradeCode, totalScore]
       x-status: implemented
       parameters: [{ $ref: '#/components/parameters/RelationId' }]

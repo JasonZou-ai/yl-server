@@ -2,6 +2,8 @@ package cn.yl.modules.evaluation.service;
 
 import cn.yl.api.security.LoginUser;
 import cn.yl.api.security.SecurityUtils;
+import cn.yl.common.api.PageQuery;
+import cn.yl.common.api.PageResult;
 import cn.yl.common.exception.BizException;
 import cn.yl.common.exception.ErrorCode;
 import cn.yl.modules.evaluation.domain.RetentionPolicy;
@@ -13,6 +15,7 @@ import cn.yl.modules.evaluation.domain.entity.GbRuleVersion;
 import cn.yl.modules.evaluation.domain.entity.ReportDimensionScore;
 import cn.yl.modules.evaluation.dto.DimScoreItem;
 import cn.yl.modules.evaluation.dto.EvalReportResponse;
+import cn.yl.modules.evaluation.dto.ReportListItem;
 import cn.yl.modules.evaluation.engine.RuleSet;
 import cn.yl.modules.evaluation.mapper.EvalAnswerMapper;
 import cn.yl.modules.evaluation.mapper.EvalItemMapper;
@@ -21,6 +24,7 @@ import cn.yl.modules.evaluation.mapper.EvalReportMapper;
 import cn.yl.modules.evaluation.mapper.GbRuleVersionMapper;
 import cn.yl.modules.evaluation.mapper.ReportDimensionScoreMapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
@@ -60,6 +64,8 @@ public class AssessmentReportService {
 
     /** 报告保留期（年），ER-03：评估记录与报告保留 5 年。 */
     private static final int RETAIN_YEARS = 5;
+
+    private static final int DELETED_NO = 0;
 
     private final EvalOrderMapper orderMapper;
     private final EvalReportMapper reportMapper;
@@ -158,6 +164,54 @@ public class AssessmentReportService {
         report.setDeleted(1);
         report.setStatus(REPORT_VOID);
         reportMapper.updateById(report);
+    }
+
+    /**
+     * 登录态「本人/本机构报告列表」（rR1a6L B5-后端）：分页返回<b>已发布</b>报告的最小字段集。
+     *
+     * <p><b>数据域（第三闸）</b>：本方法<b>不写任何归属条件</b> —— 既无 {@code elder_id}，也无 {@code org_id} / {@code
+     * assessor_id}。行级可见范围由 {@code DataScopePermissionHandler} 经 {@code reportMapper} 自动收口 （{@code
+     * eval_report} 登记在 {@code SELF_VIA_PARENT}，父表 {@code elder.user_id}）。手写归属条件会<b>绕开</b>
+     * 该机制（CR-M2-006 的教训：一旦绕过数据域，端点就成了越权面）。
+     *
+     * <p><b>状态闸（服务层）</b>：固定 {@code status = 1}（已发布/有效）—— 与 {@link
+     * #assertPublishedToSelf(EvalReport)} 同口径。理由同 D4-R7 §10.2：状态是<b>业务语义</b>而非数据域语义，故
+     * 落在服务层；口径必须与详情/PDF 一致，否则「列表里有、详情读不到」即为口径分裂。
+     *
+     * <p><b>不泄露存在性</b>：无数据返<b>空列表</b>（HTTP 200 + {@code code=0}），不抛 {@code 10004} ——
+     * 用错误码区分「空」与「存在但不可见」会形成枚举面（同码口径见 D4-R7 §10.2）。
+     *
+     * @param query 分页入参（可空 → 缺省 pageNum=1 / pageSize=20，pageSize 上限 100）
+     * @return 分页结果（可能为空列表）
+     */
+    public PageResult<ReportListItem> listReports(PageQuery query) {
+        PageQuery q = query == null ? new PageQuery() : query;
+        int pageNum = q.normalizePageNum();
+        int pageSize = q.normalizePageSize();
+
+        QueryWrapper<EvalReport> wrapper =
+                new QueryWrapper<EvalReport>()
+                        .eq("status", REPORT_VALID)
+                        .eq("deleted", DELETED_NO)
+                        .orderByDesc("published_at")
+                        .orderByDesc("id");
+
+        Page<EvalReport> page = reportMapper.selectPage(new Page<>(pageNum, pageSize), wrapper);
+        List<ReportListItem> list =
+                page.getRecords().stream().map(AssessmentReportService::toListItem).toList();
+        return PageResult.of(list, page.getTotal(), pageNum, pageSize);
+    }
+
+    /** 报告实体 → 列表行（最小字段集；不含敏感字段明文，也不含维度分）。 */
+    private static ReportListItem toListItem(EvalReport report) {
+        ReportListItem item = new ReportListItem();
+        item.setReportNo(report.getReportNo());
+        item.setElderId(report.getElderId());
+        item.setPublishedAt(report.getPublishedAt());
+        item.setGradeCode(report.getGradeCode());
+        item.setFinalLevelCode(report.getFinalLevelCode());
+        item.setTotalScore(report.getTotalScore());
+        return item;
     }
 
     /** 内部：按评估单取报告实体（供复核/作废等状态流转复用）。 */

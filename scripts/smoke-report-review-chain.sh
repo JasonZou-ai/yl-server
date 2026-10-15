@@ -44,6 +44,9 @@
 #   ⚠ 断言总数 119 → **124** 系按新增条数推算，**尚未实跑校准**（实跑需 dev 口令 + 运行中的服务 + MySQL）。
 # 2026-09-30 D-4a 收尾（R-1/R-2）：[9/9] 增 9.4b/9.6b/9.7b —— ★R-2 重新申请复用活性行（拒绝/解绑后 → code=0 且 status∈{0,1} 且 id 不变；status∈{0,1,2} 重复申请 → 10005）。
 # 2026-10-10 P2-8-R12/SMOKE-R1：口令改由 DEV_LOGIN_PASSWORD 注入（明文全部出仓）；清理凭据 fail-closed；新增开跑前"前清"使套件幂等。
+# 2026-10-15 rR1a6L B5-后端：9.5b 段内新增「本人报告列表」6 条断言（同一夹具，与详情状态闸同口径）：
+#   GET /evaluation/reports → code=0 / total≥1 / 命中本人 reportNo / 最小字段集（无维度分与敏感列）/
+#   status=2 时仍 code=0（空态不报错）/ VOID 报告不出现在列表。断言总数随环境变量变化，勿硬编码。
 # =============================================================================
 
 BASE=${BASE_URL:-http://127.0.0.1:8080}
@@ -788,6 +791,20 @@ SQL
     SELF_REPORT=$(api_as "$ELDER_TOKEN" -X GET "$API/assessments/$ORDER/report")
     check "D4-R7 ELDER 读本人已发布报告（code=0）" "$(code_of "$SELF_REPORT")" "0"
     check "D4-R7 本人报告状态（1=已发布）" "$(str_field "$SELF_REPORT" status)" "1"
+    # ---- 9.5b-1 rR1a6L B5-后端：本人报告列表（GET /evaluation/reports）—— 与详情同一夹具、同一状态口径 ----
+    REPORT_LIST=$(api_as "$ELDER_TOKEN" -X GET "$API/reports?pageNum=1&pageSize=10")
+    check "rR1a6L 本人报告列表（code=0，data_scope=1）" "$(code_of "$REPORT_LIST")" "0"
+    check_ge "rR1a6L 本人报告列表含已发布报告（total ≥ 1）" "$(num_field "$REPORT_LIST" total)" "1"
+    if echo "$REPORT_LIST" | grep -q "\"reportNo\":\"$REPORT_NO\""; then
+        pass "rR1a6L 本人报告列表命中本人已发布报告（reportNo=$REPORT_NO）"
+    else
+        fail "rR1a6L 本人报告列表未命中本人已发布报告（reportNo=$REPORT_NO）"
+    fi
+    if echo "$REPORT_LIST" | grep -Eq '"dimScores"|"dimensionScores"|"verifyHash"|"pdfCosKey"|"ruleSha"'; then
+        fail "rR1a6L 报告列表下发了非最小字段（维度分/敏感列）——契约 ReportListItem 只允许 6 个字段"
+    else
+        pass "rR1a6L 报告列表为最小字段集（无维度分 / 无 verifyHash/pdfCosKey/ruleSha）"
+    fi
     # 越权方向：他人/不存在的 orderId → 同码 10004（不泄露存在性，与家属域口径一致）
     CROSS_ORDER=$(api_as "$ELDER_TOKEN" -X GET "$API/assessments/999000000000000999/report")
     check "D4-R7 ELDER 读他人/不存在报告（业务码 10004）" "$(code_of "$CROSS_ORDER")" "10004"
@@ -797,6 +814,14 @@ UPDATE eval_report SET status = 2 WHERE order_id = $ORDER;
 SQL
     VOID_SELF=$(api_as "$ELDER_TOKEN" -X GET "$API/assessments/$ORDER/report")
     check "D4-R7 状态闸：本人已作废报告不可读（业务码 10004）" "$(code_of "$VOID_SELF")" "10004"
+    # ---- 9.5b-2 同一夹具（status=2）下：列表必须与详情同口径（VOID 不出现，且空态不报错） ----
+    REPORT_LIST_VOID=$(api_as "$ELDER_TOKEN" -X GET "$API/reports?pageNum=1&pageSize=10")
+    check "rR1a6L 作废后本人报告列表仍 code=0（空态不报错、不泄露存在性）" "$(code_of "$REPORT_LIST_VOID")" "0"
+    if echo "$REPORT_LIST_VOID" | grep -q "\"reportNo\":\"$REPORT_NO\""; then
+        fail "rR1a6L status=2（VOID）报告不得出现在本人报告列表（与详情状态闸同口径）"
+    else
+        pass "rR1a6L status=2（VOID）报告不出现在本人报告列表（同口径承重）"
+    fi
     # 还原（elder_id 与 status 一并还原）
     "$MYSQL_BIN" $MYSQL_CONN yl_evaluation >/dev/null 2>&1 <<SQL
 UPDATE eval_report SET status = $ORIG_STATUS, elder_id = $ORIG_REPORT_ELDER WHERE order_id = $ORDER;

@@ -382,6 +382,30 @@ class DataScopePermissionHandlerTest {
                 expr.toString());
     }
 
+    /**
+     * rR1a6L B（契约补齐配套）：<b>ELDER 视角列绑定</b>只能看到与本人相关的行。
+     *
+     * <p>与上一个用例互补：上一例以默认角色（ASSESSOR）载入，本例把角色码显式置为 {@code ELDER}，钉死 F2「入口角色 分叉」不会改变 {@code
+     * elder_family_bind} 的落点 —— 该表不在 {@code ELDER_SELF_ANCHOR}（只有 {@code eval_order}/{@code
+     * eval_task}），仍走 {@code SELF_VIA_PARENT} 的 {@code elder.user_id} 反查锚 ⇒
+     * 他人老人名下的绑定行不在子查询集合内，列表里不可能出现。
+     *
+     * <p>配套契约登记（同一批次，第二闸不动）：{@code openapi/yl-api.yaml} 的 {@code familyBindingReject} / {@code
+     * familyReport{List,Detail}} / {@code familyTrend} 补 {@code x-data-scope.by-role.ELDER: self}。
+     */
+    @Test
+    void elderRoleListsOnlyOwnBindings() {
+        login(900000000000000001L, List.of(1L), 1, List.of("ELDER"));
+
+        Expression expr = handler.getSqlSegment(new Table("elder_family_bind"), null, "ms");
+
+        assertEquals(
+                "(elder_family_bind.elder_id IN (SELECT p.id FROM elder p WHERE p.user_id ="
+                        + " 900000000000000001))",
+                expr.toString(),
+                "ELDER 列绑定须经 elder.user_id 收口：只见与本人相关的绑定行，他人绑定行不在集合内");
+    }
+
     private void login(long userId, List<Long> orgIds, int dataScope) {
         login(userId, orgIds, dataScope, List.of("ASSESSOR"));
     }

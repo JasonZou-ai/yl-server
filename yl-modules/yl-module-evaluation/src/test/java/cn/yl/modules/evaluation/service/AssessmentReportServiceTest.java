@@ -1,15 +1,20 @@
 package cn.yl.modules.evaluation.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import cn.yl.api.security.LoginUser;
+import cn.yl.common.api.PageQuery;
+import cn.yl.common.api.PageResult;
 import cn.yl.common.exception.BizException;
 import cn.yl.common.exception.ErrorCode;
 import cn.yl.modules.evaluation.domain.entity.EvalOrder;
@@ -17,6 +22,7 @@ import cn.yl.modules.evaluation.domain.entity.EvalReport;
 import cn.yl.modules.evaluation.domain.entity.GbRuleVersion;
 import cn.yl.modules.evaluation.domain.entity.ReportDimensionScore;
 import cn.yl.modules.evaluation.dto.EvalReportResponse;
+import cn.yl.modules.evaluation.dto.ReportListItem;
 import cn.yl.modules.evaluation.mapper.EvalAnswerMapper;
 import cn.yl.modules.evaluation.mapper.EvalItemMapper;
 import cn.yl.modules.evaluation.mapper.EvalOrderMapper;
@@ -24,7 +30,9 @@ import cn.yl.modules.evaluation.mapper.EvalReportMapper;
 import cn.yl.modules.evaluation.mapper.GbRuleVersionMapper;
 import cn.yl.modules.evaluation.mapper.ReportDimensionScoreMapper;
 import com.baomidou.mybatisplus.core.conditions.query.QueryWrapper;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import java.math.BigDecimal;
+import java.util.Collection;
 import java.util.List;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -212,6 +220,107 @@ class AssessmentReportServiceTest {
         when(orderMapper.selectById(8104L)).thenReturn(submittedOrder(8104L));
 
         assertEquals("RP-EXISTING", service.getReport(8104L).getReportNo());
+    }
+
+    // ---------------- rR1a6L B5-后端：本人/本机构报告列表（listReports） ----------------
+
+    /**
+     * 他人 {@code elder_id} ⇒ <b>空列表</b>（不是 10004）：归属条件<b>不写在服务层</b>，由第三闸收口 —— {@code eval_report} 在
+     * {@code SELF_VIA_PARENT}（父表 {@code elder.user_id}），他人的报告行在 {@code elder_id IN (SELECT id FROM
+     * elder WHERE user_id = 我)} 下查不到 ⇒ 本方法只可能返回空列表， 且<b>不得</b>以错误码差异暴露「存在但不可见」。
+     *
+     * <p>同时钉死「不手写归属/不绕闸」：查询条件里不得出现 {@code elder_id}/{@code org_id}/{@code assessor_id} ——
+     * 手写任一个都会绕开第三闸（CR-M2-006 的教训）。
+     */
+    @Test
+    void listReportsLeavesElderScopeToThirdGateAndReturnsEmptyList() {
+        loginAs(900000000000000001L, 1, List.of("ELDER"));
+        when(reportMapper.selectPage(any(Page.class), any(QueryWrapper.class)))
+                .thenReturn(pageOf());
+
+        PageResult<ReportListItem> result = service.listReports(new PageQuery());
+
+        assertTrue(result.getList().isEmpty(), "他人行被第三闸过滤后必须是空列表（不得 10004/不得报错）");
+        assertEquals(0L, result.getTotal());
+
+        QueryWrapper<EvalReport> wrapper = capturedWrapper();
+        String sql = wrapper.getSqlSegment();
+        assertFalse(sql.contains("elder_id"), "归属必须交给第三闸，服务层不得手写 elder_id 条件：" + sql);
+        assertFalse(sql.contains("org_id"), "不得手写 org_id 条件（可见范围不靠服务层区分角色）：" + sql);
+        assertFalse(sql.contains("assessor_id"), "不得手写操作者条件：" + sql);
+    }
+
+    /** {@code status=2}（VOID）不出现：查询条件硬过滤 {@code status=1}（与 {@code assertPublishedToSelf} 同口径）。 */
+    @Test
+    void listReportsPinsPublishedOnlyFilter() {
+        loginAs(900000000000000001L, 1, List.of("ELDER"));
+        when(reportMapper.selectPage(any(Page.class), any(QueryWrapper.class)))
+                .thenReturn(pageOf());
+
+        service.listReports(new PageQuery());
+
+        QueryWrapper<EvalReport> wrapper = capturedWrapper();
+        String sql = wrapper.getSqlSegment();
+        assertTrue(sql.contains("status"), "必须显式过滤 status：" + sql);
+        assertTrue(sql.contains("deleted"), "必须显式过滤 deleted：" + sql);
+        assertTrue(sql.contains("published_at DESC"), "排序须按 published_at 倒序：" + sql);
+        assertTrue(sql.contains("id DESC"), "排序须以 id 作稳定次序（同秒发布不抖动）：" + sql);
+
+        Collection<Object> params = wrapper.getParamNameValuePairs().values();
+        assertTrue(params.contains(1), "status 参数须为 1（已发布/有效）：" + params);
+        assertTrue(params.contains(0), "deleted 参数须为 0：" + params);
+        assertFalse(params.contains(2), "status=2（VOID）不得进入查询参数（作废报告不得出现在列表）：" + params);
+    }
+
+    /**
+     * {@code ORG_ADMIN} 结果不受影响（C-4 不回归）：机构域的列表行原样返回，不被「本人域」口径额外削窄。
+     *
+     * <p>与既有 {@link #orgAdminStillReadsVoidReport()} 互补：那条钉「机构管理员读 status=2 <b>详情</b>仍放行」，
+     * 本条钉「列表页不因新增端点而把机构视角收紧」。
+     */
+    @Test
+    void listReportsOrgAdminResultsUnaffected() {
+        loginAs(900000000000000004L, 2, List.of("ORG_ADMIN"));
+        when(reportMapper.selectPage(any(Page.class), any(QueryWrapper.class)))
+                .thenReturn(pageOf(existingReport(8201L), existingReport(8202L)));
+
+        PageResult<ReportListItem> result = service.listReports(new PageQuery());
+
+        assertEquals(2, result.getList().size(), "机构管理员须拿到机构域内的全部分页行（不得被本人域闸削窄）");
+        assertEquals(2L, result.getTotal());
+        assertEquals("RP-EXISTING", result.getList().get(0).getReportNo());
+    }
+
+    /** 入参缺省与上限：{@code null} → pageNum=1 / pageSize=20；越界值按 {@link PageQuery} 规范收敛。 */
+    @Test
+    void listReportsNormalizesPaging() {
+        loginAs(900000000000000001L, 1, List.of("ELDER"));
+        when(reportMapper.selectPage(any(Page.class), any(QueryWrapper.class)))
+                .thenReturn(pageOf());
+
+        assertEquals(1, service.listReports(null).getPageNum());
+        assertEquals(20, service.listReports(null).getPageSize());
+
+        PageQuery oversized = new PageQuery();
+        oversized.setPageNum(0);
+        oversized.setPageSize(9999);
+        assertEquals(1, service.listReports(oversized).getPageNum());
+        assertEquals(100, service.listReports(oversized).getPageSize());
+    }
+
+    @SuppressWarnings("unchecked")
+    private QueryWrapper<EvalReport> capturedWrapper() {
+        ArgumentCaptor<QueryWrapper<EvalReport>> captor =
+                ArgumentCaptor.forClass(QueryWrapper.class);
+        verify(reportMapper, atLeastOnce()).selectPage(any(Page.class), captor.capture());
+        return captor.getValue();
+    }
+
+    private Page<EvalReport> pageOf(EvalReport... reports) {
+        Page<EvalReport> page = new Page<>(1, 20);
+        page.setRecords(List.of(reports));
+        page.setTotal(reports.length);
+        return page;
     }
 
     private void loginAs(long userId, int dataScope, List<String> roles) {
