@@ -3,6 +3,9 @@ package cn.yl.modules.account.service;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import cn.yl.api.security.LoginUser;
@@ -86,6 +89,10 @@ class OrgContactServiceTest {
      * 归属自证：登录态 {@code orgId} 不在 {@code orgIds} 内 ⇒ 拒（10004）。
      *
      * <p>这是<b>防跨机构读</b>的关键断言 —— 若删掉该分支，装配异常的登录态可直接读到他人机构。
+     *
+     * <p><b>★ 为什么必须额外断言「不得触达数据层」（2026-10-15 突变反证实证）</b>：仅断言 {@code code=10004} <b>没有判别力</b> ——
+     * 把归属自证分支整段删掉后，流程会掉到 {@code selectById} 返回 {@code null} 的兜底分支， <b>同样抛 10004</b>（同码不泄露存在性口径），测试仍
+     * 6/0/0 全绿。故本用例改为<b>行为级判据</b>： 归属自证失败时 mapper <b>一次都不许被调用</b>；消息内容保持与「机构不存在」一致，不额外泄露。
      */
     @Test
     void orgId不在orgIds内视为越权返回10004() {
@@ -93,6 +100,7 @@ class OrgContactServiceTest {
 
         BizException ex = assertThrows(BizException.class, () -> service.currentContact());
         assertEquals(ErrorCode.NOT_FOUND.getCode(), ex.getCode());
+        verify(orgMapper, never()).selectById(anyLong());
     }
 
     @Test
@@ -102,6 +110,8 @@ class OrgContactServiceTest {
 
         BizException ex = assertThrows(BizException.class, () -> service.currentContact());
         assertEquals(ErrorCode.NOT_FOUND.getCode(), ex.getCode());
+        // 正向对照：「机构不存在」是**查过库之后**才判的，与归属自证失败形成行为级区分
+        verify(orgMapper).selectById(ORG_ID);
     }
 
     @Test
