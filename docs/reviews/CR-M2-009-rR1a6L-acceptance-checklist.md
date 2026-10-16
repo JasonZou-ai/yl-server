@@ -1,6 +1,9 @@
 # rR1a6L 四端第一批改造验收核对清单
 
 > 用途：`CR-M2-009` 四端**附条件同意的解除依据**，也是 **2008 写权限（`care:plan:edit:suggest`）唯一的剩余上线前置**。
+> **验收人（PM 2026-10-16 正式确权）：测试负责人** —— 唯一有权勾选本清单、出具验收结论者；**研发实施方禁止代填、代勾**（PM 签发 §一.1）。
+> **验收硬限：2026-10-20 24:00**（原 10-17；PM 签发 §二.2 场景 2 **显性重约**，禁止隐性顺延）。
+> **证据包**：`docs/reviews/rR1a6L-acceptance-evidence-package.md`（材料清单 + 复现步骤 + 已知残留）。
 > 关联：`docs/reviews/CR-M2-009-release-memo.md`（上线/运维管控）、`docs/change/CR-M2-009-ccb-ratification-2008-prd-writeback.md`（会签主文档）
 > 现状核查：**2026-10-14 实测**（下文所有 `file:line` 均为**改造前**真实锚点，用于验收时逐项对照）
 > 端侧根：`2026-09-08-13-00-34/stage3_开发/{weixin-app, ios-app, douyin-app, android-native}`
