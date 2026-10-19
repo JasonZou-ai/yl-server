@@ -1,6 +1,13 @@
 # 统一行尾为 LF，保证 Windows 本地开发与 Linux CI 的 Spotless/Checkstyle 判定一致
 * text=auto eol=lf
 
+# 文档类显式声明 LF（PM-RULING-18 §一.3 授权，2026-10-19）
+#   背景：2026-10-18 分支 docs/rR1a6L-overdue-1017 的 tip 09b3c4f 发生整文件
+#   LF→CRLF 重写（与 c6f9b10 语义等价，--ignore-cr-at-eol 为空）。根因是
+#   PortableGit system core.autocrlf=true 与本机全局 false 冲突；上方
+#   `* text=auto eol=lf` 已覆盖 .md，本条为显式纵深防御，不替代环境治理。
+*.md   text eol=lf
+
 # 显式声明为二进制，避免任何行尾转换
 *.png  binary
 *.jpg  binary
