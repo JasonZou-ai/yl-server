@@ -3,7 +3,8 @@
 > **交付对象**：测试负责人（`rR1a6L` 唯一验收人，PM 2026-10-16 签发确权）
 > **交付方**：研发侧（实施方）｜**交付日期**：2026-10-16｜**验收新硬限**：**2026-10-20 24:00**
 > ⚠ **权责边界**：本包只提供证据与复现路径。**勾选权与结论权归验收人**；研发侧不得代填、代勾、代出结论（PM 签发 §一.1 / §三.2）。
-> 仓库基线：`main = c558f0c`（CI 全绿）｜PM 签发原文：`docs/reviews/PM-ruling-rR1a6L-20261016.md`
+> 仓库基线：**`main = 27bffe5`**（CI 全绿：run 38852626847 / 38852627003）｜PM 签发原文：`docs/reviews/PM-ruling-rR1a6L-20261016.md`
+> ⚠〔2026-10-19 订正〕本文成文于 10-16 11:19，**早于**离线套件入库（12:48）与服务栈拉起；原记基线 `c558f0c` **已过时**，**当前基线为 `27bffe5`**。冒烟口径订正（127 → 130）见 `docs/reviews/switchA-smoke-caliber-130-20261016.md`。
 
 ---
 
@@ -70,7 +71,7 @@
 
 ```bash
 # 1) 取仓内基线
-cd <yl-server>; git rev-parse HEAD          # 应为 c558f0c
+cd <yl-server>; git rev-parse HEAD          # 应为 27bffe5（原记 c558f0c 已过时）
 
 # 2) 后端门禁（研发侧已跑，可复核）
 bash scripts/verify-openapi.sh                                   # 契约 8/8
@@ -89,8 +90,13 @@ cd <android-native>; ./gradlew compileDebugKotlin                 # BUILD SUCCES
 
 > **注意**：全量冒烟 `scripts/smoke-report-review-chain.sh`（130 用例）需 5 个环境变量：
 > `MYSQL_BIN` / `MYSQL_PASSWORD` / `SECOND_VERIFY_DEV_CODE` / `EXPORT_DIR` / `DEV_LOGIN_PASSWORD`
-> （脚本为 **fail-closed** 设计，缺任一直接 exit 1，**不会半跑出假绿**）。研发侧当前未持有 dev 口令，
-> **如需你或研发侧跑全量冒烟，请先向 PM 申领口令**。
+> （脚本为 **fail-closed** 设计，缺任一直接 exit 1，**不会半跑出假绿**）。
+>
+> ⚠〔2026-10-19 订正〕原记「研发侧未持有 dev 口令、需向 PM 申领」**已过时**：研发侧已具备凭据
+> （只从本机未跟踪文件 `/tmp/d4-run/env.sh` 注入，**AI 全程不接触、不记录明文**；项目硬约定：明文口令不进聊天）。
+> **实跑记录**：2026-10-16 14:03 `130/0/0`、2026-10-18 10:39 `130/0/0`（每日巡检，自动化 `aed6baf4`）。
+> 复跑命令（一键，脚本会自动推导 `MYSQL_BIN` 与 `EXPORT_DIR`）：
+> `bash scripts/patrol-switchA-daily.sh /tmp/d4-run/patrol` ⇒ 期望「有效断言总数=130、失败 0」。
 
 ---
 
